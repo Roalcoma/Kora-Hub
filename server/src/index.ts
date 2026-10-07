@@ -11,6 +11,9 @@ import { docsRouter } from './docs/routes.ts';
 import { tasksRouter } from './tasks/routes.ts';
 import { goalsRouter } from './goals/routes.ts';
 import { billingRouter, stripeWebhook } from './billing/routes.ts';
+import { adminRouter } from './admin/routes.ts';
+import { staticSite } from './static.ts';
+import { adminPool } from './db.ts';
 import { errorHandler, HttpError } from './platform/http.ts';
 
 export const app = express();
@@ -25,6 +28,10 @@ app.post('/api/v1/webhooks/stripe', express.raw({ type: () => true, limit: '1mb'
 app.use(express.json({ limit: '1mb' }));
 
 const api = express.Router();
+api.get('/health', async (_req, res) => {
+  const db = await adminPool.query('select 1').then(() => true, () => false);
+  res.status(db ? 200 : 503).json({ ok: true, db });
+});
 api.use(authRouter);
 api.use(pushRouter);
 
@@ -37,7 +44,10 @@ ws.use(chatRouter);
 ws.use('/files', filesRouter);
 ws.use(docsRouter, tasksRouter, goalsRouter);
 api.use('/w/:slug', ws);
+api.use('/admin', adminRouter);
 
 api.use((_req, _res) => { throw new HttpError(404, 'not_found', 'Ruta no encontrada'); });
 app.use('/api/v1', api);
+const site = staticSite();   // producción: SPA y landing; en desarrollo las sirve Vite
+if (site) app.use(site);
 app.use(errorHandler);
