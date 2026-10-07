@@ -15,7 +15,7 @@ _Lo mantiene el orquestador. Última actualización: 2026-10-07._
 | Entorno local Docker (Postgres 55432, MinIO 59000/59001, Mailpit 51025/58025) | devops | Hecho |
 | CI (typecheck + migraciones + pruebas) | devops | Hecho (sin probar en GitHub: no hay remoto) |
 | Tokens CSS (`web/src/design/tokens.css`) | disenador-ui | Hecho |
-| Mockups de las 8 pantallas, escritorio + móvil (`docs/diseño/mockups.html`) | disenador-ui | **Esperando aprobación de Rodrigo** |
+| Mockups de las 8 pantallas, escritorio + móvil (`docs/diseño/mockups.html`, publicado en https://claude.ai/artifact/AizW92hqjj4rwfJgVkSZvX) | disenador-ui | **Esperando aprobación de Rodrigo** |
 
 ## Compuerta de la Ola 0 — falta
 - [ ] Rodrigo aprueba los mockups (o pide cambios).
