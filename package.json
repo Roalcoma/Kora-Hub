@@ -1,0 +1,14 @@
+{
+  "name": "agencia-hub",
+  "private": true,
+  "type": "module",
+  "workspaces": ["shared/contracts", "server"],
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "db:up": "docker compose -f ops/docker-compose.yml up -d --wait",
+    "db:down": "docker compose -f ops/docker-compose.yml down",
+    "migrate": "npm run migrate -w server",
+    "test": "npm test -w server",
+    "typecheck": "npm run typecheck --workspaces"
+  }
+}

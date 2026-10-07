@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: agencia
+          POSTGRES_PASSWORD: agencia_dev
+          POSTGRES_DB: agencia_hub
+        ports: ["55432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U agencia" --health-interval 2s --health-retries 30
+    env:
+      DATABASE_URL: postgres://agencia:agencia_dev@localhost:55432/agencia_hub
+      DATABASE_URL_APP: postgres://agencia_app:agencia_app_dev@localhost:55432/agencia_hub
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      # Mismo rol que crea ops/postgres/init.sh en local
+      - run: psql "$DATABASE_URL" -c "CREATE ROLE agencia_app LOGIN PASSWORD 'agencia_app_dev' NOSUPERUSER NOBYPASSRLS"
+      - run: npm run typecheck
+      - run: npm run migrate
+      - run: npm test

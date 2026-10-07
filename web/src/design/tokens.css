@@ -1,0 +1,55 @@
+/* Tokens del design system de Agencia Hub (§7 del plan). Colores del CRM Rocco.
+   Reglas: border-radius 0 en todo (excepto .presence); texto sobre --color-primary siempre en --color-ink. */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Roboto:wght@400;500;700&display=swap');
+
+:root {
+  /* Marca */
+  --color-primary: #F69008;        /* acción principal, ítem activo, badges, foco */
+  --color-primary-dark: #D97706;   /* hover / pressed */
+  --color-primary-light: #FEF3C7;  /* mensajes con mención, resaltados */
+  --color-ink: #13243D;            /* sidebar, texto principal, encabezados */
+  --color-ink-soft: #1C3150;       /* hover del sidebar, riel de workspaces */
+  --color-leaf: #2F5D8A;           /* enlaces sobre fondo claro */
+  --color-cta: #60D0FA;            /* acento sobre fondo oscuro */
+  --color-canvas: #F6F4F0;         /* fondo del área de trabajo */
+
+  /* Neutros derivados (sesgo cálido hacia el canvas) */
+  --color-surface: #FFFFFF;
+  --color-line: #E4E0D8;
+  --color-muted: #5E6878;          /* texto secundario: 5.6:1 sobre canvas */
+  --color-sidebar-text: #C9D3E0;   /* texto leído en sidebar: 9.8:1 sobre ink */
+
+  /* Semánticos (semáforo de metas, vencidas, éxito) */
+  --color-danger: #B42318;
+  --color-danger-light: #FDECEA;
+  --color-warning: #B54708;
+  --color-success: #1E7F4F;
+  --color-success-light: #E6F4EC;
+  --color-presence: #2BAC76;
+
+  /* Tipografía */
+  --font-body: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Bricolage Grotesque', 'Roboto', system-ui, sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+
+  /* Forma, profundidad y movimiento */
+  --radius: 0;
+  --shadow-sm: 0 1px 2px rgb(19 36 61 / 0.08);
+  --shadow-md: 0 4px 14px rgb(19 36 61 / 0.12);
+  --shadow-lg: 0 12px 32px rgb(19 36 61 / 0.18);
+  --duration: 160ms;
+  --tap: 44px;                     /* objetivo táctil mínimo */
+}
+
+*, *::before, *::after { border-radius: 0 !important; }
+.presence { width: 8px; height: 8px; border-radius: 50% !important; }
+
+:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; }
+}

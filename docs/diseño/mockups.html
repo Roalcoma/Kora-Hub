@@ -1,0 +1,691 @@
+<title>Agencia Hub Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Roboto:wght@400;500;700&display=swap">
+<style>
+/* Layout: página de revisión (canvas) con un escenario que muestra cada pantalla en escritorio e iPhone lado a lado.
+   Diseño de un solo mundo visual (el de la app): colores explícitos, sin tema oscuro a propósito. */
+:root {
+  --color-primary: #F69008; --color-primary-dark: #D97706; --color-primary-light: #FEF3C7;
+  --color-ink: #13243D; --color-ink-soft: #1C3150; --color-leaf: #2F5D8A; --color-cta: #60D0FA;
+  --color-canvas: #F6F4F0; --color-surface: #FFFFFF; --color-line: #E4E0D8; --color-muted: #5E6878;
+  --color-sidebar-text: #C9D3E0; --color-danger: #B42318; --color-danger-light: #FDECEA;
+  --color-warning: #B54708; --color-warning-light: #FEF0E1; --color-success: #1E7F4F; --color-success-light: #E6F4EC;
+  --color-presence: #2BAC76;
+  --font-body: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Bricolage Grotesque', 'Roboto', system-ui, sans-serif;
+  --shadow-sm: 0 1px 2px rgb(19 36 61 / .08); --shadow-md: 0 4px 14px rgb(19 36 61 / .12); --shadow-lg: 0 12px 32px rgb(19 36 61 / .18);
+  color-scheme: light;
+}
+*, *::before, *::after { border-radius: 0 !important; box-sizing: border-box; }
+.presence { border-radius: 50% !important; }
+html, body { background: var(--color-canvas); color: var(--color-ink); }
+body { font-family: var(--font-body); font-size: 14px; padding-inline: 16px; padding-block: 24px 48px; }
+.lucide { width: 16px; height: 16px; stroke-width: 2; flex: none; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ── Página de revisión ── */
+.review { max-width: 1440px; margin: 0 auto; display: grid; gap: 20px; }
+.review-head { display: flex; flex-wrap: wrap; gap: 12px 32px; align-items: end; justify-content: space-between; }
+.review-head h1 { font-family: var(--font-display); font-size: 1.75rem; margin: 0; text-wrap: balance; }
+.review-head p { margin: 4px 0 0; color: var(--color-muted); max-width: 62ch; line-height: 1.5; }
+.gate { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--color-primary); color: var(--color-ink); font-weight: 500; font-size: 13px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--color-line); }
+.tabs button { padding: 10px 14px; font-weight: 500; color: var(--color-muted); border-bottom: 3px solid transparent; display: flex; gap: 8px; align-items: center; transition: color 160ms, border-color 160ms; }
+.tabs button:hover { color: var(--color-ink); }
+.tabs button[aria-selected="true"] { color: var(--color-ink); border-bottom-color: var(--color-primary); }
+.tabs .num { font-size: 11px; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 24px; align-items: start; }
+@media (max-width: 980px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+figure { margin: 0; display: grid; gap: 8px; min-width: 0; }
+figcaption { font-size: 12px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 500; }
+.scaler { position: relative; overflow: hidden; box-shadow: var(--shadow-lg); background: var(--color-surface); }
+.scaler > .app { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.phone-wrap { justify-self: center; width: 100%; max-width: 330px; }
+.phone-wrap .scaler { border: 10px solid var(--color-ink); box-shadow: var(--shadow-lg); }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 32px; padding-top: 8px; border-top: 1px solid var(--color-line); }
+.notes h2 { font-family: var(--font-display); font-size: 1.05rem; margin: 0 0 6px; }
+.notes ul { margin: 0; padding-left: 18px; line-height: 1.55; color: #2A3A52; }
+.notes li { margin-bottom: 4px; }
+
+/* ══════════ APP ══════════ */
+.app { font-family: var(--font-body); font-size: 14px; color: var(--color-ink); background: var(--color-canvas); overflow: hidden; }
+.app.desktop { width: 1280px; height: 800px; display: grid; grid-template-columns: 64px 260px minmax(0, 1fr) auto; }
+.app.mobile { width: 390px; height: 844px; display: grid; grid-template-rows: 47px auto minmax(0, 1fr) auto; }
+
+/* Riel de workspaces */
+.rail { background: var(--color-ink-soft); display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 14px 0; }
+.ws { width: 40px; height: 40px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 15px; background: var(--color-primary); color: var(--color-ink); position: relative; }
+.ws.other { background: #2B4467; color: #fff; }
+.ws.active::before { content: ''; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 4px; background: #fff; }
+.ws.add { background: transparent; border: 1px dashed #5B7193; color: var(--color-sidebar-text); }
+.ws .dot { position: absolute; right: -4px; top: -4px; width: 10px; height: 10px; background: var(--color-primary); border: 2px solid var(--color-ink-soft); }
+
+/* Sidebar */
+.sidebar { background: linear-gradient(180deg, var(--color-ink) 0%, #0F1E34 100%); color: var(--color-sidebar-text); display: flex; flex-direction: column; min-height: 0; }
+.sb-head { padding: 14px 16px 10px; display: grid; gap: 10px; border-bottom: 1px solid rgb(255 255 255 / .08); }
+.sb-ws { display: flex; align-items: center; gap: 6px; font-family: var(--font-display); font-weight: 700; font-size: 17px; color: #fff; }
+.dd { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; background: rgb(255 255 255 / .06); border: 1px solid rgb(255 255 255 / .12); color: #fff; font-size: 13px; }
+.dd small { color: var(--color-sidebar-text); font-size: 12px; }
+.sb-search { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: rgb(0 0 0 / .18); font-size: 13px; }
+.kbd { margin-left: auto; font-size: 11px; padding: 1px 5px; border: 1px solid rgb(255 255 255 / .2); color: var(--color-sidebar-text); font-family: var(--font-body); }
+.sb-scroll { overflow: hidden; padding: 8px 0 16px; display: grid; gap: 12px; align-content: start; }
+.sb-sec h4 { margin: 0; padding: 4px 16px; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; color: #8FA0B8; display: flex; align-items: center; gap: 6px; }
+.sb-item { display: flex; align-items: center; gap: 8px; padding: 5px 16px; font-size: 14px; position: relative; transition: background 160ms; }
+.sb-item:hover { background: var(--color-ink-soft); }
+.sb-item.unread { color: #fff; font-weight: 700; }
+.sb-item.active { background: var(--color-ink-soft); color: #fff; }
+.sb-item.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--color-primary); }
+.sb-item .lucide { width: 15px; height: 15px; opacity: .85; }
+.badge { margin-left: auto; min-width: 20px; padding: 1px 6px; background: var(--color-primary); color: var(--color-ink); font-size: 11px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+.sb-item .presence { width: 8px; height: 8px; background: var(--color-presence); flex: none; }
+.sb-item .presence.away { background: transparent; border: 1.5px solid #8FA0B8; }
+.sb-av { width: 20px; height: 20px; display: grid; place-items: center; font-size: 10px; font-weight: 700; position: relative; }
+
+/* Principal */
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--color-canvas); container-type: inline-size; }
+.topbar { height: 56px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 20px; background: var(--color-surface); border-bottom: 1px solid var(--color-line); }
+.topbar h2 { margin: 0; font-family: var(--font-display); font-size: 18px; display: flex; align-items: center; gap: 6px; }
+.topbar .topic { color: var(--color-muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.topbar .actions { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.icon-btn { width: 34px; height: 34px; display: grid; place-items: center; color: var(--color-ink); border: 1px solid transparent; transition: background 160ms, border-color 160ms; }
+.icon-btn:hover { background: var(--color-canvas); border-color: var(--color-line); }
+.members { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid var(--color-line); font-size: 13px; }
+.stack { display: flex; }
+.stack .av { width: 22px; height: 22px; font-size: 9px; margin-left: -4px; border: 2px solid var(--color-surface); }
+.stack .av:first-child { margin-left: 0; }
+
+/* Mensajes */
+.feed { flex: 1; overflow: hidden; padding: 12px 0 4px; display: flex; flex-direction: column; justify-content: flex-end; }
+.day { display: flex; align-items: center; gap: 12px; padding: 8px 20px; font-size: 12px; font-weight: 500; color: var(--color-muted); }
+.day::before, .day::after { content: ''; flex: 1; height: 1px; background: var(--color-line); }
+.newline { display: flex; align-items: center; gap: 10px; padding: 4px 20px; font-size: 12px; font-weight: 700; color: var(--color-danger); }
+.newline::before { content: ''; flex: 1; height: 1px; background: var(--color-danger); order: 2; }
+.msg { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 10px; padding: 6px 20px; position: relative; transition: background 160ms; }
+.msg:hover { background: rgb(19 36 61 / .03); }
+.msg.mention { background: var(--color-primary-light); box-shadow: inset 3px 0 0 var(--color-primary); }
+.av { width: 36px; height: 36px; display: grid; place-items: center; font-weight: 700; font-size: 13px; color: #fff; flex: none; }
+.c1 { background: var(--color-leaf); } .c2 { background: var(--color-primary); color: var(--color-ink) !important; } .c3 { background: #5B4B8A; }
+.c4 { background: #1E7F4F; } .c5 { background: var(--color-ink-soft); } .c6 { background: #A3412A; }
+.msg-head { display: flex; align-items: baseline; gap: 8px; }
+.msg-head b { font-weight: 700; }
+.msg-head .role { font-size: 11px; padding: 0 5px; background: var(--color-canvas); border: 1px solid var(--color-line); color: var(--color-muted); }
+.msg-head time { font-size: 12px; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.msg p { margin: 2px 0 0; line-height: 1.45; }
+.msg .edited { color: var(--color-muted); font-size: 12px; }
+.at { background: var(--color-primary-light); color: #8A4B00; font-weight: 500; padding: 0 2px; }
+.at.me { background: var(--color-primary); color: var(--color-ink); }
+a, .link { color: var(--color-leaf); text-decoration: underline; text-underline-offset: 2px; }
+code { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 12.5px; background: #EDE9E1; padding: 1px 4px; color: #8A2A1B; }
+.reactions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.react { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--color-line); background: var(--color-surface); font-size: 12px; font-variant-numeric: tabular-nums; }
+.react.mine { border-color: var(--color-leaf); background: #EAF1F8; color: var(--color-leaf); font-weight: 500; }
+.replies { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; padding: 3px 8px 3px 3px; border: 1px solid transparent; font-size: 13px; }
+.replies:hover { border-color: var(--color-line); background: var(--color-surface); }
+.replies b { color: var(--color-leaf); }
+.replies span { color: var(--color-muted); font-size: 12px; }
+.replies .av { width: 20px; height: 20px; font-size: 9px; }
+.file { display: flex; align-items: center; gap: 10px; margin-top: 6px; padding: 8px 12px; background: var(--color-surface); border: 1px solid var(--color-line); max-width: 340px; box-shadow: var(--shadow-sm); }
+.file .ico { width: 34px; height: 40px; display: grid; place-items: center; background: var(--color-danger); color: #fff; font-size: 10px; font-weight: 700; }
+.file small { display: block; color: var(--color-muted); font-size: 12px; }
+.thumb { margin-top: 6px; width: 240px; height: 140px; background: repeating-linear-gradient(135deg, #E9E4DA 0 10px, #F1EDE6 10px 20px); border: 1px solid var(--color-line); display: grid; place-items: center; color: var(--color-muted); font-size: 12px; }
+.hover-menu { position: absolute; right: 20px; top: -14px; display: flex; background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-md); }
+.hover-menu .icon-btn { width: 30px; height: 30px; }
+.typing { padding: 2px 20px 6px; font-size: 12px; color: var(--color-muted); height: 22px; }
+.typing b { color: var(--color-ink); font-weight: 500; }
+
+/* Compositor */
+.composer { margin: 0 20px 16px; background: var(--color-surface); border: 1px solid #C9C3B7; box-shadow: var(--shadow-sm); }
+.composer:focus-within { border-color: var(--color-ink); }
+.composer .tools { display: flex; gap: 2px; padding: 4px 6px; border-bottom: 1px solid var(--color-line); color: var(--color-muted); }
+.composer .tools .icon-btn { width: 28px; height: 28px; color: var(--color-muted); }
+.composer .field { padding: 10px 12px; min-height: 42px; color: var(--color-muted); }
+.composer .field.filled { color: var(--color-ink); }
+.composer .foot { display: flex; align-items: center; gap: 2px; padding: 4px 6px; }
+.send { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--color-primary); color: var(--color-ink); font-weight: 700; font-size: 13px; transition: background 160ms; }
+.send:hover { background: var(--color-primary-dark); }
+.mention-pop { position: absolute; left: 20px; right: 20px; bottom: 100%; margin-bottom: 6px; background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-lg); }
+.mention-pop .opt { display: flex; align-items: center; gap: 10px; padding: 8px 12px; }
+.mention-pop .opt.on { background: var(--color-ink); color: #fff; }
+.mention-pop .opt small { color: var(--color-muted); margin-left: auto; font-size: 12px; }
+.mention-pop .opt.on small { color: var(--color-sidebar-text); }
+.mention-pop .opt .av { width: 24px; height: 24px; font-size: 10px; }
+
+/* Panel derecho */
+.panel { width: 380px; background: var(--color-surface); border-left: 1px solid var(--color-line); display: flex; flex-direction: column; min-height: 0; box-shadow: -6px 0 18px rgb(19 36 61 / .06); }
+.panel-head { height: 56px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--color-line); }
+.panel-head h3 { margin: 0; font-family: var(--font-display); font-size: 17px; }
+.panel-head small { color: var(--color-muted); }
+.panel-head .icon-btn { margin-left: auto; }
+.panel .feed { background: var(--color-surface); justify-content: flex-start; }
+.panel .msg { padding: 8px 20px; }
+.sep { display: flex; align-items: center; gap: 10px; padding: 6px 20px; color: var(--color-muted); font-size: 12px; }
+.sep::after { content: ''; flex: 1; height: 1px; background: var(--color-line); }
+.check { display: flex; align-items: center; gap: 8px; padding: 0 20px 12px; font-size: 13px; color: var(--color-muted); }
+.box { width: 16px; height: 16px; border: 1.5px solid #8C93A0; display: grid; place-items: center; background: var(--color-surface); }
+.box.on { background: var(--color-ink); border-color: var(--color-ink); color: #fff; }
+.box .lucide { width: 12px; height: 12px; }
+
+/* Anuncios */
+.ann { margin: 8px 20px; background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-sm); }
+.ann.pinned { border-top: 3px solid var(--color-primary); }
+.ann-tag { display: flex; align-items: center; gap: 6px; padding: 8px 16px 0; font-size: 12px; color: var(--color-muted); font-weight: 500; }
+.ann .msg { padding: 8px 16px 12px; }
+.ann .msg:hover { background: transparent; }
+.ann h3 { margin: 4px 0 2px; font-family: var(--font-display); font-size: 17px; }
+.ack-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--color-line); background: #FBFAF7; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 14px; font-weight: 700; font-size: 13px; border: 1px solid transparent; transition: background 160ms; }
+.btn.primary { background: var(--color-primary); color: var(--color-ink); }
+.btn.primary:hover { background: var(--color-primary-dark); }
+.btn.ghost { border-color: var(--color-line); background: var(--color-surface); }
+.btn.done { background: var(--color-success-light); color: var(--color-success); border-color: #B7DCC6; }
+.progress { flex: 1; min-width: 120px; display: grid; gap: 4px; font-size: 12px; color: var(--color-muted); }
+.bar { height: 6px; background: var(--color-line); }
+.bar i { display: block; height: 100%; background: var(--color-ink); }
+.ack-list .row { display: flex; align-items: center; gap: 10px; padding: 7px 20px; }
+.ack-list .row .av { width: 28px; height: 28px; font-size: 11px; }
+.ack-list .row small { margin-left: auto; color: var(--color-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.tabs-in { display: flex; border-bottom: 1px solid var(--color-line); padding: 0 12px; }
+.tabs-in span { padding: 10px 8px; font-size: 13px; font-weight: 500; color: var(--color-muted); border-bottom: 3px solid transparent; }
+.tabs-in span.on { color: var(--color-ink); border-bottom-color: var(--color-primary); }
+
+/* Manuales */
+.doc-wrap { flex: 1; display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: 0; }
+.tree { background: var(--color-surface); border-right: 1px solid var(--color-line); padding: 12px 0; overflow: hidden; }
+.tree .t { display: flex; align-items: center; gap: 6px; padding: 5px 14px; font-size: 13px; position: relative; }
+.tree .t.l2 { padding-left: 32px; } .tree .t.l3 { padding-left: 50px; }
+.tree .t.on { background: var(--color-primary-light); font-weight: 500; }
+.tree .t.on::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--color-primary); }
+.tree h5 { margin: 10px 14px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--color-muted); font-weight: 500; }
+.doc { overflow: hidden; padding: 28px 48px; background: var(--color-surface); }
+.doc .crumbs { font-size: 12px; color: var(--color-muted); display: flex; gap: 6px; align-items: center; }
+.doc h1 { font-family: var(--font-display); font-size: 30px; margin: 8px 0 6px; text-wrap: balance; }
+.doc .meta { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 12px; color: var(--color-muted); padding-bottom: 16px; border-bottom: 1px solid var(--color-line); }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; font-size: 12px; font-weight: 500; border: 1px solid var(--color-line); background: var(--color-canvas); color: var(--color-ink); }
+.chip.vida { background: #EAF1F8; border-color: #C3D5E8; color: var(--color-leaf); }
+.chip.salud { background: var(--color-success-light); border-color: #B7DCC6; color: var(--color-success); }
+.chip.medicare { background: #F1ECF8; border-color: #D5CAE8; color: #5B4B8A; }
+.doc h2 { font-family: var(--font-display); font-size: 19px; margin: 22px 0 8px; }
+.doc p, .doc li { line-height: 1.6; max-width: 68ch; }
+.doc ol { padding-left: 20px; }
+.doc table { border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+.doc th, .doc td { border: 1px solid var(--color-line); padding: 6px 12px; text-align: left; }
+.doc th { background: var(--color-canvas); font-weight: 500; }
+.callout { display: flex; gap: 10px; padding: 10px 14px; background: var(--color-primary-light); border-left: 3px solid var(--color-primary); margin: 12px 0; max-width: 68ch; line-height: 1.5; }
+
+/* Kanban */
+.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px 20px; }
+.seg { display: flex; border: 1px solid var(--color-line); background: var(--color-surface); }
+.seg span { padding: 6px 12px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.seg span.on { background: var(--color-ink); color: #fff; }
+.toolbar .dd-l { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--color-line); background: var(--color-surface); font-size: 13px; }
+.toolbar .btn { margin-left: auto; }
+.board { flex: 1; display: grid; grid-template-columns: repeat(4, minmax(240px, 1fr)); gap: 12px; padding: 0 20px 16px; overflow: hidden; min-height: 0; }
+.col { background: #EDEAE3; display: flex; flex-direction: column; gap: 8px; padding: 10px; min-height: 0; }
+.col-h { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; padding: 2px 2px 4px; }
+.col-h .n { color: var(--color-muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+.col-h .icon-btn { margin-left: auto; width: 26px; height: 26px; }
+.card { background: var(--color-surface); border: 1px solid var(--color-line); padding: 10px 12px; display: grid; gap: 8px; box-shadow: var(--shadow-sm); transition: box-shadow 160ms, transform 160ms; }
+.card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.card.over { border-left: 3px solid var(--color-danger); }
+.card.dragging { transform: rotate(-1.5deg); box-shadow: var(--shadow-lg); }
+.card .t { font-weight: 500; line-height: 1.35; }
+.card .row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--color-muted); }
+.card .row .stack { margin-left: auto; }
+.due { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+.due.over { color: var(--color-danger); font-weight: 700; }
+.prio { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; font-size: 11px; font-weight: 700; }
+.prio.urgent { background: var(--color-danger-light); color: var(--color-danger); }
+.prio.high { background: var(--color-warning-light); color: var(--color-warning); }
+.card.cancel .t { text-decoration: line-through; color: var(--color-muted); }
+
+/* Metas */
+.goals { flex: 1; overflow: hidden; padding: 4px 20px 16px; display: grid; gap: 14px; align-content: start; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.kpi { background: var(--color-surface); border: 1px solid var(--color-line); padding: 12px 14px; display: grid; gap: 2px; }
+.kpi small { font-size: 12px; color: var(--color-muted); }
+.kpi b { font-family: var(--font-display); font-size: 26px; font-variant-numeric: tabular-nums; }
+.kpi span { font-size: 12px; font-variant-numeric: tabular-nums; }
+.up { color: var(--color-success); } .down { color: var(--color-danger); }
+.gtable { background: var(--color-surface); border: 1px solid var(--color-line); }
+.grow { display: grid; grid-template-columns: minmax(0, 2.2fr) 110px 90px minmax(0, 1.4fr) 150px; gap: 12px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--color-line); font-variant-numeric: tabular-nums; }
+.grow.h { border-top: 0; font-size: 12px; color: var(--color-muted); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; padding-block: 8px; background: #FBFAF7; }
+.grow .name { display: grid; gap: 3px; } .grow .name small { color: var(--color-muted); font-size: 12px; display: flex; gap: 6px; align-items: center; }
+.light { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.light::before { content: ''; width: 10px; height: 10px; background: currentColor; }
+.light.g { color: var(--color-success); } .light.a { color: var(--color-warning); } .light.r { color: var(--color-danger); }
+.meter { height: 8px; background: var(--color-line); position: relative; }
+.meter i { position: absolute; inset: 0 auto 0 0; background: var(--color-ink); }
+.meter::after { content: ''; position: absolute; left: calc(100% / 1.2); top: -3px; bottom: -3px; width: 2px; background: var(--color-primary); }
+.spark { width: 150px; height: 32px; }
+.missing { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--color-danger-light); border-left: 3px solid var(--color-danger); font-size: 13px; }
+
+/* Onboarding */
+.onb { flex: 1; display: grid; place-items: center; padding: 24px; background: var(--color-canvas); }
+.onb-card { width: min(760px, 100%); background: var(--color-surface); box-shadow: var(--shadow-lg); display: grid; grid-template-columns: 230px minmax(0, 1fr); }
+.steps { background: var(--color-ink); color: var(--color-sidebar-text); padding: 24px 0; display: grid; align-content: start; gap: 2px; }
+.steps .s { display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-size: 13px; }
+.steps .s .k { width: 22px; height: 22px; display: grid; place-items: center; border: 1.5px solid #5B7193; font-size: 11px; font-weight: 700; }
+.steps .s.ok .k { background: var(--color-presence); border-color: var(--color-presence); color: var(--color-ink); }
+.steps .s.on { background: var(--color-ink-soft); color: #fff; font-weight: 500; box-shadow: inset 4px 0 0 var(--color-primary); }
+.steps .s.on .k { border-color: var(--color-primary); color: var(--color-primary); }
+.onb-body { padding: 28px 32px; display: grid; gap: 14px; align-content: start; }
+.onb-body h2 { margin: 0; font-family: var(--font-display); font-size: 24px; text-wrap: balance; }
+.onb-body p { margin: 0; color: var(--color-muted); line-height: 1.5; }
+.how { display: grid; gap: 10px; }
+.how .h { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; }
+.how .h .k { width: 28px; height: 28px; display: grid; place-items: center; background: var(--color-primary); color: var(--color-ink); font-weight: 700; }
+.how .h b { display: block; } .how .h span { color: var(--color-muted); font-size: 13px; }
+.qr { display: flex; gap: 14px; align-items: center; padding: 12px; border: 1px dashed #C9C3B7; }
+.qr .code { width: 84px; height: 84px; background:
+  conic-gradient(from 90deg at 30% 30%, var(--color-ink) 25%, transparent 0) 0 0 / 14px 14px,
+  repeating-linear-gradient(90deg, var(--color-ink) 0 6px, transparent 6px 12px); opacity: .9; flex: none; }
+.onb-foot { display: flex; gap: 8px; justify-content: flex-end; padding-top: 6px; }
+
+/* ══════════ iPhone ══════════ */
+.statusbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 26px 0; font-weight: 700; font-size: 15px; background: var(--color-surface); }
+.statusbar.dark { background: var(--color-ink); color: #fff; }
+.statusbar .icons { display: flex; gap: 6px; }
+.m-head { display: flex; align-items: center; gap: 8px; padding: 6px 8px 8px; background: var(--color-surface); border-bottom: 1px solid var(--color-line); min-height: 52px; }
+.m-head.dark { background: var(--color-ink); color: #fff; border-bottom: 0; }
+.m-head .icon-btn { width: 44px; height: 44px; }
+.m-head .icon-btn:hover { background: transparent; border-color: transparent; }
+.m-head .ttl { min-width: 0; flex: 1; }
+.m-head .ttl b { display: flex; align-items: center; gap: 4px; font-family: var(--font-display); font-size: 17px; }
+.m-head .ttl small { display: block; color: var(--color-muted); font-size: 12px; }
+.m-head.dark .ttl small { color: var(--color-sidebar-text); }
+.m-body { min-height: 0; overflow: hidden; display: flex; flex-direction: column; background: var(--color-canvas); container-type: inline-size; }
+.m-body .msg { padding: 6px 14px; }
+.m-body .composer { margin: 0 10px 8px; }
+.tabbar { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--color-surface); border-top: 1px solid var(--color-line); padding-bottom: 30px; }
+.tabbar span { display: grid; justify-items: center; gap: 3px; padding-top: 8px; min-height: 52px; font-size: 10.5px; color: var(--color-muted); position: relative; }
+.tabbar span .lucide { width: 22px; height: 22px; }
+.tabbar span.on { color: var(--color-ink); font-weight: 700; }
+.tabbar span.on::before { content: ''; position: absolute; top: -1px; left: 25%; right: 25%; height: 3px; background: var(--color-primary); }
+.tabbar .badge { position: absolute; top: 4px; left: calc(50% + 6px); margin: 0; min-width: 18px; font-size: 10px; padding: 0 4px; }
+.home-ind { position: absolute; bottom: 8px; left: 50%; width: 134px; height: 5px; margin-left: -67px; background: var(--color-ink); border-radius: 3px !important; }
+.m-keyboard { height: 0; }
+
+/* Ajustes de contenedor estrecho (móvil reutiliza los mismos bloques) */
+@container (max-width: 520px) {
+  .board { grid-template-columns: 300px 300px; overflow: hidden; padding: 0 0 12px 12px; }
+  .toolbar { padding: 10px 12px; } .toolbar .btn { display: none; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grow { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; }
+  .grow.h, .grow .spark-c { display: none; }
+  .grow .meter-c { grid-column: 1 / -1; }
+  .goals { padding: 4px 12px 12px; }
+  .doc-wrap { grid-template-columns: minmax(0, 1fr); } .tree { display: none; }
+  .doc { padding: 16px 16px; } .doc h1 { font-size: 24px; }
+  .ann { margin: 8px 10px; }
+  .onb { padding: 0; place-items: stretch; } .onb-card { grid-template-columns: minmax(0, 1fr); box-shadow: none; }
+  .steps { display: none; } .onb-body { padding: 18px 16px; }
+  .msg-head .role { display: none; }
+}
+</style>
+
+<div class="review">
+  <div class="review-head">
+    <div>
+      <h1>Agencia Hub · 8 pantallas clave</h1>
+      <p>Mockups de la Ola 0 para aprobar antes de construir componentes. Cada pantalla se muestra en escritorio y en iPhone.
+        Datos de ejemplo de una agencia ficticia.</p>
+    </div>
+    <span class="gate"><i data-lucide="flag"></i>Compuerta Ola 0 · pendiente de tu aprobación</span>
+  </div>
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+  <div class="stage">
+    <figure>
+      <figcaption>Escritorio · 1280 × 800</figcaption>
+      <div class="scaler" id="deskScaler"><div class="app desktop" id="desk"></div></div>
+    </figure>
+    <figure class="phone-wrap">
+      <figcaption>iPhone · 390 × 844 (PWA instalada)</figcaption>
+      <div class="scaler" id="phoneScaler"><div class="app mobile" id="phone"></div></div>
+    </figure>
+  </div>
+  <section class="notes" id="notes"></section>
+</div>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>
+const P = {
+  ml: { n: 'María López', i: 'ML', c: 'c1', r: 'Admin' },
+  cr: { n: 'Carlos Rivera', i: 'CR', c: 'c2', r: 'Líder' },
+  at: { n: 'Ana Torres', i: 'AT', c: 'c3', r: 'Miembro' },
+  jm: { n: 'José Martínez', i: 'JM', c: 'c4', r: 'Miembro' },
+  lg: { n: 'Laura Gómez', i: 'LG', c: 'c5', r: 'Líder' },
+  dp: { n: 'Daniel Pérez', i: 'DP', c: 'c6', r: 'Miembro' },
+};
+const I = (n) => `<i data-lucide="${n}"></i>`;
+const av = (k, cls = '') => `<span class="av ${P[k].c} ${cls}">${P[k].i}</span>`;
+const stack = (...ks) => `<span class="stack">${ks.map((k) => av(k)).join('')}</span>`;
+
+function msg({ who, time, body, mention, reactions, replies, file, thumb, edited, hover }) {
+  return `<div class="msg${mention ? ' mention' : ''}">${av(who)}<div>
+    <div class="msg-head"><b>${P[who].n}</b><span class="role">${P[who].r}</span><time>${time}</time></div>
+    <p>${body}${edited ? ' <span class="edited">(editado)</span>' : ''}</p>
+    ${file ? `<div class="file"><span class="ico">PDF</span><div><b>${file[0]}</b><small>${file[1]}</small></div></div>` : ''}
+    ${thumb ? `<div class="thumb">${I('image')} ${thumb}</div>` : ''}
+    ${reactions ? `<div class="reactions">${reactions.map(([e, n, mine]) => `<span class="react${mine ? ' mine' : ''}">${e} ${n}</span>`).join('')}<span class="react">${I('smile-plus')}</span></div>` : ''}
+    ${replies ? `<div class="replies">${stack(...replies[0])}<b>${replies[1]} respuestas</b><span>Última hace ${replies[2]}</span></div>` : ''}
+  </div>${hover ? `<div class="hover-menu"><button class="icon-btn" aria-label="Reaccionar">${I('smile-plus')}</button><button class="icon-btn" aria-label="Responder en hilo">${I('message-square-text')}</button><button class="icon-btn" aria-label="Crear tarea">${I('square-check')}</button><button class="icon-btn" aria-label="Fijar">${I('pin')}</button><button class="icon-btn" aria-label="Más">${I('ellipsis-vertical')}</button></div>` : ''}</div>`;
+}
+
+const composer = (placeholder, filled) => `<div class="composer" style="position:relative">
+  ${filled ? `<div class="mention-pop"><div class="opt on">${av('at')}<b>Ana Torres</b><small>Ventas Vida · conectada</small></div><div class="opt">${av('ml')}María López<small>Admin</small></div><div class="opt"><span class="av c5">${I('users')}</span>@canal<small>Avisa a los 14 miembros</small></div></div>` : ''}
+  <div class="tools"><button class="icon-btn">${I('bold')}</button><button class="icon-btn">${I('italic')}</button><button class="icon-btn">${I('strikethrough')}</button><button class="icon-btn">${I('code')}</button><button class="icon-btn">${I('list')}</button><button class="icon-btn">${I('link')}</button></div>
+  <div class="field${filled ? ' filled' : ''}">${filled || placeholder}</div>
+  <div class="foot"><button class="icon-btn">${I('plus')}</button><button class="icon-btn">${I('at-sign')}</button><button class="icon-btn">${I('smile')}</button><button class="icon-btn">${I('paperclip')}</button><button class="send">${I('send-horizontal')}Enviar</button></div>
+</div>`;
+
+function sidebar(active) {
+  const it = (key, icon, label, extra = '', cls = '') =>
+    `<div class="sb-item ${cls}${active === key ? ' active' : ''}">${icon}${label}${extra}</div>`;
+  const dm = (key, k, away, cls = '', extra = '') =>
+    it(key, `<span class="presence${away ? ' away' : ''}"></span>`, P[k].n, extra, cls);
+  return `<div class="rail"><div class="ws active">AP<span class="dot"></span></div><div class="ws other">SV</div><div class="ws add">${I('plus')}</div></div>
+  <aside class="sidebar">
+    <div class="sb-head">
+      <div class="sb-ws">Agencia Piloto ${I('chevron-down')}</div>
+      <div class="dd"><span><small>Línea</small>&nbsp; Todas</span>${I('chevrons-up-down')}</div>
+      <div class="sb-search">${I('search')}Buscar<span class="kbd">Ctrl K</span></div>
+    </div>
+    <div class="sb-scroll">
+      <div class="sb-sec">${it('anuncios', I('megaphone'), 'Anuncios', '<span class="badge">1</span>', 'unread')}</div>
+      <div class="sb-sec"><h4>${I('chevron-down')}Destacados</h4>
+        ${it('canal', I('hash'), 'ventas-vida', '', '')}
+        ${it('medicare', I('hash'), 'medicare-aep', '<span class="badge">3</span>', 'unread')}</div>
+      <div class="sb-sec"><h4>${I('chevron-down')}Canales</h4>
+        ${it('general', I('hash'), 'general')}
+        ${it('salud', I('hash'), 'ventas-salud', '', 'unread')}
+        ${it('servicio', I('lock'), 'servicio-cliente')}
+        ${it('renov', I('hash'), 'renovaciones')}</div>
+      <div class="sb-sec"><h4>${I('chevron-down')}Mensajes directos</h4>
+        ${dm('dm', 'at', false, 'unread', '<span class="badge">2</span>')}
+        ${dm('dm2', 'cr', false)}
+        ${dm('dm3', 'lg', true)}</div>
+      <div class="sb-sec"><h4>${I('chevron-down')}Agencia</h4>
+        ${it('manual', I('book-open'), 'Manuales')}
+        ${it('kanban', I('square-kanban'), 'Tareas', '<span class="badge">4</span>')}
+        ${it('metas', I('target'), 'Metas')}</div>
+    </div>
+  </aside>`;
+}
+
+const topbar = (title, topic, actions = '') => `<header class="topbar"><h2>${title}</h2><span class="topic">${topic}</span>
+  <div class="actions">${actions}<button class="icon-btn" aria-label="Buscar">${I('search')}</button><button class="icon-btn" aria-label="Más">${I('ellipsis-vertical')}</button></div></header>`;
+const membersBtn = `<span class="members">${stack('ml', 'cr', 'at')}14</span>`;
+
+const desktop = (active, main, panel = '') => `${sidebar(active)}<section class="main">${main}</section>${panel}`;
+
+const tabbar = (on) => `<nav class="tabbar">${[['inicio', 'house', 'Inicio', 3], ['dms', 'message-circle', 'Mensajes', 2], ['men', 'at-sign', 'Menciones', 1], ['tareas', 'square-check', 'Tareas', 0], ['tu', 'circle-user', 'Tú', 0]]
+  .map(([k, ic, l, b]) => `<span class="${on === k ? 'on' : ''}">${I(ic)}${l}${b ? `<span class="badge">${b}</span>` : ''}</span>`).join('')}</nav><span class="home-ind"></span>`;
+const mobile = ({ dark, back = true, title, sub, right = I('search'), body, tab = 'inicio', noTab }) =>
+  `<div class="statusbar${dark ? ' dark' : ''}"><span>9:41</span><span class="icons">${I('signal')}${I('wifi')}${I('battery-full')}</span></div>
+  <div class="m-head${dark ? ' dark' : ''}">${back ? `<button class="icon-btn" aria-label="Volver">${I('chevron-left')}</button>` : '<span style="width:8px"></span>'}
+    <div class="ttl"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</div><button class="icon-btn">${right}</button></div>
+  <div class="m-body">${body}</div>${noTab ? '<div style="height:30px;background:var(--color-surface)"></div><span class="home-ind"></span>' : tabbar(tab)}`;
+
+/* ── Contenido compartido ── */
+const channelFeed = (mobileView) => `<div class="feed">
+  <div class="day">Ayer</div>
+  ${msg({ who: 'cr', time: '4:52 p. m.', body: 'Cierre del día en Vida: <b>11 de 15</b> pólizas de la semana. Faltan 4 y quedan dos días.', reactions: [['👏', 5, true], ['🔥', 2]] })}
+  <div class="day">Hoy</div>
+  ${msg({ who: 'jm', time: '9:14 a. m.', body: 'Subo la tabla de primas actualizada para Term Life 20 años. Ojo con el cambio en la banda de 45–54.', file: ['Tabla primas Term 20 - oct 2026.pdf', 'PDF · 1.2 MB'] })}
+  ${msg({ who: 'ml', time: '9:31 a. m.', body: 'Gracias José. ¿Alguien tiene dudas con el underwriting simplificado? Lo vemos en la reunión de las 11.', replies: [['at', 'cr', 'jm'], 4, '12 min'] })}
+  <div class="newline">Nuevos mensajes</div>
+  ${msg({ who: 'at', time: '10:05 a. m.', body: '<span class="at me">@Rodrigo</span> el cliente Hernández quiere subir la cobertura a 500k. ¿Le pido examen médico o entra en la aprobación acelerada?', mention: true, hover: !mobileView })}
+  ${mobileView ? '' : msg({ who: 'dp', time: '10:07 a. m.', body: 'Según el manual de <a>Suscripción Vida</a>, hasta 500k y menos de 50 años entra en acelerada. Te paso la página.', edited: true })}
+</div>
+<div class="typing"><b>Carlos Rivera</b> está escribiendo…</div>`;
+
+const threadPanel = `<aside class="panel"><div class="panel-head"><h3>Hilo</h3><small># ventas-vida</small><button class="icon-btn" aria-label="Cerrar">${I('x')}</button></div>
+  <div class="feed">
+    ${msg({ who: 'ml', time: '9:31 a. m.', body: 'Gracias José. ¿Alguien tiene dudas con el underwriting simplificado? Lo vemos en la reunión de las 11.' })}
+    <div class="sep">4 respuestas</div>
+    ${msg({ who: 'at', time: '9:38 a. m.', body: '¿El límite de edad sigue siendo 60 para acelerada?' })}
+    ${msg({ who: 'ml', time: '9:40 a. m.', body: 'Sí, 60. Y hasta 500k de suma asegurada.', reactions: [['👍', 3, true]] })}
+    ${msg({ who: 'cr', time: '9:42 a. m.', body: 'Lo agrego al manual para que quede por escrito.' })}
+    ${msg({ who: 'jm', time: '9:43 a. m.', body: 'Perfecto, gracias.' })}
+  </div>
+  ${composer('Responder…')}
+  <div class="check"><span class="box on">${I('check')}</span>Enviar también a # ventas-vida</div>
+</aside>`;
+
+const dmFeed = `<div class="feed">
+  <div class="day">Hoy</div>
+  ${msg({ who: 'at', time: '8:47 a. m.', body: 'Buenos días. ¿Me puedes revisar la cotización de la familia Ruiz antes de enviarla?', thumb: 'captura-cotizacion-ruiz.png' })}
+  ${msg({ who: 'ml', time: '8:55 a. m.', body: 'Claro. El deducible está bien, pero cambia el plan a <b>Silver 87</b>: con su ingreso califican para reducción de costos compartidos.' })}
+  ${msg({ who: 'at', time: '8:56 a. m.', body: 'Tienes razón, no lo había visto. Lo corrijo y te aviso.', reactions: [['🙏', 1]] })}
+</div><div class="typing"></div>`;
+
+const annFeed = (mobileView) => `<div class="feed" style="justify-content:flex-start">
+  <div class="ann pinned"><div class="ann-tag">${I('pin')}Fijado hasta el 15 de diciembre · Confirmación requerida</div>
+    ${msg({ who: 'ml', time: 'Hoy 8:00 a. m.', body: '<h3>Periodo de inscripción anual de Medicare: 15 oct – 7 dic</h3>Desde el miércoles 15 todas las citas de Medicare pasan por la agenda compartida. Lean el procedimiento actualizado de <a>Inscripción AEP</a> antes del lunes. Recordatorio: no se escriben datos de salud de clientes en el chat.' })}
+    <div class="ack-row"><button class="btn primary">${I('check')}Entendido</button>
+      <div class="progress"><span>12 de 18 confirmaron</span><span class="bar"><i style="width:66%"></i></span></div>
+      ${mobileView ? '' : `<button class="btn ghost">${I('users')}Ver quién</button>`}</div>
+  </div>
+  <div class="ann">${msg({ who: 'lg', time: 'Lun 9:10 a. m.', body: '<h3>Resultados de la semana 40</h3>Salud superó la meta (110 %). Vida quedó en 73 % y Medicare en 50 %: esta semana reforzamos llamadas de seguimiento.', reactions: [['🎉', 9], ['💪', 4, true]] })}
+    <div class="ack-row"><button class="btn done">${I('check-check')}Confirmaste el lunes</button></div></div>
+</div>`;
+
+const ackPanel = `<aside class="panel"><div class="panel-head"><h3>Confirmaciones</h3><small>AEP 2026</small><button class="icon-btn" aria-label="Cerrar">${I('x')}</button></div>
+  <div class="tabs-in"><span class="on">Pendientes 6</span><span>Confirmaron 12</span></div>
+  <div class="ack-list" style="padding-top:6px">
+    ${['dp', 'jm', 'at'].map((k) => `<div class="row">${av(k)}<b>${P[k].n}</b><small>Visto, sin confirmar</small></div>`).join('')}
+    <div class="row"><span class="av c5">RS</span><b>Rosa Salazar</b><small>No lo ha abierto</small></div>
+    <div class="row"><span class="av c1">PM</span><b>Pedro Mora</b><small>No lo ha abierto</small></div>
+    <div class="row"><span class="av c4">EV</span><b>Elena Vega</b><small>No lo ha abierto</small></div>
+  </div>
+  <div style="padding:16px 20px;margin-top:auto;border-top:1px solid var(--color-line)"><button class="btn ghost" style="width:100%">${I('bell-ring')}Recordar a los 6 pendientes</button></div>
+</aside>`;
+
+const docView = `<div class="doc-wrap">
+  <nav class="tree"><h5>Ventas Vida</h5>
+    <div class="t">${I('chevron-down')}${I('file-text')}Suscripción Vida</div>
+    <div class="t l2 on">${I('file-text')}Aprobación acelerada</div>
+    <div class="t l2">${I('file-text')}Examen médico</div>
+    <div class="t l2">${I('file-text')}Reemplazo de pólizas</div>
+    <div class="t">${I('chevron-right')}${I('file-text')}Guion de llamada</div>
+    <div class="t">${I('chevron-right')}${I('file-text')}Comisiones</div>
+    <h5>Medicare</h5>
+    <div class="t">${I('chevron-right')}${I('file-text')}Inscripción AEP</div>
+    <div class="t">${I('file-text')}Reglas de marketing CMS</div>
+    <h5>Servicio al cliente</h5>
+    <div class="t">${I('chevron-right')}${I('file-text')}Cambios de beneficiario</div>
+  </nav>
+  <article class="doc">
+    <div class="crumbs">Ventas Vida ${I('chevron-right')} Suscripción Vida ${I('chevron-right')} Aprobación acelerada</div>
+    <h1>Aprobación acelerada (sin examen médico)</h1>
+    <div class="meta"><span class="chip vida">Vida</span><span>Editado por Carlos Rivera · hoy 9:44 a. m.</span><span>${I('history')} 7 versiones</span><span>${I('paperclip')} 1 PDF</span></div>
+    <h2>Cuándo aplica</h2>
+    <table><tr><th>Edad del asegurado</th><th>Suma asegurada máxima</th><th>Requisito</th></tr>
+      <tr><td>18 – 50</td><td>$500,000</td><td>Cuestionario + MIB</td></tr>
+      <tr><td>51 – 60</td><td>$250,000</td><td>Cuestionario + MIB + Rx</td></tr></table>
+    <div class="callout">${I('triangle-alert')}<span>Si el cliente responde «sí» a cualquier pregunta de la sección C, la solicitud pasa a suscripción completa.</span></div>
+    <h2>Pasos</h2>
+    <ol><li>Confirmar edad y suma asegurada contra la tabla.</li><li>Completar el cuestionario en la plataforma de la aseguradora durante la llamada.</li><li>Registrar el número de solicitud en la tarea del cliente.</li></ol>
+  </article>
+</div>`;
+
+const card = (t, { due, over, prio, who = [], line, cls = '' } = {}) => `<div class="card ${over ? 'over' : ''} ${cls}"><div class="t">${t}</div>
+  <div class="row">${line ? `<span class="chip ${line[0]}">${line[1]}</span>` : ''}${prio ? `<span class="prio ${prio[0]}">${prio[1]}</span>` : ''}
+  ${due ? `<span class="due${over ? ' over' : ''}">${I('calendar')}${due}</span>` : ''}${who.length ? stack(...who) : ''}</div></div>`;
+const kanbanView = `<div class="toolbar"><span class="seg"><span class="on">${I('square-kanban')}Tablero</span><span>${I('list')}Lista</span></span>
+    <span class="dd-l">Ventas Vida ${I('chevron-down')}</span><span class="dd-l">Responsable: todos ${I('chevron-down')}</span>
+    <button class="btn primary">${I('plus')}Nueva tarea</button></div>
+  <div class="board">
+    <div class="col"><div class="col-h">Por hacer <span class="n">5</span><button class="icon-btn">${I('plus')}</button></div>
+      ${card('Llamar a 12 prospectos de la campaña de octubre', { due: 'Ayer', over: true, prio: ['urgent', 'Urgente'], who: ['at'], line: ['vida', 'Vida'] })}
+      ${card('Enviar comparativo Term vs. Whole a familia Ruiz', { due: 'Vie 10', who: ['jm', 'at'], line: ['vida', 'Vida'] })}
+      ${card('Actualizar guion de llamada con nuevas primas', { due: 'Lun 13', who: ['cr'] })}</div>
+    <div class="col"><div class="col-h">En curso <span class="n">3</span><button class="icon-btn">${I('plus')}</button></div>
+      ${card('Solicitud Hernández: aprobación acelerada 500k', { due: 'Hoy', prio: ['high', 'Alta'], who: ['at'], line: ['vida', 'Vida'], cls: 'dragging' })}
+      ${card('Revisar comisiones de septiembre', { due: 'Jue 9', who: ['cr', 'ml'] })}</div>
+    <div class="col"><div class="col-h">Hecho <span class="n">14</span><button class="icon-btn">${I('plus')}</button></div>
+      ${card('Capacitación de underwriting simplificado', { who: ['ml'] })}
+      ${card('Renovación póliza Castillo', { who: ['dp'], line: ['vida', 'Vida'] })}</div>
+    <div class="col"><div class="col-h">Cancelada <span class="n">1</span><button class="icon-btn">${I('plus')}</button></div>
+      ${card('Campaña de correo de verano', { cls: 'cancel', who: ['jm'] })}</div>
+  </div>`;
+
+function spark(vals, color) {
+  const w = 150, h = 32, max = 130, step = w / (vals.length - 1);
+  const pts = vals.map((v, i) => `${(i * step).toFixed(1)},${(h - 3 - (v / max) * (h - 6)).toFixed(1)}`);
+  const goalY = (h - 3 - (100 / max) * (h - 6)).toFixed(1);
+  const last = pts[pts.length - 1].split(',');
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" role="img" aria-label="Tendencia de 12 semanas">
+    <line x1="0" x2="${w}" y1="${goalY}" y2="${goalY}" stroke="#F69008" stroke-dasharray="3 3" stroke-width="1"/>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.75"/>
+    <rect x="${+last[0] - 3}" y="${+last[1] - 3}" width="6" height="6" fill="${color}"/></svg>`;
+}
+const grow = (name, dept, line, actual, target, unit, trend) => {
+  const pct = Math.round((actual / target) * 100);
+  const cls = pct >= 90 ? 'g' : pct >= 70 ? 'a' : 'r';
+  const color = { g: '#1E7F4F', a: '#B54708', r: '#B42318' }[cls];
+  return `<div class="grow"><div class="name"><b>${name}</b><small>${dept}${line ? ` · <span class="chip ${line[0]}">${line[1]}</span>` : ''}</small></div>
+    <div><b>${actual}</b> / ${target} <small style="color:var(--color-muted)">${unit}</small></div>
+    <span class="light ${cls}">${pct} %</span>
+    <div class="meter-c"><div class="meter"><i style="width:${Math.min(pct, 120) / 1.2}%"></i></div></div>
+    <div class="spark-c">${spark(trend, color)}</div></div>`;
+};
+const goalsView = `<div class="toolbar"><span class="seg"><span class="on">Semana 41 · 6–12 oct</span><span>12 semanas</span></span>
+    <span class="dd-l">Todos los departamentos ${I('chevron-down')}</span>
+    <button class="btn ghost" style="margin-left:auto">${I('download')}Exportar CSV</button><button class="btn primary" style="margin-left:0">${I('clipboard-pen')}Cargar reporte</button></div>
+  <div class="goals">
+    <div class="kpis">
+      <div class="kpi"><small>Cumplimiento general</small><b>81 %</b><span class="up">+6 pts vs. semana 40</span></div>
+      <div class="kpi"><small>Pólizas vendidas</small><b>42</b><span class="up">+5 vs. semana 40</span></div>
+      <div class="kpi"><small>Metas en verde</small><b>2 de 4</b><span>Verde = 90 % o más</span></div>
+      <div class="kpi"><small>Reportes entregados</small><b>3 de 4</b><span class="down">Falta Medicare</span></div>
+    </div>
+    <div class="gtable">
+      <div class="grow h"><span>Meta</span><span>Logrado</span><span>Cumpl.</span><span>Avance vs. objetivo</span><span>12 semanas</span></div>
+      ${grow('Pólizas ACA vendidas', 'Ventas Salud', ['salud', 'Salud'], 22, 20, 'pólizas', [70, 82, 90, 85, 95, 100, 92, 104, 98, 110, 105, 110])}
+      ${grow('Casos de servicio resueltos', 'Servicio al cliente', null, 41, 45, 'casos', [88, 92, 85, 90, 94, 91, 89, 93, 95, 90, 92, 91])}
+      ${grow('Pólizas Vida vendidas', 'Ventas Vida', ['vida', 'Vida'], 11, 15, 'pólizas', [60, 72, 80, 66, 75, 85, 70, 78, 82, 64, 67, 73])}
+      ${grow('Inscripciones Medicare Advantage', 'Medicare', ['medicare', 'Medicare'], 9, 18, 'inscripciones', [40, 35, 50, 45, 38, 55, 48, 52, 44, 60, 42, 50])}
+    </div>
+    <div class="missing">${I('circle-alert')}<span><b>Medicare</b> no ha entregado el reporte de esta semana. Recordatorio automático el viernes a las 3:00 p. m.</span></div>
+  </div>`;
+
+const onbDesktop = `<div class="onb"><div class="onb-card">
+  <div class="steps">
+    <div class="s ok"><span class="k">${I('check')}</span>Tu agencia</div>
+    <div class="s ok"><span class="k">${I('check')}</span>Departamentos</div>
+    <div class="s ok"><span class="k">${I('check')}</span>Líneas de negocio</div>
+    <div class="s ok"><span class="k">${I('check')}</span>Invitar al equipo</div>
+    <div class="s on"><span class="k">5</span>App en el teléfono</div>
+    <div class="s"><span class="k">6</span>Notificaciones</div>
+  </div>
+  <div class="onb-body">
+    <h2>Instala Agencia Hub en tu iPhone</h2>
+    <p>Así recibes avisos de mensajes y anuncios aunque no tengas la app abierta. No necesitas la App Store.</p>
+    <div class="qr"><span class="code"></span><span>Escanea con la cámara del iPhone para abrir la app en Safari.<br><small style="color:var(--color-muted)">O abre <b>app.agencia-hub.com</b> en Safari.</small></span></div>
+    <div class="how">
+      <div class="h"><span class="k">1</span><div><b>Toca Compartir</b><span>El cuadro con la flecha hacia arriba, abajo en Safari.</span></div></div>
+      <div class="h"><span class="k">2</span><div><b>Elige «Agregar a pantalla de inicio»</b><span>Desliza la lista hacia abajo si no lo ves.</span></div></div>
+      <div class="h"><span class="k">3</span><div><b>Abre la app desde el nuevo ícono</b><span>Ahí activarás las notificaciones.</span></div></div>
+    </div>
+    <div class="onb-foot"><button class="btn ghost">Lo haré después</button><button class="btn primary">Ya la instalé ${I('arrow-right')}</button></div>
+  </div></div></div>`;
+
+const onbPhone = `<div class="onb"><div class="onb-card"><div class="onb-body">
+  <span class="chip" style="justify-self:start">Paso 6 de 6</span>
+  <h2>Activa las notificaciones</h2>
+  <p>Te avisamos de mensajes directos, menciones, anuncios y tareas. Puedes ajustar cada canal después.</p>
+  <div class="how">
+    <div class="h"><span class="k">${I('check')}</span><div><b>App instalada</b><span>Abriste Agencia Hub desde la pantalla de inicio.</span></div></div>
+    <div class="h"><span class="k">2</span><div><b>Permitir notificaciones</b><span>iPhone te preguntará; toca «Permitir».</span></div></div>
+    <div class="h"><span class="k">3</span><div><b>Prueba que llegan</b><span>Te enviamos una notificación de prueba.</span></div></div>
+  </div>
+  <button class="btn primary" style="min-height:48px">${I('bell')}Activar notificaciones</button>
+  <button class="btn ghost" style="min-height:48px">${I('send')}Enviarme una prueba</button>
+</div></div></div>`;
+
+const SCREENS = [
+  { id: 'canal', label: 'Canal', icon: 'hash',
+    d: () => desktop('canal', topbar(`${I('hash')}ventas-vida`, 'Pólizas de Vida · meta semanal 15', membersBtn) + channelFeed(false) + composer('', '<span class="at">@an</span>')),
+    m: () => mobile({ title: `${I('hash')}ventas-vida`, sub: '14 miembros · Vida', body: channelFeed(true) + composer('Mensaje a # ventas-vida'), noTab: true }),
+    notes: ['Mensaje con mención resaltado en naranja claro y barra naranja; mi mención en naranja sólido con texto marino.',
+      'Línea roja «Nuevos mensajes», indicador «está escribiendo…» y menú de acciones al pasar el mouse (reaccionar, hilo, crear tarea, fijar).',
+      'Autocompletado de @menciones con persona, rol y estado; @canal indica a cuántos avisa.',
+      'En iPhone la barra inferior se oculta dentro de un canal: el compositor queda pegado al teclado.'] },
+  { id: 'hilo', label: 'Hilo', icon: 'message-square-text',
+    d: () => desktop('canal', topbar(`${I('hash')}ventas-vida`, 'Pólizas de Vida · meta semanal 15', membersBtn) + channelFeed(false) + composer('Mensaje a # ventas-vida'), threadPanel),
+    m: () => mobile({ title: 'Hilo', sub: '# ventas-vida', right: I('bell'), body: threadPanel.replace('<aside class="panel">', '<div class="panel" style="width:auto;flex:1;border:0;box-shadow:none">').replace(/<div class="panel-head">[\s\S]*?<\/div>/, '').replace('</aside>', '</div>'), noTab: true }),
+    notes: ['El hilo abre en el panel derecho sin perder el canal; en iPhone es una pantalla apilada con gesto de volver.',
+      'Casilla «Enviar también a # ventas-vida» debajo del compositor del hilo.',
+      'En el canal, el mensaje raíz muestra avatares de quienes respondieron, número y hace cuánto.'] },
+  { id: 'dm', label: 'Mensaje directo', icon: 'message-circle',
+    d: () => desktop('dm', topbar(`<span class="presence" style="width:10px;height:10px;background:var(--color-presence)"></span>Ana Torres`, 'Ventas Vida · Agente · 10:12 a. m. hora local') + dmFeed + composer('Mensaje a Ana Torres')),
+    m: () => mobile({ title: 'Ana Torres', sub: 'Conectada · Ventas Vida', right: I('info'), body: dmFeed + composer('Mensaje a Ana Torres'), noTab: true }),
+    notes: ['Presencia: punto verde (conectada) o círculo vacío (ausente). Es el único elemento redondo de la interfaz.',
+      'El encabezado muestra cargo, departamento y la hora local de la otra persona.',
+      'Imágenes con miniatura dentro del mensaje; al tocarlas abren el visor.'] },
+  { id: 'anuncios', label: 'Anuncios', icon: 'megaphone',
+    d: () => desktop('anuncios', topbar(`${I('megaphone')}Anuncios`, 'Todos leen · publican Admin y Líderes') + annFeed(false) + composer('Publicar un anuncio…'), ackPanel),
+    m: () => mobile({ title: `${I('megaphone')}Anuncios`, sub: 'Comunicados de la agencia', body: annFeed(true), tab: 'inicio' }),
+    notes: ['Anuncio fijado arriba con borde naranja hasta su fecha de expiración.',
+      'Botón «Entendido» con barra de progreso de confirmaciones; quien publica ve pendientes y puede recordarles.',
+      'Los miembros no ven compositor en #anuncios (solo Admin y Líder publican). El push de anuncios no se puede silenciar.'] },
+  { id: 'manual', label: 'Manual', icon: 'book-open',
+    d: () => desktop('manual', topbar(`${I('book-open')}Manuales`, '', `<button class="btn ghost">${I('history')}Historial</button><button class="btn ghost">${I('share-2')}Compartir en el chat</button><button class="btn primary">${I('pencil')}Editar</button>`) + docView),
+    m: () => mobile({ title: 'Aprobación acelerada', sub: 'Ventas Vida · Suscripción Vida', right: I('ellipsis-vertical'), body: docView, tab: 'inicio' }),
+    notes: ['Árbol de páginas por departamento a la izquierda; en iPhone el árbol es una pantalla previa y la página se lee a ancho completo.',
+      'Etiqueta de línea de negocio, autor, versiones y adjuntos bajo el título.',
+      'Editor Tiptap con tablas y avisos destacados; «Compartir en el chat» crea una tarjeta con vista previa.'] },
+  { id: 'kanban', label: 'Tareas', icon: 'square-kanban',
+    d: () => desktop('kanban', topbar(`${I('square-kanban')}Tareas`, 'Ventas Vida') + kanbanView),
+    m: () => mobile({ back: false, title: 'Mis tareas', sub: '4 pendientes · 1 vencida', right: I('plus'), body: kanbanView, tab: 'tareas' }),
+    notes: ['Cuatro columnas: Por hacer, En curso, Hecho, Cancelada. Vencidas con borde y fecha en rojo.',
+      'Tarjeta con línea de negocio, prioridad, fecha límite y responsables. Al arrastrar, la tarjeta se inclina y gana sombra.',
+      'En iPhone el tablero se desliza de lado columna por columna; la pestaña «Tareas» abre «Mis tareas».'] },
+  { id: 'metas', label: 'Metas', icon: 'target',
+    d: () => desktop('metas', topbar(`${I('target')}Metas semanales`, 'Semana 41 · 6 al 12 de octubre') + goalsView),
+    m: () => mobile({ title: 'Metas', sub: 'Semana 41 · 6–12 oct', right: I('download'), body: goalsView, tab: 'inicio' }),
+    notes: ['Semáforo: verde 90 % o más, ámbar 70–89 %, rojo menos de 70 %. El color siempre va con el número, nunca solo.',
+      'Barra de avance con marca naranja en el 100 % del objetivo; tendencia de 12 semanas con línea punteada en la meta.',
+      'Aviso de reportes faltantes con la hora del recordatorio automático. Exportar a CSV.'] },
+  { id: 'onboarding', label: 'Onboarding', icon: 'smartphone',
+    d: () => `<section class="main" style="grid-column:1/-1">${onbDesktop}</section>`,
+    m: () => mobile({ back: false, title: 'Agencia Hub', sub: 'Configura tu teléfono', right: I('x'), body: onbPhone, noTab: true }),
+    notes: ['Escritorio: paso «App en el teléfono» con QR e instrucciones de Safari (Compartir → Agregar a pantalla de inicio).',
+      'iPhone, ya instalada: activar notificaciones y enviarse una prueba, con botones de 48 px.',
+      'Si alguien entra desde Safari sin instalar, se le muestra este flujo antes de pedir permisos.'] },
+];
+
+const tabsEl = document.getElementById('tabs');
+const desk = document.getElementById('desk'), phone = document.getElementById('phone');
+const deskScaler = document.getElementById('deskScaler'), phoneScaler = document.getElementById('phoneScaler');
+
+function fit() {
+  for (const [s, el, w, h] of [[deskScaler, desk, 1280, 800], [phoneScaler, phone, 390, 844]]) {
+    const inner = s.clientWidth - (s === phoneScaler ? 20 : 0);
+    const k = inner / w;
+    el.style.transform = `scale(${k})`;
+    s.style.height = `${h * k + (s === phoneScaler ? 20 : 0)}px`;
+  }
+}
+function show(id) {
+  const s = SCREENS.find((x) => x.id === id) || SCREENS[0];
+  desk.innerHTML = s.d();
+  phone.innerHTML = s.m();
+  document.getElementById('notes').innerHTML =
+    `<div><h2>${s.label}: qué revisar</h2><ul>${s.notes.map((n) => `<li>${n}</li>`).join('')}</ul></div>
+     <div><h2>Reglas aplicadas en todas</h2><ul><li>Esquinas rectas en todo; solo el punto de presencia es redondo.</li><li>Texto marino sobre naranja (blanco sobre naranja no pasa AA).</li><li>Roboto en texto, Bricolage Grotesque en títulos; íconos Lucide; sin emojis en la interfaz (solo en reacciones y mensajes).</li><li>Desplegables propios, sin selectores nativos; áreas táctiles de 44 px en iPhone.</li></ul></div>`;
+  tabsEl.querySelectorAll('button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.id === s.id)));
+  try { localStorage.setItem('mockup-tab', s.id); } catch {}
+  if (window.lucide) lucide.createIcons();
+  fit();
+}
+tabsEl.innerHTML = SCREENS.map((s, i) => `<button role="tab" data-id="${s.id}"><span class="num">${i + 1}</span>${I(s.icon)}${s.label}</button>`).join('');
+tabsEl.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) show(b.dataset.id); });
+let start = location.hash.slice(1);
+if (!start) { try { start = localStorage.getItem('mockup-tab'); } catch {} }
+new ResizeObserver(fit).observe(deskScaler.parentElement);
+show(start);
+</script>
