@@ -5,6 +5,9 @@ import { onUnauthenticated } from '@/api.ts';
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
+    // Sin pantalla propia: beforeEach manda al primer workspace o al login.
+    // Debe existir; si no, el comodín de abajo redirige '/' a '/' en bucle.
+    { path: '/', component: { render: () => null } },
     { path: '/login', component: () => import('@/platform/LoginPage.vue'), meta: { public: true, guestOnly: true } },
     { path: '/register', component: () => import('@/platform/RegisterPage.vue'), meta: { public: true, guestOnly: true } },
     { path: '/forgot', component: () => import('@/platform/ForgotPage.vue'), meta: { public: true } },
