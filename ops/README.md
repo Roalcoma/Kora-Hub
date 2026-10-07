@@ -39,6 +39,11 @@ Creados al probar la Ola 1 en la BD local (no existen en otros entornos):
 ## CI
 `.github/workflows/ci.yml`: typecheck → migraciones sobre Postgres limpio → pruebas.
 
-## Pendiente (Ola 4)
-Imagen de producción, despliegue del piloto con Cloudflare Tunnel, backups cifrados con prueba de restauración,
-alertas a Telegram, guía de VPS con BAA.
+## Producción
+Guía completa en [docs/despliegue.md](../docs/despliegue.md): imagen (`Dockerfile`), `compose.prod.yml` (app, Postgres,
+MinIO; sin puertos al host; red del túnel de Cloudflare), `.env.prod.example`, `backup.sh` (pg_dump + MinIO cifrados,
+retención 14 días, aviso a Telegram) y `restore-test.sh` (restaura en un Postgres efímero y verifica conteos).
+
+```bash
+docker build -t kora:local .     # desde la raíz del repo
+```
