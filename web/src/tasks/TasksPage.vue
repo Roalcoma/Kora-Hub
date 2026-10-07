@@ -32,7 +32,8 @@ tasks.init();
 type View = 'board' | 'list' | 'mine';
 const remember = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* modo privado */ } };
 const recall = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
-const view = ref<View>((recall('tasks-view') as View) || 'board');
+// En el teléfono lo útil es lo mío; en escritorio, el tablero
+const view = ref<View>((recall('tasks-view') as View) || (matchMedia('(max-width: 767px)').matches ? 'mine' : 'board'));
 watch(view, (v) => remember('tasks-view', v));
 
 // Departamento: por defecto el primero mío (los Admin ven todos)

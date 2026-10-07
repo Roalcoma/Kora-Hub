@@ -36,12 +36,42 @@ Registro, login con 2FA, invitaciones, roles, departamentos/líneas, design syst
 - [ ] Rodrigo revisa el chat en escritorio y en su teléfono.
 - [ ] Revisión del agente `seguridad` (Olas 0–2).
 
+## Ola 3 · Módulos — en compuerta (falta revisión de Rodrigo)
+
+| Entregable | Agente | Estado |
+|---|---|---|
+| Manuales: árbol por departamento, editor Tiptap (títulos, listas, tablas, imágenes, enlaces), adjuntos PDF/Office | backend-modulos · frontend-modulos | Hecho |
+| Manuales: versiones (se juntan ediciones de 10 min de la misma persona), vista previa y restaurar; archivar con subpáginas | backend-modulos · frontend-modulos | Hecho |
+| Manuales: búsqueda sin acentos con fragmento marcado; contenido limpiado en el servidor (sin imágenes externas ni `javascript:`) | backend-modulos | Hecho |
+| Manuales: enlace copiado y pegado en el chat se ve como tarjeta | frontend-modulos | Hecho |
+| Tareas: kanban (arrastrar entre columnas), lista, Mis tareas, filtros por depto/línea/texto, detalle en panel | frontend-modulos | Hecho |
+| Tareas: responsables, prioridad, fecha límite (vencidas en rojo), checklist, comentarios, tiempo real por WebSocket | backend-modulos · frontend-modulos | Hecho |
+| Tareas: "Crear tarea" desde el menú de un mensaje (queda enlazada al mensaje) | frontend-chat · frontend-modulos | Hecho |
+| Avisos: tarea asignada, comentario y 24 h antes del vencimiento (push + aviso en la app) | backend-notificaciones | Hecho |
+| Metas: definición (Admin), reporte semanal (Líder; semana actual y anterior), objetivo copiado al reporte | backend-modulos · frontend-modulos | Hecho |
+| Metas: semanas cerradas solo Admin con auditoría; recordatorio push los viernes 15:00 (NY) a quien no reportó | backend-modulos · backend-notificaciones | Hecho |
+| Tablero: semáforo con ícono y texto, tendencia por semana con tooltip, vista tabla, CSV (a prueba de fórmulas) y PDF por impresión | frontend-modulos | Hecho |
+| Pruebas: 11 nuevas (permisos Admin/Líder/Miembro, histórico, CSV, aislamiento entre agencias); total 50 en verde | qa | Hecho |
+| Prueba manual en navegador: escritorio y teléfono (390 px) de los tres módulos | orquestador | Hecho |
+
+Nueva dependencia aprobada por el plan: Tiptap (`@tiptap/vue-3`, `starter-kit`, `extension-image`, `extension-table`, `pm`).
+
+### Compuerta de la Ola 3 — falta
+- [ ] Rodrigo revisa manuales, tareas y metas.
+- [ ] Revisión del agente `seguridad` (Olas 0–3).
+
 ## Pendientes registrados
 - **Avatar y logo:** el módulo de archivos ya existe; falta conectar `avatarFileId`/`logoFileId` en perfil y agencia.
 - **Onboarding:** el paso del iPhone muestra la URL; sin QR (evita una dependencia).
 - **Sin miniaturas en el servidor** (sin `sharp`): las imágenes se sirven completas y el navegador las escala (ADR 0004).
 - **Vistas previas de enlaces** (`meta.linkPreviews`) no implementadas: requieren que el servidor visite URLs externas (riesgo SSRF); evaluar en Ola 5.
-- **"Crear tarea" desde un mensaje** muestra aviso; se conecta en la Ola 3 con el módulo de Tareas.
+- **Resumen del lunes en #anuncios** (`settings.weeklySummary`) no implementado; el recordatorio del viernes sí.
+- **Ctrl+K** todavía no busca manuales ni tareas (`GET /search-all` sin implementar); cada módulo tiene su buscador.
+- **Semana de metas y recordatorio en horario de Nueva York** para todas las agencias; zona por workspace si llegan clientes de otra costa.
+- **Tareas cerradas**: se cargan las de los últimos 30 días (sin paginación); el kanban no se arrastra en pantallas táctiles (el estado se cambia en el detalle).
+- **Archivos de manuales** (`context = document`) los puede descargar cualquier miembro, incluidos invitados si conocen el id; cerrar al implementar invitados.
+- Texto del recordatorio de reportes solo en español.
+- Prueba intermitente vista una vez (1 de 6 corridas) con el servidor de desarrollo encendido: su worker consume la misma cola de jobs que las pruebas. Correr las pruebas con la API de desarrollo apagada o con una BD aparte.
 - **Recordar a los pendientes** de un anuncio: no implementado (el panel muestra quién falta).
 - **Tiempo real en una sola instancia** (bus en memoria, ADR 0004); NOTIFY al escalar.
 - **Scroll virtual:** se usa `content-visibility: auto` + paginación de 50; medir con 5 000 mensajes en un iPhone de gama media antes del piloto.
@@ -50,5 +80,5 @@ Registro, login con 2FA, invitaciones, roles, departamentos/líneas, design syst
 - Las migraciones son solo hacia adelante; purga de `ws_tickets` y `password_resets` vencidos → job en Ola 2.
 - Revisión formal de Seguridad (agente `seguridad`) de las Olas 0–1 antes de integrar la Ola 2.
 
-## Siguiente: Ola 3 · Módulos
-backend-modulos + frontend-modulos: manuales (Tiptap, árbol, versiones), tareas (kanban, "crear desde mensaje"), metas y reportes semanales.
+## Siguiente: Ola 4 · SaaS y lanzamiento
+Stripe, superadmin, facturación, landing con precios y despliegue del piloto (Cloudflare Tunnel). Arranca con el visto bueno de Rodrigo.
