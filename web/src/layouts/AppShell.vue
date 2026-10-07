@@ -4,7 +4,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen, ChevronsUpDown, BellRing } from 'lucide-vue-next';
+import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen, ChevronsUpDown, BellRing, ShieldCheck } from 'lucide-vue-next';
 import { useSession } from '@/stores/session.ts';
 import { useChat } from '@/chat/store.ts';
 import Kbd from '@/design/Kbd.vue';
@@ -114,12 +114,14 @@ const meLabel = computed(() => s.workspace!.me.title || t(`roles.${s.workspace!.
 function openMe(e: MouseEvent) {
   const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
   // El menú abre hacia arriba: el botón está al pie de la pantalla
-  mePos.value = { x: r.left + (collapsed.value ? r.width + 8 : 0), y: Math.max(8, r.top - 3 * 44 - 12) };
+  mePos.value = { x: r.left + (collapsed.value ? r.width + 8 : 0), y: Math.max(8, r.top - meItems.value.length * 44 - 12) };
   meMenu.value = true;
 }
 const meItems = computed(() => [
   { label: t('nav.profile'), icon: CircleUser, action: () => router.push(`${base.value}/settings/profile`) },
   { label: t('nav.notifications'), icon: BellRing, action: () => router.push(`${base.value}/settings/profile`) },
+  // Acceso al backoffice solo para superadmins (y nunca desde una sesión impersonada)
+  ...(s.platformAdmin && !s.impersonation ? [{ label: t('nav.backoffice'), icon: ShieldCheck, action: () => router.push('/admin') }] : []),
   { label: t('nav.logout'), icon: LogOut, danger: true, action: async () => { chat.disconnect(); await s.logout(); router.replace('/login'); } },
 ]);
 

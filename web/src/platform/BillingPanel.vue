@@ -5,7 +5,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { Check, CreditCard, CalendarClock, Users, Receipt, FlaskConical, Info } from 'lucide-vue-next';
-import type { BillingInfo, WorkspaceStatus } from '@agencia-hub/contracts';
+import type { BillingInfo } from '@agencia-hub/contracts';
 import { api } from '@/api.ts';
 import { useSession } from '@/stores/session.ts';
 import Badge from '@/design/Badge.vue';
@@ -14,6 +14,7 @@ import Modal from '@/design/Modal.vue';
 import Skeleton from '@/design/Skeleton.vue';
 import { toast } from '@/design/toast.ts';
 import { errorText } from './errors.ts';
+import { money as fmtMoney, statusTone, daysUntil } from './format.ts';
 
 type PaidPlan = 'standard' | 'pro';
 const PLANS: PaidPlan[] = ['standard', 'pro'];
@@ -36,10 +37,7 @@ async function load() {
 }
 onMounted(load);
 
-const money = (cents: number) => new Intl.NumberFormat(locale.value, { style: 'currency', currency: 'USD', minimumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100);
-const daysUntil = (iso: string | null) => (iso ? Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86400_000)) : 0);
-const statusTone = (st: WorkspaceStatus) =>
-  ({ trialing: 'primary', active: 'success', past_due: 'warning', read_only: 'warning', suspended: 'danger', closing: 'danger' } as const)[st];
+const money = (cents: number) => fmtMoney(cents, locale.value);
 
 // Lo destacado de la tarjeta del plan: días de prueba, días de gracia o próxima renovación
 const headline = computed(() => {

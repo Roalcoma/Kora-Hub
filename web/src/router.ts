@@ -14,6 +14,8 @@ export const router = createRouter({
     { path: '/reset/:token', component: () => import('@/platform/ResetPage.vue'), meta: { public: true } },
     { path: '/invite/:token', component: () => import('@/platform/InvitePage.vue'), meta: { public: true } },
     { path: '/_design', component: () => import('@/design/DesignPage.vue'), meta: { public: true } },
+    // Backoffice de plataforma: fuera del shell de agencia, solo superadmins
+    { path: '/admin', component: () => import('@/platform/AdminPage.vue'), meta: { platformAdmin: true } },
     { path: '/w/:slug/onboarding', component: () => import('@/platform/OnboardingPage.vue') },
     {
       path: '/w/:slug',
@@ -40,9 +42,14 @@ router.beforeEach(async (to) => {
   if (!s.loaded) await s.load();
   if (!s.session) return to.meta.public ? true : { path: '/login', query: { next: to.fullPath } };
   if (to.meta.guestOnly) return '/';
+  if (to.meta.platformAdmin) {
+    // La sesión impersonada no abre el backoffice: vuelve a la agencia que está viendo
+    if (s.impersonation) return `/w/${s.impersonation.workspaceSlug}`;
+    if (!s.platformAdmin) return '/';
+  }
   if (to.path === '/') {
     const first = s.session.workspaces[0];
-    return first ? `/w/${first.slug}` : '/register';
+    return first ? `/w/${first.slug}` : s.platformAdmin ? '/admin' : '/register';
   }
   if (to.params.slug) {
     try {
