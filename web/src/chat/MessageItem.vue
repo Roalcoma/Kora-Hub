@@ -10,7 +10,8 @@ import ContextMenu from '@/design/ContextMenu.vue';
 import Button from '@/design/Button.vue';
 import { toast } from '@/design/toast.ts';
 import { useChat, type UiMessage } from './store.ts';
-import { renderBody } from './format.ts';
+import { renderBody, plainBody } from './format.ts';
+import { useTasks } from '@/tasks/store.ts';
 import EmojiPicker from './EmojiPicker.vue';
 
 const props = defineProps<{ m: UiMessage; compact?: boolean; inThread?: boolean; channel: Channel; canWrite: boolean }>();
@@ -47,8 +48,17 @@ function openMenu(x: number, y: number) {
   menuPos.value = { x, y };
   menu.value = true;
 }
+// "Crear tarea": el texto del mensaje propone el título y queda enlazado al mensaje
+const tasks = useTasks();
+const canTask = computed(() => s.workspace!.me.role !== 'guest');
+function createTask() {
+  const text = plainBody(props.m.body, (id) => chat.memberById.get(id)?.name);
+  tasks.compose({ title: text.split('\n')[0]!.slice(0, 200), description: text, sourceMessageId: props.m.id, sourcePreview: `${chat.nameOf(props.m.userId)}: ${text}` });
+}
+
 const menuItems = computed(() => [
   ...(!props.inThread && !props.m.parentId ? [{ label: t('chat.replyInThread'), icon: MessageSquareText, action: () => emit('thread', props.m.id) }] : []),
+  ...(canTask.value ? [{ label: t('chat.createTask'), icon: SquareCheck, action: createTask }] : []),
   ...(mine.value ? [{ label: t('chat.edit'), icon: Pencil, action: startEdit }] : []),
   ...(props.canWrite ? [{ label: props.m.pinned ? t('chat.unpin') : t('chat.pin'), icon: props.m.pinned ? PinOff : Pin, action: () => run(chat.pin(props.m.id, !props.m.pinned)) }] : []),
   { label: t('chat.copyText'), icon: Copy, action: () => copy(props.m.body.replace(/<@([0-9a-f-]{36})>/g, (_, id) => `@${chat.nameOf(id)}`)) },
@@ -163,7 +173,7 @@ const cancelPress = () => clearTimeout(press);
       </Popover>
       <button v-else type="button" :aria-label="t('chat.react')" :title="t('chat.react')" @click="react('👍')">👍</button>
       <button v-if="!inThread && !m.parentId" type="button" :aria-label="t('chat.replyInThread')" :title="t('chat.replyInThread')" @click="emit('thread', m.id)"><MessageSquareText :size="17" /></button>
-      <button type="button" :aria-label="t('chat.createTask')" :title="t('chat.createTask')" @click="toast(t('chat.soonTask'))"><SquareCheck :size="17" /></button>
+      <button v-if="canTask" type="button" :aria-label="t('chat.createTask')" :title="t('chat.createTask')" @click="createTask"><SquareCheck :size="17" /></button>
       <button v-if="canWrite" type="button" :aria-label="m.pinned ? t('chat.unpin') : t('chat.pin')" :title="m.pinned ? t('chat.unpin') : t('chat.pin')" @click="run(chat.pin(m.id, !m.pinned))">
         <PinOff v-if="m.pinned" :size="17" /><Pin v-else :size="17" />
       </button>

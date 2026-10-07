@@ -27,7 +27,7 @@ export const router = createRouter({
         { path: 'mentions', component: () => import('@/chat/InboxPage.vue') },
         { path: 'settings/:tab?', name: 'settings', component: () => import('@/platform/SettingsPage.vue') },
         { path: 'manuals', component: () => import('@/platform/ComingSoon.vue') },
-        { path: 'tasks', component: () => import('@/platform/ComingSoon.vue') },
+        { path: 'tasks', component: () => import('@/tasks/TasksPage.vue') },
         { path: 'goals', component: () => import('@/platform/ComingSoon.vue') },
       ],
     },

@@ -62,3 +62,9 @@ export function uuid(): string {
 }
 
 export const sameDay = (a: string, b: string) => new Date(a).toDateString() === new Date(b).toDateString();
+
+/** Texto plano de un mensaje (título de una tarea creada desde el chat). */
+export const plainBody = (body: string, name: NameLookup) => body
+  .replace(/<@([0-9a-f-]{36})>/g, (_, id: string) => `@${name(id) ?? 'alguien'}`)
+  .replace(/<!channel>/g, '@canal').replace(/<!here>/g, '@aquí')
+  .replace(/```|\*\*|`/g, '').trim();

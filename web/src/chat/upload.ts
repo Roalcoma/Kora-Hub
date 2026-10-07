@@ -4,7 +4,7 @@ import type { FileRef } from '@agencia-hub/contracts';
 import { ALLOWED_MIME } from '@agencia-hub/contracts';
 import { api } from '@/api.ts';
 
-export type Upload = { key: string; name: string; progress: number; file?: FileRef; error?: string; preview?: string };
+export type Upload = { key: string; name: string; progress: number; file?: FileRef; error?: string; preview?: string; done: Promise<void> };
 
 const allowed = new Set<string>(ALLOWED_MIME);
 
@@ -31,16 +31,18 @@ function put(url: string, f: File, onProgress: (p: number) => void) {
 }
 
 /** Sube `f` y va actualizando el objeto reactivo devuelto (progreso, error o FileRef final). */
-export function uploadFile(slug: string, f: File, maxMb: number, texts: { tooBig: string; failed: string }): Upload {
-  const u = reactive<Upload>({ key: `${f.name}-${f.size}-${Math.random()}`, name: f.name, progress: 0 });
+export function uploadFile(
+  slug: string, f: File, maxMb: number, texts: { tooBig: string; failed: string }, context: 'message' | 'document' | 'task' = 'message',
+): Upload {
+  const u = reactive<Upload>({ key: `${f.name}-${f.size}-${Math.random()}`, name: f.name, progress: 0, done: Promise.resolve() });
   if (f.type.startsWith('image/')) u.preview = URL.createObjectURL(f);
   if (!allowed.has(f.type)) { u.error = texts.failed; return u; }
   if (f.size > maxMb * 1024 * 1024) { u.error = texts.tooBig; return u; }
-  (async () => {
+  u.done = (async () => {
     try {
       const dims = await imageSize(f);
       const { fileId, uploadUrl } = await api('POST /w/:slug/files', {
-        params: { slug }, body: { name: f.name, mime: f.type as (typeof ALLOWED_MIME)[number], size: f.size, context: 'message', ...dims },
+        params: { slug }, body: { name: f.name, mime: f.type as (typeof ALLOWED_MIME)[number], size: f.size, context, ...dims },
       });
       await put(uploadUrl, f, (p) => { u.progress = p; });
       u.file = await api('POST /w/:slug/files/:id/complete', { params: { slug, id: fileId } });

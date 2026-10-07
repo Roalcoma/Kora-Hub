@@ -296,7 +296,12 @@ export const useChat = defineStore('chat', () => {
   const typingIn = (key: string) => Object.entries(typing[key] ?? {}).filter(([, until]) => until > Date.now()).map(([id]) => id);
   setInterval(() => { for (const k of Object.keys(typing)) for (const [u, t] of Object.entries(typing[k]!)) if (t < Date.now()) delete typing[k]![u]; }, 1000);
 
+  // Otros módulos (tareas) escuchan el mismo socket
+  const listeners = new Set<(e: ServerEvent) => void>();
+  const listen = (fn: (e: ServerEvent) => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
+
   function onEvent(e: ServerEvent) {
+    for (const fn of listeners) fn(e);
     switch (e.type) {
       case 'message.created': {
         const m = e.message;
@@ -329,6 +334,7 @@ export const useChat = defineStore('chat', () => {
       case 'channel.updated': upsertChannel(e.channel); break;
       case 'channel.removed': channels.value = channels.value.filter((c) => c.id !== e.channelId); break;
       case 'read.updated': { const c = channelById(e.channelId); if (c) { c.lastReadAt = e.lastReadAt; c.unreadCount = 0; c.mentionCount = 0; } break; }
+      case 'notification': toast(`${e.title}: ${e.body}`); break;
     }
   }
 
@@ -344,6 +350,6 @@ export const useChat = defineStore('chat', () => {
     channels, members, lists, typing, activeChannelId, connected, ready, memberById,
     nameOf, channelById, channelTitle, list, init, loadChannel, loadOlder, loadThread, findMessage,
     send, deliver, retryFailed, discard, edit, remove, react, pin, ack,
-    createChannel, openDm, join, leave, prefs, markRead, totalUnread, sendTyping, typingIn, disconnect,
+    createChannel, openDm, join, leave, prefs, markRead, totalUnread, sendTyping, typingIn, disconnect, listen,
   };
 });

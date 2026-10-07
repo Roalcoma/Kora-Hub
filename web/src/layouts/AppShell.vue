@@ -13,6 +13,7 @@ import Tooltip from '@/design/Tooltip.vue';
 import ContextMenu from '@/design/ContextMenu.vue';
 import ChannelList from '@/chat/ChannelList.vue';
 import QuickSwitcher from '@/chat/QuickSwitcher.vue';
+import TaskCompose from '@/tasks/TaskCompose.vue';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -147,6 +148,7 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
     </nav>
     <ContextMenu v-model="wsMenu" :items="wsMenuItems" :x="menuPos.x" :y="menuPos.y" />
     <QuickSwitcher v-model="switcher" />
+    <TaskCompose />
   </div>
 </template>
 

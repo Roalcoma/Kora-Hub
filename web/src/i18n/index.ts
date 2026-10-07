@@ -7,6 +7,7 @@ const initial = saved ?? (navigator.language.startsWith('en') ? 'en' : 'es');
 
 const datetime = {
   short: { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' },
+  day: { day: 'numeric', month: 'short' },
   long: { dateStyle: 'full', timeStyle: 'short' },
 } as const;
 

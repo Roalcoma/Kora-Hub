@@ -4,7 +4,7 @@ import { ref, watch, onMounted } from 'vue';
 import { X } from 'lucide-vue-next';
 
 const open = defineModel<boolean>({ default: false });
-defineProps<{ title: string; subtitle?: string }>();
+defineProps<{ title: string; subtitle?: string; width?: string }>();
 const dlg = ref<HTMLDialogElement>();
 const sync = () => {
   if (open.value && !dlg.value?.open) dlg.value?.showModal();
@@ -15,7 +15,7 @@ watch(open, sync);
 </script>
 
 <template>
-  <dialog ref="dlg" class="slide" @close="open = false" @click.self="open = false">
+  <dialog ref="dlg" class="slide" :style="width ? { '--w': width } : undefined" @close="open = false" @click.self="open = false">
     <div class="inner">
       <header>
         <div><h2>{{ title }}</h2><small v-if="subtitle">{{ subtitle }}</small></div>
@@ -27,7 +27,7 @@ watch(open, sync);
 </template>
 
 <style scoped>
-.slide { margin: 0 0 0 auto; height: 100dvh; max-height: 100dvh; width: 400px; max-width: 100vw; padding: 0; border: 0; background: var(--color-surface); color: var(--color-ink); box-shadow: var(--shadow-lg); }
+.slide { margin: 0 0 0 auto; height: 100dvh; max-height: 100dvh; width: var(--w, 400px); max-width: 100vw; padding: 0; border: 0; background: var(--color-surface); color: var(--color-ink); box-shadow: var(--shadow-lg); }
 .slide::backdrop { background: rgb(19 36 61 / .25); }
 .slide[open] { animation: in 180ms ease-out; }
 @keyframes in { from { transform: translateX(24px); opacity: 0; } }

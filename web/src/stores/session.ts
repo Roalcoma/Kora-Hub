@@ -16,6 +16,13 @@ export const useSession = defineStore('session', () => {
 
   const user = computed(() => session.value?.user ?? null);
   const isAdmin = computed(() => ['owner', 'admin'].includes(workspace.value?.me.role ?? ''));
+  const lineOf = (id: string | null) => (id ? workspace.value?.lines.find((l) => l.id === id) : undefined);
+  const deptName = (id: string) => workspace.value?.departments.find((d) => d.id === id)?.name ?? '';
+  /** Tono del Badge para una línea de negocio (las de la plantilla traen color salud / vida / medicare) */
+  const lineTone = (id: string | null) => {
+    const c = lineOf(id)?.color;
+    return c === 'salud' || c === 'vida' || c === 'medicare' ? c : 'neutral';
+  };
 
   function set(s: Session) {
     session.value = s;
@@ -48,5 +55,5 @@ export const useSession = defineStore('session', () => {
     workspace.value = null;
   }
 
-  return { session, workspace, loaded, lineId, user, isAdmin, set, load, openWorkspace, refreshWorkspace, logout };
+  return { session, workspace, loaded, lineId, user, isAdmin, lineOf, deptName, lineTone, set, load, openWorkspace, refreshWorkspace, logout };
 });
