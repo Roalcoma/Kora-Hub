@@ -10,11 +10,13 @@ npm install                      # instala todos los workspaces (shared/contract
 npm run db:up                    # levanta Postgres, MinIO y Mailpit (ops/docker-compose.yml)
 npm run migrate                  # aplica server/migrations/*.sql pendientes
 npm test                         # pruebas del backend (node:test, requiere la BD arriba)
-npm run typecheck                # tsc --noEmit en todos los workspaces
+npm run typecheck                # tsc / vue-tsc en todos los workspaces
+npm run dev:api                  # API en :4300
+npm run dev:web                  # Vite en :5180 (proxy /api → :4300); /_design muestra el design system
 ```
 
 Puertos locales (elegidos para no chocar con otros proyectos de la laptop):
-Postgres `55432` · MinIO API `59000` / consola `59001` · Mailpit SMTP `51025` / web `58025`.
+API `4300` · Web `5180` · Postgres `55432` · MinIO API `59000` / consola `59001` · Mailpit SMTP `51025` / web `58025`.
 
 ## Reglas comunes (§13.2 del plan)
 

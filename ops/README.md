@@ -19,6 +19,23 @@ npm test
 `ops/postgres/init.sh` crea el rol `agencia_app` solo la **primera** vez que se inicializa el volumen.
 Para empezar de cero: `docker compose -f ops/docker-compose.yml down -v` (borra los datos locales).
 
+## Levantar la app
+
+```bash
+npm run dev:api    # API en http://localhost:4300/api/v1
+npm run dev:web    # Web en http://localhost:5180 (proxy /api → 4300)
+```
+
+Página de componentes del design system: http://localhost:5180/_design
+
+### Datos de demo local
+Creados al probar la Ola 1 en la BD local (no existen en otros entornos):
+
+| Cuenta | Email | Contraseña | Rol en `agencia-piloto-seguros` |
+|---|---|---|---|
+| Owner | `demo@agencia-hub.test` | `demo-local-12345` | Owner |
+| Invitada | `ana@agencia-hub.test` | `demo-local-12345` | Líder |
+
 ## CI
 `.github/workflows/ci.yml`: typecheck → migraciones sobre Postgres limpio → pruebas.
 

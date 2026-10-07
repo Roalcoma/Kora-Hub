@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@import "./design/tokens.css";
+
+html, body, #app { height: 100%; }
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
+a { color: var(--color-leaf); }
+.lucide { flex: none; }

@@ -2,31 +2,38 @@
 
 _Lo mantiene el orquestador. Última actualización: 2026-10-07._
 
-## Ola actual: 0 · Cimientos — en compuerta (esperando aprobación de mockups)
+## Ola 0 · Cimientos — cerrada
+Esquema + RLS, contrato v1, entorno local, CI, tokens y mockups (https://claude.ai/artifact/AizW92hqjj4rwfJgVkSZvX).
+Rodrigo dio luz verde para arrancar ("Empieza"); se trabaja con los supuestos de ADR 0003.
+
+## Ola 1 · Plataforma — en compuerta (esperando revisión de Rodrigo)
 
 | Entregable | Agente | Estado |
 |---|---|---|
-| `CLAUDE.md` y `.claude/agents/*.md` (11 agentes) | orquestador | Hecho |
-| Esquema completo §9 + RLS + FK compuestas (`server/migrations/0001_init.sql`) | arquitecto | Hecho |
-| Helper `withWorkspace` / `withAdmin` + runner de migraciones | arquitecto | Hecho |
-| Prueba de aislamiento con dos workspaces (`server/test/rls.test.ts`, 10 casos) | arquitecto | Hecho, en verde |
-| Contrato v1 (`shared/contracts`: zod + tipos + `Routes` + eventos WS) | arquitecto | Hecho, compila |
-| ADR 0001 (aislamiento), 0002 (TS nativo + zod), 0003 (supuestos de §17) | arquitecto | Hecho |
-| Entorno local Docker (Postgres 55432, MinIO 59000/59001, Mailpit 51025/58025) | devops | Hecho |
-| CI (typecheck + migraciones + pruebas) | devops | Hecho (sin probar en GitHub: no hay remoto) |
-| Tokens CSS (`web/src/design/tokens.css`) | disenador-ui | Hecho |
-| Mockups de las 8 pantallas, escritorio + móvil (`docs/diseño/mockups.html`, publicado en https://claude.ai/artifact/AizW92hqjj4rwfJgVkSZvX) | disenador-ui | **Esperando aprobación de Rodrigo** |
-
-## Compuerta de la Ola 0 — falta
-- [ ] Rodrigo aprueba los mockups (o pide cambios).
-- [ ] Rodrigo confirma o corrige los supuestos de ADR 0003 (sobre todo departamentos reales del piloto).
-- [ ] Repositorio remoto en GitHub para que corra la CI.
-
-## Siguiente: Ola 1 · Plataforma
-backend-plataforma (registro, login, workspaces, invitaciones, roles, middleware) · disenador-ui (componentes + shell)
-· frontend-modulos (registro/login/onboarding con mocks del contrato).
+| Registro con plantilla "Agencia de seguros" (4 departamentos, 3 líneas, #general, #anuncios) | backend-plataforma | Hecho |
+| Login, logout, cerrar sesión en todos, recuperar contraseña, 2FA TOTP | backend-plataforma | Hecho |
+| Middleware `/w/:slug` (membresía + RLS + solo lectura/suspendido) y roles | backend-plataforma | Hecho |
+| Miembros, cambio de rol (con protección del último Owner), departamentos/líderes, líneas | backend-plataforma | Hecho |
+| Invitaciones por enlace o email (token hasheado, expiración, usos, revocar) | backend-plataforma | Hecho |
+| `audit_log` en login, roles, invitaciones, altas | backend-plataforma | Hecho |
+| Prueba HTTP del flujo completo + permisos + aislamiento (`server/test/platform.test.ts`, 11 casos) | qa | Hecho, en verde (21/21 en total) |
+| 15 componentes del design system + página `/_design` | disenador-ui | Hecho |
+| Shell (riel, sidebar, contenido, barra inferior móvil, safe areas) | disenador-ui | Hecho |
+| Registro, login, olvido/reset, aceptar invitación, onboarding (4 pasos), ajustes, perfil + 2FA | frontend-modulos | Hecho |
+| i18n es/en | frontend-modulos | Hecho |
+| Prueba manual en navegador: registro → onboarding → invitar → aceptar → login → cambio de rol | orquestador | Hecho (escritorio y 375 px) |
 
 ## Pendientes registrados
-- Las migraciones son solo hacia adelante (sin "down"); una corrección es una migración nueva.
-- `audit_log`: el rol de la app solo inserta; confirmar en Ola 1 con la primera escritura real.
-- Purga periódica de `ws_tickets` y `password_resets` vencidos → job en Ola 2.
+- **Emails:** se encolan en `jobs` (`email.send`) pero no se envían hasta el worker de la Ola 2. Mientras tanto, la invitación por enlace funciona y el enlace de reset se ve con `select payload from jobs`.
+- **Avatar y logo:** `avatarFileId`/`logoFileId` se ignoran hasta que exista el módulo de archivos (Ola 2).
+- **Presencia:** `Member.presence` siempre `away` hasta el WebSocket (Ola 2).
+- **Onboarding:** falta el paso "Activar notificaciones" (Ola 2, con push). El paso del iPhone muestra la URL; sin QR (evita una dependencia).
+- **Búsqueda Ctrl K y Anuncios** en el sidebar muestran "Próximamente".
+- **Riel:** sin botón "+" para crear otro workspace con la misma cuenta (no hay endpoint todavía; Ola 4 con facturación).
+- **Rate-limit en memoria** por instancia; pasar a Postgres cuando haya más de una instancia.
+- Las migraciones son solo hacia adelante; purga de `ws_tickets` y `password_resets` vencidos → job en Ola 2.
+- Revisión formal de Seguridad (agente `seguridad`) de las Olas 0–1 antes de integrar la Ola 2.
+
+## Siguiente: Ola 2 · Chat completo
+backend-chat (canales, DMs, hilos, menciones, reacciones, fijados, no leídos, anuncios, búsqueda, WebSocket)
+· backend-notificaciones (push VAPID, archivos MinIO, cola de jobs, emails) · frontend-chat (UI tipo Slack + PWA).
