@@ -62,7 +62,7 @@ function rename(id: string, old: string, e: Event) {
       </li>
     </ul>
     <form class="add" @submit.prevent="add">
-      <input v-model="newName" :placeholder="kind === 'departments' ? t('onboarding.newDepartment') : t('onboarding.newLine')" maxlength="80">
+      <input v-model="newName" :placeholder="kind === 'departments' ? t('onboarding.newDepartment') : t('onboarding.newLine', s.cat)" maxlength="80">
       <Button type="submit" :loading="busy"><Plus :size="16" />{{ t('common.add') }}</Button>
     </form>
   </div>

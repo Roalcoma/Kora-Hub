@@ -99,7 +99,7 @@ async function toggleEdit() {
 const title = ref('');
 watch(doc, (v) => { title.value = v?.title ?? ''; });
 const saveTitle = () => { const v = title.value.trim(); if (v && v !== doc.value?.title) patch({ title: v }); else title.value = doc.value?.title ?? ''; };
-const lineOptions = computed(() => [{ value: '', label: t('docs.allLines') },
+const lineOptions = computed(() => [{ value: '', label: t('docs.allLines', s.cat) },
   ...s.workspace!.lines.filter((l) => !l.archivedAt).map((l) => ({ value: l.id, label: l.name }))]);
 const lineId = computed({ get: () => doc.value?.lineId ?? '', set: (v: string) => patch({ lineId: v || null }) });
 
@@ -195,7 +195,7 @@ const childCount = computed(() => docs.nodes.filter((n) => n.parentId === props.
       <textarea v-if="editing" v-model="title" class="title" rows="1" :aria-label="t('docs.pageTitle')" @blur="saveTitle" @keydown.enter.prevent="($event.target as HTMLElement).blur()" />
       <h1 v-else class="title">{{ doc.title }}</h1>
       <div class="meta">
-        <Dropdown v-if="editing" v-model="lineId" :options="lineOptions" class="line-dd" />
+        <Dropdown v-if="editing && s.activeLines.length" v-model="lineId" :options="lineOptions" class="line-dd" />
         <Badge v-else-if="doc.lineId" :tone="s.lineTone(doc.lineId)">{{ s.lineOf(doc.lineId)?.name }}</Badge>
         <span class="by"><Avatar :name="chat.nameOf(doc.updatedBy)" :size="20" />{{ t('docs.updatedBy', { name: chat.nameOf(doc.updatedBy), date: d(doc.updatedAt, 'short') }) }}</span>
       </div>

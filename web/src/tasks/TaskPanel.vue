@@ -68,7 +68,7 @@ const lineId = computed({ get: () => task.value?.lineId ?? '', set: (v: string) 
 const due = computed({ get: () => dateFromDue(task.value?.dueAt ?? null), set: (v: string) => save({ dueAt: dueFromDate(v) }) });
 const assignees = computed({ get: () => task.value?.assigneeIds ?? [], set: (v: string[]) => save({ assigneeIds: v }) });
 const priorityOptions = computed(() => TASK_PRIORITY.map((p) => ({ value: p, label: t(`tasks.priority.${p}`) })));
-const lineOptions = computed(() => [{ value: '', label: t('tasks.noLine') },
+const lineOptions = computed(() => [{ value: '', label: t('tasks.noLine', s.cat) },
   ...s.workspace!.lines.filter((l) => !l.archivedAt).map((l) => ({ value: l.id, label: l.name }))]);
 
 // ─── Checklist ───
@@ -143,8 +143,10 @@ async function remove() {
           <span v-else class="muted">—</span>
           <span v-if="isOverdue(task)" class="late">{{ t('tasks.overdue') }}</span>
         </dd>
-        <dt>{{ t('tasks.line') }}</dt>
-        <dd><Dropdown v-model="lineId" :options="lineOptions" :disabled="!manage" /></dd>
+        <template v-if="s.activeLines.length || task.lineId">
+          <dt>{{ t('tasks.line', s.cat) }}</dt>
+          <dd><Dropdown v-model="lineId" :options="lineOptions" :disabled="!manage" /></dd>
+        </template>
         <dt>{{ t('tasks.createdBy') }}</dt>
         <dd class="by"><Avatar :name="chat.nameOf(task.createdBy)" :size="22" />{{ chat.nameOf(task.createdBy) }} · {{ d(task.createdAt, 'short') }}</dd>
       </dl>
@@ -158,7 +160,7 @@ async function remove() {
 
       <section>
         <h4>{{ t('tasks.description') }}</h4>
-        <textarea v-if="manage" id="task-desc" v-model="description" class="desc" rows="4" :placeholder="t('tasks.descriptionHint')" @blur="saveDesc" />
+        <textarea v-if="manage" id="task-desc" v-model="description" class="desc" rows="4" :placeholder="t(s.isInsurance ? 'tasks.descriptionHintPhi' : 'tasks.descriptionHint')" @blur="saveDesc" />
         <p v-else-if="task.description" class="desc ro">{{ task.description }}</p>
         <p v-else class="muted">—</p>
       </section>

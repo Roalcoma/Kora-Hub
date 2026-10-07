@@ -35,7 +35,7 @@ const tabs = computed(() => [
   ...(s.isAdmin ? [
     { value: 'members' as const, label: t('settings.members') },
     { value: 'invitations' as const, label: t('settings.invitations') },
-    { value: 'structure' as const, label: t('settings.structure') },
+    { value: 'structure' as const, label: t('settings.structure', s.cat) },
     { value: 'workspace' as const, label: t('settings.workspace') },
   ] : []),
   { value: 'profile' as const, label: t('settings.profile') },
@@ -174,7 +174,7 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
 
       <section v-else-if="tab === 'structure'" class="split even">
         <div class="card accent"><h2>{{ t('onboarding.departments') }}</h2><p class="hint">{{ t('settings.deptHint') }}</p><StructureEditor kind="departments" /></div>
-        <div class="card accent"><h2>{{ t('onboarding.lines') }}</h2><p class="hint">{{ t('settings.linesHint') }}</p><StructureEditor kind="lines" /></div>
+        <div class="card accent"><h2>{{ t('onboarding.lines', s.cat) }}</h2><p class="hint">{{ t('settings.linesHint', s.cat) }}</p><StructureEditor kind="lines" /></div>
       </section>
 
       <section v-else-if="tab === 'workspace'" class="split">

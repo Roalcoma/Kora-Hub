@@ -16,7 +16,7 @@ const s = useSession();
 
 const steps = computed(() => [
   { key: 'departments', title: t('onboarding.departments'), hint: t('onboarding.departmentsHint') },
-  { key: 'lines', title: t('onboarding.lines'), hint: t('onboarding.linesHint') },
+  { key: 'lines', title: t('onboarding.lines', s.cat), hint: t('onboarding.linesHint') },
   { key: 'invite', title: t('onboarding.invite'), hint: t('onboarding.inviteHint') },
   { key: 'phone', title: t('onboarding.phoneTitle'), hint: t('onboarding.phoneHint') },
   { key: 'notifications', title: t('onboarding.notifications'), hint: t('onboarding.notificationsHint') },

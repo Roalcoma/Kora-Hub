@@ -39,7 +39,7 @@ watch(() => tasks.draft, (d) => {
 });
 
 const deptOptions = computed(() => tasks.creatableDepts.map((d) => ({ value: d.id, label: d.name })));
-const lineOptions = computed(() => [{ value: '', label: t('tasks.noLine') },
+const lineOptions = computed(() => [{ value: '', label: t('tasks.noLine', s.cat) },
   ...s.workspace!.lines.filter((l) => !l.archivedAt).map((l) => ({ value: l.id, label: l.name }))]);
 const priorityOptions = computed(() => TASK_PRIORITY.map((p) => ({ value: p, label: t(`tasks.priority.${p}`) })));
 
@@ -73,9 +73,9 @@ async function submit() {
         <Dropdown v-model="f.departmentId" :options="deptOptions" :label="t('tasks.department')" />
         <Dropdown v-model="f.priority" :options="priorityOptions" :label="t('tasks.priorityLabel')" />
       </div>
-      <div class="row">
+      <div class="row" :class="{ single: !s.activeLines.length }">
         <label class="date"><span>{{ t('tasks.due') }}</span><input v-model="f.due" type="date"></label>
-        <Dropdown v-model="f.lineId" :options="lineOptions" :label="t('tasks.line')" />
+        <Dropdown v-if="s.activeLines.length" v-model="f.lineId" :options="lineOptions" :label="t('tasks.line', s.cat)" />
       </div>
       <PeoplePicker v-model="f.assigneeIds" :label="t('tasks.assignees')" />
       <Textarea v-model="f.description" :label="t('tasks.description')" :rows="3" />
@@ -89,6 +89,7 @@ async function submit() {
 
 <style scoped>
 .row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; align-items: end; }
+.row.single { grid-template-columns: 1fr; }
 .date { display: grid; gap: 6px; font-size: 14px; font-weight: 500; }
 .date input { min-height: 42px; }
 .src { display: flex; gap: 8px; margin: 0; padding: 10px 12px; font-size: 14px; color: var(--color-muted); background: var(--color-canvas); border-left: 3px solid var(--color-cta); }

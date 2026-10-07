@@ -157,7 +157,7 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
           <span class="ws-chev"><ChevronDown :size="15" /></span>
         </button>
         <!-- Filtro de línea: fichas de un clic (si la agencia usa líneas) -->
-        <div v-if="lines.length" class="lines" role="radiogroup" :aria-label="t('nav.line')">
+        <div v-if="lines.length" class="lines" role="radiogroup" :aria-label="t('nav.line', s.cat)">
           <button type="button" role="radio" :aria-checked="!line" :class="{ on: !line }" @click="line = ''">{{ t('nav.allLines') }}</button>
           <button v-for="l in lines" :key="l.id" type="button" role="radio" :aria-checked="line === l.id" :class="{ on: line === l.id }" @click="line = l.id">
             <span class="dot" :style="{ background: toneColor(s.lineTone(l.id), true) }" />{{ l.name }}

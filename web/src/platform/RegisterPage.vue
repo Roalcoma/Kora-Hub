@@ -2,7 +2,8 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { RegisterBody } from '@agencia-hub/contracts';
+import { RegisterBody, TEMPLATES } from '@agencia-hub/contracts';
+import { ShieldCheck, Megaphone, Building2, Plane, LayoutTemplate } from 'lucide-vue-next';
 import { api } from '@/api.ts';
 import { useSession } from '@/stores/session.ts';
 import AuthLayout from './AuthLayout.vue';
@@ -14,7 +15,9 @@ const { t, locale } = useI18n();
 const router = useRouter();
 const session = useSession();
 
-const f = reactive({ name: '', email: '', password: '', agency: '', slug: '', template: 'insurance_agency' as 'insurance_agency' | 'blank' });
+const f = reactive({ name: '', email: '', password: '', agency: '', slug: '', template: 'insurance_agency' as typeof TEMPLATES[number] });
+// Ícono de cada rubro en las tarjetas del selector
+const tplIcon = { insurance_agency: ShieldCheck, marketing_agency: Megaphone, real_estate_agency: Building2, travel_agency: Plane, blank: LayoutTemplate };
 const slugTouched = ref(false);
 const errors = ref<Record<string, string>>({});
 const error = ref<string | null>(null);
@@ -59,15 +62,17 @@ async function submit() {
       <Input v-model="f.password" :label="t('common.password')" type="password" autocomplete="new-password" :hint="t('auth.passwordHint')" :error="errors.password" />
       <Input v-model="f.agency" :label="t('auth.agencyName')" autocomplete="organization" :error="errors['workspace.name']" />
       <Input v-model="slug" :label="t('auth.address')" prefix="app.agencia-hub.com/w/" :hint="t('auth.addressHint')" :error="errors['workspace.slug']" />
+      <!-- Rubro: tarjetas hermanas del mismo tamaño, una por plantilla -->
       <fieldset class="tpl">
-        <legend>{{ t('auth.template') }}</legend>
-        <label v-for="o in (['insurance_agency', 'blank'] as const)" :key="o" :class="{ on: f.template === o }">
+        <legend>{{ t('auth.template') }}<small>{{ t('auth.templateHint') }}</small></legend>
+        <label v-for="o in TEMPLATES" :key="o" :class="{ on: f.template === o }">
           <input v-model="f.template" type="radio" name="tpl" :value="o" class="sr-only">
-          <b>{{ o === 'insurance_agency' ? t('auth.templateInsurance') : t('auth.templateBlank') }}</b>
-          <small>{{ o === 'insurance_agency' ? t('auth.templateInsuranceHint') : t('auth.templateBlankHint') }}</small>
+          <span class="ico"><component :is="tplIcon[o]" :size="18" /></span>
+          <span class="txt"><b>{{ t(`auth.templates.${o}.name`) }}</b><small>{{ t(`auth.templates.${o}.hint`) }}</small></span>
         </label>
       </fieldset>
-      <p class="text-xs text-muted">{{ t('auth.terms') }}</p>
+      <!-- El aviso de PHI solo aplica a las agencias de seguros -->
+      <p v-if="f.template === 'insurance_agency'" class="text-xs text-muted">{{ t('auth.phiNotice') }}</p>
       <p v-if="error" class="text-sm font-medium text-danger" role="alert">{{ error }}</p>
       <Button type="submit" variant="primary" size="lg" block :loading="busy">{{ t('auth.register') }}</Button>
     </form>
@@ -76,11 +81,16 @@ async function submit() {
 </template>
 
 <style scoped>
-.tpl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; padding: 0; border: 0; }
-legend { font-size: 13px; font-weight: 500; margin-bottom: 6px; }
-.tpl label { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--color-line-strong); cursor: pointer; transition: border-color var(--duration), background var(--duration); }
+.tpl { display: grid; grid-auto-rows: 1fr; gap: 8px; margin: 0; padding: 0; border: 0; }
+legend { display: grid; gap: 2px; font-size: 13px; font-weight: 500; margin-bottom: 8px; }
+legend small { font-weight: 400; color: var(--color-muted); }
+/* Mismo alto para todas (grid-auto-rows: 1fr); la elegida se eleva y lleva el acento naranja */
+.tpl label { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--color-surface); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-sm); cursor: pointer; transition: border-color var(--duration), background var(--duration), box-shadow var(--duration), transform var(--duration); }
+.tpl label:hover:not(.on) { border-color: var(--color-ink); box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .tpl label:focus-within { outline: 2px solid var(--color-primary); outline-offset: 2px; }
-.tpl label.on { border-color: var(--color-ink); background: var(--color-primary-light); box-shadow: inset 3px 0 0 var(--color-primary); }
+.tpl label.on { border-color: var(--color-ink); background: var(--color-primary-light); box-shadow: inset 4px 0 0 var(--color-primary), var(--shadow-md); }
+.ico { width: 34px; height: 34px; display: grid; place-items: center; flex: none; color: var(--color-ink); background: var(--color-canvas); box-shadow: var(--shadow-sm); }
+.on .ico { background: var(--color-primary); }
+.txt { display: grid; gap: 2px; min-width: 0; }
 .tpl small { font-size: 12px; color: var(--color-muted); line-height: 1.35; }
-@media (max-width: 420px) { .tpl { grid-template-columns: 1fr; } }
 </style>

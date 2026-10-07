@@ -24,7 +24,7 @@ const lineId = ref('');
 const error = ref<string | null>(null);
 const busy = ref(false);
 watch(open, (v) => { if (v) { title.value = ''; lineId.value = s.lineId ?? ''; error.value = null; } });
-const lineOptions = computed(() => [{ value: '', label: t('docs.allLines') },
+const lineOptions = computed(() => [{ value: '', label: t('docs.allLines', s.cat) },
   ...s.workspace!.lines.filter((l) => !l.archivedAt).map((l) => ({ value: l.id, label: l.name }))]);
 
 async function create() {
@@ -49,7 +49,7 @@ async function create() {
     :subtitle="parentTitle ? t('docs.inside', { title: parentTitle }) : s.deptName(departmentId)" width="480px">
     <form id="new-doc" class="grid gap-4" @submit.prevent="create">
       <Input v-model="title" :label="t('docs.pageTitle')" :placeholder="t('docs.pageTitleHint')" :error="error" required />
-      <Dropdown v-model="lineId" :options="lineOptions" :label="t('docs.lineLabel')" />
+      <Dropdown v-if="s.activeLines.length" v-model="lineId" :options="lineOptions" :label="t('docs.lineLabel', s.cat)" />
     </form>
     <template #footer>
       <Button @click="open = false">{{ t('common.cancel') }}</Button>

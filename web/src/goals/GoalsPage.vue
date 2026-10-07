@@ -207,7 +207,7 @@ const afterSave = () => { loadGoals(); load(); };
 
     <!-- ═══ Metas (Admin) ═══ -->
     <div v-else class="body">
-      <p class="intro">{{ t('goals.goalsIntro') }}</p>
+      <p class="intro">{{ t('goals.goalsIntro', s.cat) }}</p>
       <div v-if="!goals" class="grid gap-3"><Skeleton v-for="n in 3" :key="n" height="56px" /></div>
       <section v-for="x in goalsByDept" v-else :key="x.id" class="admin-dept">
         <h2>{{ x.name }}<button type="button" class="add" @click="openGoal(null, x.id)"><Plus :size="15" />{{ t('goals.addGoal') }}</button></h2>

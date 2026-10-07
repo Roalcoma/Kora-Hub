@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Crear o editar una meta semanal (solo Admin). Ej.: "Pólizas Vida vendidas — 15 por semana".
+// Crear o editar una meta semanal (solo Admin). Ej.: "Ventas cerradas — 15 por semana".
 import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Goal } from '@agencia-hub/contracts';
@@ -31,7 +31,7 @@ watch(open, (v) => {
   error.value = null;
 });
 const deptOptions = computed(() => s.workspace!.departments.filter((x) => !x.archivedAt).map((x) => ({ value: x.id, label: x.name })));
-const lineOptions = computed(() => [{ value: '', label: t('tasks.noLine') },
+const lineOptions = computed(() => [{ value: '', label: t('tasks.noLine', s.cat) },
   ...s.workspace!.lines.filter((l) => !l.archivedAt).map((l) => ({ value: l.id, label: l.name }))]);
 const valid = computed(() => f.name.trim() && f.unit.trim() && Number(f.target) > 0);
 
@@ -61,9 +61,10 @@ async function save() {
         <Input v-model="f.target" type="number" :label="t('goals.weeklyTarget')" required />
         <Input v-model="f.unit" :label="t('goals.unit')" :placeholder="t('goals.unitHint')" required />
       </div>
-      <div class="row">
+      <div class="row" :class="{ single: !s.activeLines.length }">
         <Dropdown v-model="f.departmentId" :options="deptOptions" :label="t('tasks.department')" />
-        <Dropdown v-model="f.lineId" :options="lineOptions" :label="t('tasks.line')" />
+        <!-- Sin categorías en la agencia, el selector no aparece -->
+        <Dropdown v-if="s.activeLines.length" v-model="f.lineId" :options="lineOptions" :label="t('tasks.line', s.cat)" />
       </div>
       <p v-if="goal" class="note">{{ t('goals.historyKept') }}</p>
     </form>
@@ -76,6 +77,7 @@ async function save() {
 
 <style scoped>
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+.row.single { grid-template-columns: 1fr; }
 .note { margin: 0; padding: 8px 12px; font-size: 13px; color: var(--color-muted); background: var(--color-canvas); border-left: 3px solid var(--color-cta); }
 @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
 </style>
