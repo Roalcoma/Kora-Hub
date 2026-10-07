@@ -9,7 +9,7 @@ Decisiones tomadas el 2026-10-07:
 | Alcance | Kora sirve a **cualquier tipo de agencia** y se generaliza dentro de esta ola, antes de la landing |
 | Stripe | **Simulado**: no hay cuenta todavía. Se programa contra el API real de Stripe y se prueba con webhooks firmados en las pruebas y un checkout falso en local |
 | Despliegue | Piloto en el **servidor 192.168.0.123** con Docker Compose y el Cloudflare Tunnel que ya existe |
-| Dominio | Uno propio en Cloudflare (falta el nombre, ver §8) |
+| Dominio | **`kora.arbolaureo.org`** (confirmado 2026-10-07), igual que `rocco.arbolaureo.org` |
 
 Objetivo de la ola: **Kora queda en línea con HTTPS en el servidor**. Una agencia de cualquier rubro se registra desde la
 landing, prueba 14 días, ve su facturación y sus avisos de plan, y Rodrigo la administra desde un backoffice. Con HTTPS
@@ -158,13 +158,17 @@ Commits pequeños en español y **sin push** hasta que lo pidas.
 
 ## 8. Lo que necesito de ti
 
-1. **Dominio**: ¿cuál es? ¿La app va en `app.<dominio>` y la landing en la raíz?
+1. ~~Dominio~~: resuelto, `kora.arbolaureo.org`.
 2. **SMTP de producción**: propongo **Brevo gratis** (300 correos al día, sobra para el piloto). Otra opción es Gmail con
    contraseña de aplicación.
 3. **Telegram**: ¿reutilizo el bot de Rocco y su chat, o prefieres un chat aparte?
 4. **Precios**: ¿confirmas $6 y $9 por usuario, o los ajustas ahora que el producto ya no es solo para seguros?
 
 ## Fuera de esta ola (va a la Ola 5 o a deuda)
+
+- **Landing (§4): pospuesta por decisión de Rodrigo (2026-10-07).** La marca paraguas es Árbol Áureo y, cuando se haga, será una
+  landing de Árbol Áureo con sus tres productos (Rocco CRM, Vitrina APP y Kora Hub), no una landing propia de Kora.
+  Queda de referencia el mockup `docs/diseño/landing-mockup.html` y la landing existente en `~/crm/landing`.
 
 - Exportación completa de datos al darse de baja (`POST /export`) y borrado a los 30 días.
 - Crear una segunda agencia desde el riel con la misma cuenta.
