@@ -8,7 +8,7 @@ import { enqueue } from '../jobs/queue.ts';
 import { HttpError, parse } from './http.ts';
 import {
   hashPassword, verifyPassword, setSessionCookie, clearSessionCookie, requireAuth, loadSession,
-  newToken, sha256, newTotpSecret, verifyTotp, rateLimit,
+  newToken, sha256, newTotpSecret, verifyTotp, rateLimit, forbidImpersonation,
 } from './auth.ts';
 import { buildSession, audit, joinDefaultChannels } from './model.ts';
 import { seedWorkspace } from './template.ts';
@@ -31,7 +31,7 @@ authRouter.post('/auth/register', async (req, res) => {
     const w = await db.query('insert into workspaces (slug, name) values ($1, $2) returning id', [body.workspace.slug, body.workspace.name]);
     const [userId, wsId] = [u.rows[0].id, w.rows[0].id];
     await db.query("insert into workspace_members (workspace_id, user_id, role) values ($1, $2, 'owner')", [wsId, userId]);
-    await seedWorkspace(db, wsId, userId, body.workspace.template);
+    await seedWorkspace(db, wsId, userId, body.workspace.template, body.locale);
     await joinDefaultChannels(db, wsId, userId);
     await audit(db, { workspaceId: wsId, actor: userId, action: 'workspace.created', ip: req.ip });
     return userId;
@@ -64,6 +64,7 @@ authRouter.post('/auth/logout', (_req, res) => {
 });
 
 authRouter.post('/auth/logout-all', requireAuth, async (req, res) => {
+  forbidImpersonation(req);
   await adminPool.query('update users set token_version = token_version + 1 where id = $1', [req.userId]);
   clearSessionCookie(res);
   res.status(204).end();
@@ -101,7 +102,7 @@ authRouter.post('/auth/reset-password', async (req, res) => {
 // ─── Perfil ───
 
 authRouter.get('/me', requireAuth, async (req, res) => {
-  res.json(await buildSession(adminPool, req.userId!));
+  res.json(await buildSession(adminPool, req.userId!, req.imp));
 });
 
 authRouter.patch('/me', requireAuth, async (req, res) => {
@@ -112,12 +113,13 @@ authRouter.patch('/me', requireAuth, async (req, res) => {
        where id = app_user()`,
       [body.name ?? null, body.locale ?? null, body.timezone ?? null]);
     // ponytail: avatarFileId se aplica cuando exista el módulo de archivos (Ola 2)
-    return buildSession(db, req.userId!);
+    return buildSession(db, req.userId!, req.imp);
   });
   res.json(session.user);
 });
 
 authRouter.post('/me/totp/setup', requireAuth, async (req, res) => {
+  forbidImpersonation(req);
   const secret = newTotpSecret();
   const { rows } = await adminPool.query(
     'update users set totp_secret = $1 where id = $2 and not totp_enabled returning email', [secret, req.userId]);
@@ -134,6 +136,7 @@ async function checkTotp(userId: string, code: string) {
 }
 
 authRouter.post('/me/totp/confirm', requireAuth, async (req, res) => {
+  forbidImpersonation(req);
   const { code } = parse(TotpConfirmBody, req.body);
   rateLimit(`totp:${req.userId}`, 10, 15 * 60_000);
   await checkTotp(req.userId!, code);
@@ -145,6 +148,7 @@ authRouter.post('/me/totp/confirm', requireAuth, async (req, res) => {
 });
 
 authRouter.delete('/me/totp', requireAuth, async (req, res) => {
+  forbidImpersonation(req);
   const { code } = parse(TotpConfirmBody, req.body);
   rateLimit(`totp:${req.userId}`, 10, 15 * 60_000);
   await checkTotp(req.userId!, code);

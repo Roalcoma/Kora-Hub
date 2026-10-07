@@ -35,6 +35,7 @@ workspaceRouter.patch('/', async (req, res) => {
   const s = body.settings ?? {};
   const settingsPatch = Object.fromEntries(Object.entries({
     max_file_mb: s.maxFileMb, require_2fa: s.require2fa, weekly_summary: s.weeklySummary,
+    industry: s.industry, category_label: s.categoryLabel,
   }).filter(([, v]) => v !== undefined));
   res.json(await tx(req, async (db) => {
     const { rows } = await db.query(

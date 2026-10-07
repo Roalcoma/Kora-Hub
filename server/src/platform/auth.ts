@@ -38,12 +38,17 @@ const secret = () => {
 const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
 const sign = (data: string) => createHmac('sha256', secret()).update(data).digest('base64url');
 
-export function signJwt(userId: string, tokenVersion: number): string {
-  const body = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: userId, tv: tokenVersion, exp: Math.floor(Date.now() / 1000) + SESSION_DAYS * 86400 })}`;
+/** Claim de impersonación (ADR 0005 §4): `by` = superadmin, `ws` = workspace, `exp` = fin en segundos */
+export type ImpClaim = { by: string; ws: string; exp: number };
+export const IMPERSONATION_MINUTES = 30;
+
+export function signJwt(userId: string, tokenVersion: number, imp?: ImpClaim): string {
+  const exp = imp?.exp ?? Math.floor(Date.now() / 1000) + SESSION_DAYS * 86400;
+  const body = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: userId, tv: tokenVersion, exp, ...(imp ? { imp } : {}) })}`;
   return `${body}.${sign(body)}`;
 }
 
-export function verifyJwt(token: string): { sub: string; tv: number } | null {
+export function verifyJwt(token: string): { sub: string; tv: number; imp?: ImpClaim } | null {
   const [h, p, s] = token.split('.');
   if (!h || !p || !s) return null;
   const expected = Buffer.from(sign(`${h}.${p}`));
@@ -57,10 +62,10 @@ export function verifyJwt(token: string): { sub: string; tv: number } | null {
 
 const COOKIE = 'ah_session';
 
-export function setSessionCookie(res: Response, userId: string, tokenVersion: number) {
-  res.cookie(COOKIE, signJwt(userId, tokenVersion), {
+export function setSessionCookie(res: Response, userId: string, tokenVersion: number, imp?: ImpClaim) {
+  res.cookie(COOKIE, signJwt(userId, tokenVersion, imp), {
     httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production',
-    maxAge: SESSION_DAYS * 86400_000, path: '/',
+    maxAge: imp ? imp.exp * 1000 - Date.now() : SESSION_DAYS * 86400_000, path: '/',
   });
 }
 export const clearSessionCookie = (res: Response) => res.clearCookie(COOKIE, { path: '/' });
@@ -73,23 +78,33 @@ function readCookie(req: Request, name: string): string | undefined {
 }
 
 declare module 'express-serve-static-core' {
-  interface Request { userId?: string }
+  interface Request { userId?: string; imp?: ImpClaim | null }
 }
 
 /** Resuelve la sesión si existe; valida token_version para que "cerrar sesión en todos" la revoque. */
-export async function loadSession(req: Request): Promise<string | null> {
+export async function loadClaims(req: Request): Promise<{ userId: string; imp: ImpClaim | null } | null> {
   const token = readCookie(req, COOKIE);
   const claims = token ? verifyJwt(token) : null;
   if (!claims) return null;
   const { rows } = await adminPool.query('select token_version from users where id = $1', [claims.sub]);
-  return rows[0]?.token_version === claims.tv ? claims.sub : null;
+  return rows[0]?.token_version === claims.tv ? { userId: claims.sub, imp: claims.imp ?? null } : null;
+}
+
+export async function loadSession(req: Request): Promise<string | null> {
+  return (await loadClaims(req))?.userId ?? null;
 }
 
 export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
-  const userId = await loadSession(req);
-  if (!userId) throw new HttpError(401, 'unauthenticated', 'Inicia sesión');
-  req.userId = userId;
+  const claims = await loadClaims(req);
+  if (!claims) throw new HttpError(401, 'unauthenticated', 'Inicia sesión');
+  req.userId = claims.userId;
+  req.imp = claims.imp;
   next();
+}
+
+/** Lo que una sesión impersonada nunca puede hacer: /admin, contraseña, 2FA, cerrar sesiones, facturación de escritura. */
+export function forbidImpersonation(req: Request) {
+  if (req.imp) throw new HttpError(403, 'impersonation_forbidden', 'No disponible mientras ves la cuenta como otra persona');
 }
 
 // ─── TOTP (RFC 6238: SHA-1, 6 dígitos, 30 s) ───

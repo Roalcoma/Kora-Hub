@@ -2,6 +2,8 @@
 import type pg from 'pg';
 import type { User, Workspace, Member, Department, BusinessLine, Session, Role } from '@agencia-hub/contracts';
 import { onlineUserIds } from '../realtime/hub.ts';
+import { adminPool } from '../db.ts';
+import type { ImpClaim } from './auth.ts';
 
 export const ROLE_RANK: Record<Role, number> = { guest: 0, member: 1, lead: 2, admin: 3, owner: 4 };
 
@@ -13,7 +15,10 @@ export const toUser = (r: any): User => ({
 export const toWorkspace = (r: any): Workspace => ({
   id: r.id, slug: r.slug, name: r.name, logoUrl: null, plan: r.plan, status: r.status,
   trialEndsAt: r.trial_ends_at.toISOString(),
-  settings: { maxFileMb: r.settings.max_file_mb, require2fa: r.settings.require_2fa, weeklySummary: r.settings.weekly_summary },
+  settings: {
+    maxFileMb: r.settings.max_file_mb, require2fa: r.settings.require_2fa, weeklySummary: r.settings.weekly_summary,
+    industry: r.settings.industry ?? 'other', categoryLabel: r.settings.category_label ?? null,
+  },
 });
 
 export const toDepartment = (r: any): Department => ({ id: r.id, name: r.name, position: r.position, archivedAt: r.archived_at?.toISOString() ?? null });
@@ -46,16 +51,30 @@ export async function listMembers(db: pg.PoolClient, userId?: string): Promise<M
   return rows.map((r) => toMember(r, online));
 }
 
-/** Sesión: usuario + workspaces activos donde es miembro (adminPool o withWorkspace sin ws). */
-export async function buildSession(db: pg.PoolClient | pg.Pool, userId: string): Promise<Session> {
-  const [u, w] = await Promise.all([
+/**
+ * Sesión: usuario + workspaces activos donde es miembro (adminPool o withWorkspace sin ws).
+ * Impersonada: solo el workspace impersonado, sin backoffice y con los datos del superadmin para la banda roja.
+ */
+export async function buildSession(db: pg.PoolClient | pg.Pool, userId: string, imp: ImpClaim | null = null): Promise<Session> {
+  const [u, w, admin, by] = await Promise.all([
     db.query('select id, email, name, locale, timezone, totp_enabled from users where id = $1', [userId]),
     db.query(
       `select w.id, w.slug, w.name from workspaces w
        join workspace_members m on m.workspace_id = w.id and m.user_id = $1 and m.is_active
-       order by m.joined_at`, [userId]),
+       where $2::uuid is null or w.id = $2
+       order by m.joined_at`, [userId, imp?.ws ?? null]),
+    imp ? null : adminPool.query('select 1 from platform_admins where user_id = $1', [userId]),
+    imp ? adminPool.query('select name from users where id = $1', [imp.by]) : null,
   ]);
-  return { user: toUser(u.rows[0]), workspaces: w.rows.map((r) => ({ id: r.id, slug: r.slug, name: r.name, logoUrl: null })) };
+  const workspaces = w.rows.map((r) => ({ id: r.id, slug: r.slug, name: r.name, logoUrl: null }));
+  return {
+    user: toUser(u.rows[0]), workspaces,
+    platformAdmin: !!admin?.rowCount,
+    impersonation: imp ? {
+      byUserId: imp.by, byName: by?.rows[0]?.name ?? '', workspaceSlug: workspaces[0]?.slug ?? '',
+      expiresAt: new Date(imp.exp * 1000).toISOString(),
+    } : null,
+  };
 }
 
 export async function audit(

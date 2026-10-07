@@ -21,12 +21,15 @@ export async function workspaceContext(req: Request, _res: Response, next: NextF
       [req.params.slug],
     ));
   // Mismo 404 si no existe o si no soy miembro: no revela qué agencias existen
-  if (!rows[0]) throw new HttpError(404, 'workspace_not_found', 'Espacio de trabajo no encontrado');
+  // La impersonación solo abre el workspace impersonado
+  if (!rows[0] || (req.imp && rows[0].id !== req.imp.ws)) throw new HttpError(404, 'workspace_not_found', 'Espacio de trabajo no encontrado');
   const ws: WsCtx = rows[0];
-  if (ws.status === 'suspended' && !(req.method === 'GET' && req.path === '/')) {
+  // Facturación siempre abierta: es la única salida del bloqueo (pagar)
+  const billing = req.path === '/billing' || req.path.startsWith('/billing/');
+  if (ws.status === 'suspended' && !billing && !(req.method === 'GET' && req.path === '/')) {
     throw new HttpError(403, 'workspace_suspended', 'Este espacio de trabajo está suspendido');
   }
-  if (ws.status === 'read_only' && req.method !== 'GET') {
+  if (ws.status === 'read_only' && !billing && req.method !== 'GET') {
     throw new HttpError(403, 'workspace_read_only', 'Este espacio de trabajo está en solo lectura');
   }
   req.ws = ws;

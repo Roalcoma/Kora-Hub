@@ -30,6 +30,7 @@ function client() {
 
 const owner = client(), invited = client(), outsider = client();
 const slugA = `agencia-a-${run}`, slugB = `agencia-b-${run}`;
+const slugMk = `mk-${run}`, slugTr = `viajes-${run}`, slugBl = `blanco-${run}`;
 const emailOwner = `owner-${run}@test.local`, emailInvited = `ana-${run}@test.local`;
 
 before(async () => {
@@ -40,7 +41,7 @@ before(async () => {
 after(async () => {
   server.close();
   // Limpieza: borra todo lo creado por esta corrida (adminPool ignora RLS)
-  const ws = (await adminPool.query('select id from workspaces where slug = any($1)', [[slugA, slugB]])).rows.map((r) => r.id);
+  const ws = (await adminPool.query('select id from workspaces where slug = any($1)', [[slugA, slugB, slugMk, slugTr, slugBl]])).rows.map((r) => r.id);
   for (const t of ['audit_log', 'channel_members', 'channels', 'member_departments', 'member_lines', 'invitations',
     'departments', 'business_lines', 'workspace_members', 'jobs']) {
     await adminPool.query(`delete from ${t} where workspace_id = any($1)`, [ws]);
@@ -72,6 +73,38 @@ test('registro crea workspace con plantilla de seguros', async () => {
   assert.deepEqual(ws.body.lines.map((l: any) => l.name), ['Salud', 'Vida', 'Medicare']);
   assert.equal(ws.body.departments.length, 4);
   assert.equal(ws.body.status, 'trialing');
+  assert.deepEqual(ws.body.lines.map((l: any) => l.color), ['green', 'blue', 'purple']);
+  assert.equal(ws.body.settings.industry, 'insurance');
+  assert.deepEqual(ws.body.settings.categoryLabel, { singular: 'Línea', plural: 'Líneas' });
+  assert.equal(r.body.platformAdmin, false);
+  assert.equal(r.body.impersonation, null);
+});
+
+test('plantillas por rubro: departamentos, categorías y etiqueta en el idioma del registro', async () => {
+  const reg = async (slug: string, template: string, locale: 'es' | 'en') => {
+    const c = client();
+    const r = await c('POST', '/auth/register', {
+      name: 'Dueño', email: `${slug}@test.local`, password, locale,
+      workspace: { name: slug, slug, template } });
+    assert.equal(r.status, 201);
+    return (await c('GET', `/w/${slug}`)).body;
+  };
+  const mk = await reg(slugMk, 'marketing_agency', 'en');
+  assert.equal(mk.settings.industry, 'marketing');
+  assert.deepEqual(mk.settings.categoryLabel, { singular: 'Client', plural: 'Clients' });
+  assert.deepEqual(mk.departments.map((d: any) => d.name), ['Accounts', 'Creative', 'Media', 'Administration']);
+  assert.equal(mk.lines.length, 0);
+
+  const tr = await reg(slugTr, 'travel_agency', 'es');
+  assert.equal(tr.settings.industry, 'travel');
+  assert.deepEqual(tr.settings.categoryLabel, { singular: 'Producto', plural: 'Productos' });
+  assert.deepEqual(tr.lines.map((l: any) => [l.name, l.color]), [['Vuelos', 'blue'], ['Paquetes', 'orange'], ['Cruceros', 'teal']]);
+  assert.equal(tr.departments[2].name, 'Atención al viajero');
+
+  const bl = await reg(slugBl, 'blank', 'es');
+  assert.equal(bl.settings.industry, 'other');
+  assert.equal(bl.settings.categoryLabel, null);
+  assert.equal(bl.departments.length + bl.lines.length, 0);
 });
 
 test('registro rechaza email o slug repetidos y datos inválidos', async () => {
@@ -128,6 +161,20 @@ test('el owner cambia el rol y queda en la bitácora', async () => {
   assert.equal(r.body.title, 'Líder de Vida');
   const log = await adminPool.query("select meta from audit_log where action = 'member.role_changed' and target_id = $1", [invitedId]);
   assert.deepEqual(log.rows[0].meta, { from: 'member', to: 'lead' });
+});
+
+test('el admin cambia rubro y nombre de la categoría; color solo de la paleta', async () => {
+  const r = await owner('PATCH', `/w/${slugA}`, { settings: { industry: 'real_estate', categoryLabel: { singular: 'Sede', plural: 'Sedes' } } });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.settings.industry, 'real_estate');
+  assert.deepEqual(r.body.settings.categoryLabel, { singular: 'Sede', plural: 'Sedes' });
+  assert.equal(r.body.settings.maxFileMb, 25);   // el merge no pisa lo demás
+  const reset = await owner('PATCH', `/w/${slugA}`, { settings: { industry: 'insurance', categoryLabel: null } });
+  assert.equal(reset.body.settings.categoryLabel, null);
+  assert.equal((await owner('POST', `/w/${slugA}/lines`, { name: 'Dental', color: 'salud' })).status, 400);
+  const ok = await owner('POST', `/w/${slugA}/lines`, { name: 'Dental', color: 'teal' });
+  assert.equal(ok.body.color, 'teal');
+  assert.equal((await invited('PATCH', `/w/${slugA}`, { settings: { industry: 'travel' } })).status, 403);
 });
 
 test('no se puede quitar al único owner', async () => {
