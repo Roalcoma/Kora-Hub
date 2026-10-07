@@ -18,11 +18,12 @@ import Skeleton from '@/design/Skeleton.vue';
 import { toast } from '@/design/toast.ts';
 import StructureEditor from './StructureEditor.vue';
 import InvitePanel from './InvitePanel.vue';
+import BillingPanel from './BillingPanel.vue';
 import { errorText } from './errors.ts';
 import { timezoneOptions } from './timezones.ts';
 import PushSetup from '@/chat/PushSetup.vue';
 
-type Tab = 'members' | 'invitations' | 'structure' | 'workspace' | 'profile';
+type Tab = 'members' | 'invitations' | 'structure' | 'workspace' | 'billing' | 'profile';
 const { t, d } = useI18n();
 const origin = location.origin;
 const tzOptions = computed(() => timezoneOptions(s.user!.locale, s.user!.timezone));
@@ -37,6 +38,7 @@ const tabs = computed(() => [
     { value: 'invitations' as const, label: t('settings.invitations') },
     { value: 'structure' as const, label: t('settings.structure', s.cat) },
     { value: 'workspace' as const, label: t('settings.workspace') },
+    { value: 'billing' as const, label: t('settings.billing') },
   ] : []),
   { value: 'profile' as const, label: t('settings.profile') },
 ]);
@@ -192,6 +194,8 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
 
       <InvitePanel v-else-if="tab === 'invitations'" />
 
+      <BillingPanel v-else-if="tab === 'billing'" />
+
       <section v-else-if="tab === 'structure'" class="stack">
         <!-- Banda con el nombre de las categorías y el rubro; debajo, las dos listas como tarjetas hermanas -->
         <form class="card naming" @submit.prevent="saveCategory">
@@ -228,7 +232,7 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
             <template v-if="s.workspace!.status === 'trialing'"><dt>{{ t('settings.trialEnds') }}</dt><dd>{{ d(s.workspace!.trialEndsAt, 'long') }}</dd></template>
             <dt>{{ t('settings.maxFile') }}</dt><dd>{{ s.workspace!.settings.maxFileMb }} MB</dd>
           </dl>
-          <p class="hint">{{ t('settings.billingSoon') }}</p>
+          <div><Button @click="tab = 'billing'">{{ t('settings.seeBilling') }}</Button></div>
         </aside>
       </section>
 
