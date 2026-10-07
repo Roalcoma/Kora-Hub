@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-_Lo mantiene el orquestador. Última actualización: 2026-10-07._
+_Lo mantiene el orquestador. Última actualización: 2026-10-07 (Ola 4)._
 
 **Regla de diseño vigente:** profundidad con sombras y composición asimétrica en toda pantalla (CLAUDE.md, regla 6).
 
@@ -80,5 +80,31 @@ Nueva dependencia aprobada por el plan: Tiptap (`@tiptap/vue-3`, `starter-kit`, 
 - Las migraciones son solo hacia adelante; purga de `ws_tickets` y `password_resets` vencidos → job en Ola 2.
 - Revisión formal de Seguridad (agente `seguridad`) de las Olas 0–1 antes de integrar la Ola 2.
 
-## Siguiente: Ola 4 · SaaS y lanzamiento
-Stripe, superadmin, facturación, landing con precios y despliegue del piloto (Cloudflare Tunnel). Arranca con el visto bueno de Rodrigo.
+## Ola 4 · SaaS y despliegue — en curso (plan: [plan-ola-4.md](plan-ola-4.md))
+
+Decisiones del 2026-10-07: generalizar a cualquier rubro; Stripe **simulado** (sin cuenta); piloto en el servidor
+192.168.0.123 con Cloudflare Tunnel en **`kora.arbolaureo.org`**; **sin landing** (cuando la haya será la de Árbol Áureo
+con sus tres productos).
+
+| Entregable | Agente | Estado |
+|---|---|---|
+| Contrato v2, migración 0006 y ADR 0005 | arquitecto | Hecho |
+| Plantillas por rubro (Seguros, Marketing, Inmobiliaria, Viajes, En blanco), categoría con nombre libre, paleta fija de colores | backend-plataforma · frontend | Hecho |
+| Facturación: estado, checkout/portal (Stripe por REST sin SDK), simulador, webhook firmado e idempotente, ciclo prueba → gracia → solo lectura → suspendida, avisos por email, puestos | backend-plataforma | Hecho (Stripe real sin probar: no hay cuenta) |
+| Ajustes → Facturación, banda de estado del plan, avisos amables de solo lectura, pantalla de suspendida | frontend | Hecho |
+| Backoffice `/admin`: métricas, agencias, suspender/reactivar, impersonar con motivo (30 min, auditado) y banda roja | backend-plataforma · frontend | Hecho |
+| `/health`, servido de la SPA en producción, alertas a Telegram | backend-plataforma | Hecho |
+| Dockerfile (imagen *healthy*), `ops/compose.prod.yml`, backups cifrados con prueba de restauración, `docs/despliegue.md`, CI construye la imagen | devops | Hecho |
+| Pruebas: 76 en verde (facturación, superadmin, impersonación, plantillas, aislamiento) | qa | Hecho |
+| Revisión de seguridad Olas 0–4 (`docs/seguridad/`) | seguridad | En curso |
+| Despliegue en el servidor y push en iPhone real | devops + Rodrigo | Pendiente (faltan SMTP, Telegram y precios) |
+
+### Pendientes de la Ola 4
+- **MinIO** ya no publica imágenes en Docker Hub: fijar una imagen disponible o cambiar a otro S3 (p. ej. Garage) antes de desplegar.
+- Stripe real: probar checkout, portal y `sync_seats` en modo test cuando exista la cuenta.
+- Los planes todavía no limitan funciones (Pro = Estándar salvo el texto); la tarjeta de Pro promete "retención de datos configurable", que no existe.
+- Al expirar una impersonación el superadmin queda sin sesión (su cookie se reemplazó) y debe volver a entrar.
+- La banda de pago fallido no muestra la fecha de fin de la gracia (`GET /w/:slug` no trae `graceEndsAt`).
+- `/admin` filtra en el cliente; usar `?q=&status=` cuando haya muchas agencias.
+- Las pruebas comparten la BD de desarrollo: una corrida fallida deja agencias `fact-*`/`test-*` sueltas. Conviene una BD de pruebas aparte.
+- Fuera de la ola: exportación de datos y baja con borrado (Ola 5), segunda agencia desde el riel, landing.
