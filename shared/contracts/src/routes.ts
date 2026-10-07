@@ -89,6 +89,7 @@ export type Routes = {
   'GET /w/:slug/documents/:id': R<never, M.Document>;
   'PATCH /w/:slug/documents/:id': R<In<typeof M.UpdateDocumentBody>, M.Document>;
   'GET /w/:slug/documents/:id/versions': R<never, M.DocumentVersion[]>;
+  'GET /w/:slug/documents/:id/versions/:versionId': R<never, M.DocumentVersionDetail>;
   'POST /w/:slug/documents/:id/versions/:versionId/restore': R<never, M.Document>;
 
   // ── Tareas ──
@@ -103,10 +104,10 @@ export type Routes = {
   'DELETE /w/:slug/tasks/:id/checklist/:itemId': R<never, NoContent>;
 
   // ── Metas ──
-  'GET /w/:slug/goals': R<never, M.Goal[], { departmentId?: Id }>;
+  'GET /w/:slug/goals': R<never, M.Goal[], In<typeof M.GoalsQuery>>;
   'POST /w/:slug/goals': R<In<typeof M.GoalBody>, M.Goal>;                                   // admin
   'PATCH /w/:slug/goals/:id': R<In<typeof M.UpdateGoalBody>, M.Goal>;                        // admin
-  'GET /w/:slug/reports': R<never, M.WeeklyReport[], { departmentId?: Id; weekStart?: string }>;
+  'GET /w/:slug/reports': R<never, M.WeeklyReport[], In<typeof M.ReportsQuery>>;
   'PUT /w/:slug/reports': R<In<typeof M.SubmitReportBody>, M.WeeklyReport>;                  // lead del depto; admin edita histórico
   'GET /w/:slug/goals/dashboard': R<never, M.GoalsDashboard, In<typeof M.DashboardQuery>>;
   'GET /w/:slug/goals/dashboard.csv': R<never, string, In<typeof M.DashboardQuery>>;

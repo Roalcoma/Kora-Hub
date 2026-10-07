@@ -7,6 +7,9 @@ import { workspaceContext } from './platform/workspace.ts';
 import { chatRouter } from './chat/routes.ts';
 import { filesRouter } from './files/routes.ts';
 import { pushRouter } from './notifications/routes.ts';
+import { docsRouter } from './docs/routes.ts';
+import { tasksRouter } from './tasks/routes.ts';
+import { goalsRouter } from './goals/routes.ts';
 import { errorHandler, HttpError } from './platform/http.ts';
 
 export const app = express();
@@ -28,6 +31,7 @@ ws.use(requireAuth, workspaceContext);
 ws.use(workspaceRouter);
 ws.use(chatRouter);
 ws.use('/files', filesRouter);
+ws.use(docsRouter, tasksRouter, goalsRouter);
 api.use('/w/:slug', ws);
 
 api.use((_req, _res) => { throw new HttpError(404, 'not_found', 'Ruta no encontrada'); });

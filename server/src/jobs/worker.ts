@@ -1,12 +1,14 @@
 // Worker de la cola en Postgres: toma un trabajo con SKIP LOCKED, lo ejecuta y reintenta con espera exponencial.
 import { hostname } from 'node:os';
 import { adminPool } from '../db.ts';
-import { notifyMessage } from '../notifications/push.ts';
+import { notifyMessage, notifyTask, remindReports } from '../notifications/push.ts';
 import { sendEmail } from '../notifications/email.ts';
 
 const HANDLERS: Record<string, (payload: any) => Promise<void>> = {
   'notify.message': (p) => notifyMessage(p.messageId),
   'email.send': (p) => sendEmail(p),
+  'notify.task': (p) => notifyTask(p),
+  'reports.remind': () => remindReports(),
   // Limpieza de tokens vencidos (se reencola sola cada hora)
   'cleanup.tokens': async () => {
     await adminPool.query("delete from ws_tickets where expires_at < now() - interval '1 minute'");
@@ -50,9 +52,17 @@ export function startWorker() {
     try { while (await runOnce()); } catch (err: any) { console.error(JSON.stringify({ level: 'error', msg: 'worker', error: err?.message })); }
     running = false;
   }, 1000);
-  // Limpieza horaria, idempotente por hora
-  const scheduleCleanup = () => adminPool.query(
-    `insert into jobs (kind, dedupe_key) values ('cleanup.tokens', 'cleanup:' || to_char(now(), 'YYYYMMDDHH24')) on conflict do nothing`);
-  scheduleCleanup();
-  setInterval(scheduleCleanup, 3600_000);
+  // Cada hora: limpieza (una por hora) y, los viernes desde las 15:00 de Nueva York, el recordatorio de reportes (uno por semana)
+  const schedule = async () => {
+    await adminPool.query(
+      `insert into jobs (kind, dedupe_key) values ('cleanup.tokens', 'cleanup:' || to_char(now(), 'YYYYMMDDHH24')) on conflict do nothing`);
+    await adminPool.query(
+      `insert into jobs (kind, dedupe_key)
+       select 'reports.remind', 'reports-remind:' || to_char(now() at time zone 'America/New_York', 'IYYY-IW')
+       where extract(isodow from now() at time zone 'America/New_York') = 5
+         and extract(hour from now() at time zone 'America/New_York') >= 15
+       on conflict do nothing`);
+  };
+  schedule().catch(() => {});
+  setInterval(() => schedule().catch(() => {}), 3600_000);
 }

@@ -1,7 +1,8 @@
 // Envío de Web Push (VAPID) y armado de notificaciones de mensajes según las reglas de §6.
 import webpush from 'web-push';
 import { adminPool } from '../db.ts';
-import { isVisibleAnywhere, isOnline } from '../realtime/hub.ts';
+import { isVisibleAnywhere, isOnline, publish } from '../realtime/hub.ts';
+import { CURRENT_WEEK } from '../goals/routes.ts';
 import { pushReason, inDnd, plainText, type Recipient } from './rules.ts';
 
 let configured = false;
@@ -72,5 +73,55 @@ export async function notifyMessage(messageId: string) {
       inDnd: inDnd(r.notif_prefs.dnd, r.timezone), mentioned: r.mentioned, threadParticipant: r.in_thread,
     };
     if (pushReason(facts, rec)) await sendToUser(r.user_id, { title, body, url, tag: m.channel_id });
+  }
+}
+
+// ─── Tareas y reportes (§6: siempre, salvo que tenga la app visible; en la app llega como aviso) ───
+
+const TASK_TEXT = {
+  es: { assigned: (a: string) => `${a} te asignó una tarea`, comment: (a: string) => `${a} comentó una tarea`, due: () => 'Tarea por vencer en 24 h' },
+  en: { assigned: (a: string) => `${a} assigned you a task`, comment: (a: string) => `${a} commented on a task`, due: () => 'Task due in 24 h' },
+};
+
+/** Job `notify.task`. Para `due` comprueba que la tarea siga abierta y con la misma fecha. */
+export async function notifyTask(p: { taskId: string; event: 'assigned' | 'comment' | 'due'; userIds?: string[]; actorId?: string; dueAt?: string }) {
+  const t = (await adminPool.query(
+    `select t.*, w.slug, u.name as actor from tasks t join workspaces w on w.id = t.workspace_id
+     left join users u on u.id = $2 where t.id = $1`, [p.taskId, p.actorId ?? null])).rows[0];
+  if (!t) return;
+  if (p.event === 'due' && (!['todo', 'doing'].includes(t.status) || t.due_at?.toISOString() !== p.dueAt)) return;
+  const ids = p.event === 'due'
+    ? (await adminPool.query('select user_id from task_assignees where task_id = $1', [t.id])).rows.map((r) => r.user_id)
+    : p.userIds ?? [];
+  const users = (await adminPool.query(
+    `select u.id, u.locale from users u join workspace_members m on m.user_id = u.id and m.workspace_id = $1 and m.is_active
+     where u.id = any($2)`, [t.workspace_id, ids])).rows;
+  const url = `/w/${t.slug}/tasks?t=${t.id}`;
+  for (const u of users) {
+    const title = TASK_TEXT[u.locale as 'es' | 'en'][p.event](t.actor ?? '');
+    publish(t.workspace_id, [u.id], { type: 'notification', title, body: t.title, url });
+    if (!isVisibleAnywhere(u.id)) await sendToUser(u.id, { title, body: t.title, url, tag: `task-${t.id}` });
+  }
+}
+
+/** Job `reports.remind` (viernes): departamentos con metas activas sin reporte esta semana → avisa a sus Líderes, o a los Admin si no hay. */
+export async function remindReports() {
+  const missing = (await adminPool.query(
+    `select d.id, d.name, d.workspace_id, w.slug from departments d join workspaces w on w.id = d.workspace_id
+     where d.archived_at is null and w.status in ('trialing', 'active')
+       and exists (select 1 from goals g where g.department_id = d.id and g.archived_at is null)
+       and not exists (select 1 from weekly_reports r where r.department_id = d.id and r.week_start = ${CURRENT_WEEK})`)).rows;
+  for (const d of missing) {
+    let to = (await adminPool.query(
+      `select md.user_id from member_departments md
+       join workspace_members m on m.workspace_id = md.workspace_id and m.user_id = md.user_id and m.is_active
+       where md.department_id = $1 and md.is_lead`, [d.id])).rows.map((r) => r.user_id);
+    if (!to.length) {
+      to = (await adminPool.query(
+        "select user_id from workspace_members where workspace_id = $1 and is_active and role in ('owner', 'admin')", [d.workspace_id])).rows.map((r) => r.user_id);
+    }
+    for (const u of to) {
+      await sendToUser(u, { title: 'Falta el reporte semanal', body: d.name, url: `/w/${d.slug}/goals?report=${d.id}`, tag: `report-${d.id}` });
+    }
   }
 }

@@ -5,13 +5,17 @@ import type { FileRef } from './files.ts';
 
 // ═══ Manuales ═══
 
-export type DocumentNode = { id: Id; parentId: Id | null; title: string; position: number; lineId: Id | null; departmentId: Id };
+export type DocumentNode = {
+  id: Id; parentId: Id | null; title: string; position: number; lineId: Id | null; departmentId: Id; updatedAt: IsoDate;
+  snippet?: string;          // solo en resultados de búsqueda, con «coincidencias» marcadas
+};
 export type Document = DocumentNode & {
   content: unknown;          // JSON de Tiptap
   files: FileRef[];
   updatedBy: Id; updatedAt: IsoDate; canEdit: boolean;
 };
 export type DocumentVersion = { id: Id; title: string; editedBy: Id; createdAt: IsoDate };
+export type DocumentVersionDetail = DocumentVersion & { content: unknown };
 
 export const ListDocumentsQuery = z.object({ departmentId: Id.optional(), lineId: Id.optional(), q: z.string().max(200).optional() });
 export const CreateDocumentBody = z.object({
@@ -37,12 +41,12 @@ export type Task = {
   id: Id; departmentId: Id; lineId: Id | null; title: string; description: string;
   status: TaskStatus; priority: TaskPriority; dueAt: IsoDate | null; position: number;
   assigneeIds: Id[]; checklist: ChecklistItem[]; commentCount: number;
-  sourceMessageId: Id | null; createdBy: Id; completedAt: IsoDate | null; createdAt: IsoDate; updatedAt: IsoDate;
+  sourceMessageId: Id | null; sourceChannelId: Id | null; createdBy: Id; completedAt: IsoDate | null; createdAt: IsoDate; updatedAt: IsoDate;
 };
 
 export const ListTasksQuery = z.object({
   departmentId: Id.optional(), lineId: Id.optional(), status: z.enum(TASK_STATUS).optional(),
-  mine: z.coerce.boolean().optional(),   // vista "Mis tareas"
+  mine: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),   // vista "Mis tareas" (z.coerce.boolean da true con 'false')
 });
 export const CreateTaskBody = z.object({
   departmentId: Id, lineId: Id.nullable().default(null),
@@ -90,6 +94,9 @@ export const SubmitReportBody = z.object({
   departmentId: Id, weekStart: WeekStart, notes: z.string().max(5_000).default(''),
   items: z.array(z.object({ goalId: Id, actual: z.number().min(0), note: z.string().max(500).nullable().default(null) })).min(1),
 });
+export const GoalsQuery = z.object({ departmentId: Id.optional(), includeArchived: z.enum(['true', 'false']).transform((v) => v === 'true').optional() });
+export const ReportsQuery = z.object({ departmentId: Id.optional(), weekStart: WeekStart.optional() });
+
 export const DashboardQuery = z.object({
   weeks: z.coerce.number().int().min(1).max(52).default(12),
   departmentId: Id.optional(), lineId: Id.optional(),

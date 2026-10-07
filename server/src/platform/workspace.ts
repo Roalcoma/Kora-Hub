@@ -40,3 +40,19 @@ export const tx = <T>(req: Request, fn: (db: pg.PoolClient) => Promise<T>) =>
 export function requireRole(req: Request, min: Role) {
   if (ROLE_RANK[req.ws!.role] < ROLE_RANK[min]) throw new HttpError(403, 'forbidden', 'No tienes permiso para esta acción');
 }
+
+export const isAdmin = (req: Request) => ROLE_RANK[req.ws!.role] >= ROLE_RANK.admin;
+
+/** Admin del workspace o líder (`is_lead`) de ese departamento (§4): gestiona manuales, tareas y reportes. */
+export async function canManageDept(db: pg.PoolClient, req: Request, departmentId: string): Promise<boolean> {
+  if (isAdmin(req)) return true;
+  const { rowCount } = await db.query(
+    'select 1 from member_departments where user_id = app_user() and department_id = $1 and is_lead', [departmentId]);
+  return !!rowCount;
+}
+
+/** Middleware: los módulos (manuales, tareas, metas) no son para invitados. */
+export function membersOnly(req: Request, _res: Response, next: NextFunction) {
+  requireRole(req, 'member');
+  next();
+}
