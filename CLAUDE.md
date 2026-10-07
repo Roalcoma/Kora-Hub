@@ -3,6 +3,9 @@
 SaaS multi-tenant tipo Slack para agencias de seguros (Salud, Vida, Medicare). El plan completo está en
 [PLAN.md](PLAN.md); el avance en [docs/estado.md](docs/estado.md); las decisiones en [docs/decisiones/](docs/decisiones/).
 
+**Si llegas nuevo al proyecto, lee primero [resumen.md](resumen.md):** traspaso de todo lo construido (Olas 0–3),
+preferencias de Rodrigo, decisiones abiertas y tropiezos ya resueltos.
+
 ## Comandos
 
 ```bash
