@@ -29,17 +29,6 @@
   --color-success-light: #E6F4EC;
   --color-presence: #2BAC76;
 
-  /* Paleta de categorías (CATEGORY_COLORS del contrato; ADR 0005). Por color: texto sobre claro (AA sobre -light),
-     fondo suave, borde y un tono brillante para puntos sobre el sidebar marino. */
-  --color-cat-green: #1E7F4F;  --color-cat-green-light: #E6F4EC;  --color-cat-green-line: #B7DCC6;  --color-cat-green-bright: #3FC48A;
-  --color-cat-blue: #2F5D8A;   --color-cat-blue-light: #EAF1F8;   --color-cat-blue-line: #C3D5E8;   --color-cat-blue-bright: #60D0FA;
-  --color-cat-purple: #5B4B8A; --color-cat-purple-light: #F1ECF8; --color-cat-purple-line: #D5CAE8; --color-cat-purple-bright: #B3A4E0;
-  --color-cat-orange: #9A4A00; --color-cat-orange-light: #FEF0E1; --color-cat-orange-line: #F5CFA3; --color-cat-orange-bright: #F69008;
-  --color-cat-red: #B42318;    --color-cat-red-light: #FDECEA;    --color-cat-red-line: #F3C2BD;    --color-cat-red-bright: #F27A6E;
-  --color-cat-teal: #0F6E6E;   --color-cat-teal-light: #E2F4F3;   --color-cat-teal-line: #B3DEDB;   --color-cat-teal-bright: #3CC7BE;
-  --color-cat-pink: #A3246B;   --color-cat-pink-light: #FBEAF3;   --color-cat-pink-line: #EDC0D8;   --color-cat-pink-bright: #F08BC0;
-  --color-cat-gray: #4A5566;   --color-cat-gray-light: #EEF1F5;   --color-cat-gray-line: #CBD1DA;   --color-cat-gray-bright: #8FA0B8;
-
   /* Tipografía */
   --font-sans: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Plus Jakarta Sans', 'Roboto', system-ui, sans-serif;
@@ -51,6 +40,18 @@
 }
 
 :root {
+  /* Paleta de categorías (CATEGORY_COLORS del contrato; ADR 0005). Por color: texto sobre claro (AA sobre -light),
+     fondo suave, borde y un tono brillante para puntos sobre el sidebar marino. Van en :root y no en @theme: Tailwind v4
+     descarta las variables de @theme que no usa ninguna utilidad, y estas se leen desde estilos con alcance y :style. */
+  --color-cat-green: #1E7F4F;  --color-cat-green-light: #E6F4EC;  --color-cat-green-line: #B7DCC6;  --color-cat-green-bright: #3FC48A;
+  --color-cat-blue: #2F5D8A;   --color-cat-blue-light: #EAF1F8;   --color-cat-blue-line: #C3D5E8;   --color-cat-blue-bright: #60D0FA;
+  --color-cat-purple: #5B4B8A; --color-cat-purple-light: #F1ECF8; --color-cat-purple-line: #D5CAE8; --color-cat-purple-bright: #B3A4E0;
+  --color-cat-orange: #9A4A00; --color-cat-orange-light: #FEF0E1; --color-cat-orange-line: #F5CFA3; --color-cat-orange-bright: #F69008;
+  --color-cat-red: #B42318;    --color-cat-red-light: #FDECEA;    --color-cat-red-line: #F3C2BD;    --color-cat-red-bright: #F27A6E;
+  --color-cat-teal: #0F6E6E;   --color-cat-teal-light: #E2F4F3;   --color-cat-teal-line: #B3DEDB;   --color-cat-teal-bright: #3CC7BE;
+  --color-cat-pink: #A3246B;   --color-cat-pink-light: #FBEAF3;   --color-cat-pink-line: #EDC0D8;   --color-cat-pink-bright: #F08BC0;
+  --color-cat-gray: #4A5566;   --color-cat-gray-light: #EEF1F5;   --color-cat-gray-line: #CBD1DA;   --color-cat-gray-bright: #8FA0B8;
+
   --duration: 160ms;
   --tap: 44px;                     /* objetivo táctil mínimo */
 }

@@ -31,8 +31,8 @@ const { t, tm, rt } = useI18n();
 .pitch { margin: auto 0 0; font-family: var(--font-display); font-size: 26px; line-height: 1.25; color: #fff; text-wrap: balance; }
 .lines { display: flex; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .lines li { padding: 4px 10px; border: 1px solid rgb(255 255 255 / .2); font-size: 13px; color: var(--color-cta); }
-.panel { display: grid; align-content: center; justify-items: center; gap: 16px; padding: 32px 16px calc(32px + env(safe-area-inset-bottom, 0px)); }
-.card { width: min(420px, 100%); display: grid; gap: 16px; background: var(--color-surface); padding: 28px; box-shadow: var(--shadow-md); }
+.panel { display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; justify-items: center; gap: 16px; padding: 32px 16px calc(32px + env(safe-area-inset-bottom, 0px)); }
+.card { width: min(420px, 100%); display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; background: var(--color-surface); padding: 28px; box-shadow: var(--shadow-md); }
 h1 { margin: 0; font-size: 26px; }
 .sub { margin: -8px 0 0; color: var(--color-muted); line-height: 1.5; }
 .foot { font-size: 14px; color: var(--color-muted); text-align: center; }

@@ -171,7 +171,7 @@ const meItems = computed(() => [
             </thead>
             <tbody>
               <tr v-for="w in shown" :key="w.id">
-                <td class="name"><b>{{ w.name }}</b><small>/w/{{ w.slug }}</small></td>
+                <td><span class="name"><b>{{ w.name }}</b><small>/w/{{ w.slug }}</small></span></td>
                 <td>{{ t(`settings.industries.${w.settings.industry}`) }}</td>
                 <td>{{ t(`settings.plans.${w.plan}`) }}</td>
                 <td><Badge :tone="statusTone(w.status)">{{ t(`settings.statuses.${w.status}`) }}</Badge></td>
@@ -230,7 +230,7 @@ const meItems = computed(() => [
 .me-txt b { font-size: 14px; font-weight: 600; color: #fff; }
 .me-txt small { font-size: 12px; }
 
-.content { display: grid; gap: 22px; padding: 26px 32px 48px 28px; }
+.content { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; padding: 26px 32px 48px 28px; }
 .head { display: grid; gap: 4px; border-left: 4px solid var(--color-primary); padding-left: 14px; }
 h1 { margin: 0; font-size: 26px; }
 .head p { margin: 0; color: var(--color-muted); }
@@ -253,7 +253,8 @@ h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 18px; }
 .find:focus-within { border-color: var(--color-ink); box-shadow: 0 0 0 3px rgb(246 144 8 / .22); }
 .find input { flex: 1; min-width: 0; min-height: 40px; font: inherit; color: var(--color-ink); background: none; border: 0; outline: none; }
 .st { width: 210px; }
-.scroll { overflow-x: auto; }
+/* relative: el .sr-only de la cabecera es absoluto y, sin esto, escapa del recorte y ensancha la página */
+.scroll { position: relative; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { padding: 10px 14px; font-size: 12px; font-weight: 600; text-align: left; text-transform: uppercase; letter-spacing: .05em; color: var(--color-muted); background: var(--color-canvas); white-space: nowrap; }
 td { padding: 10px 14px; border-top: 1px solid var(--color-line); vertical-align: middle; }

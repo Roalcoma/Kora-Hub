@@ -286,7 +286,7 @@ h2 { margin: 0; font-size: 17px; }
 /* Dos columnas de distinto peso: la principal a la izquierda, el contexto a la derecha */
 .split { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr); gap: 22px; align-items: start; max-width: 1320px; }
 .col { display: grid; gap: 22px; }
-.stack { display: grid; gap: 22px; max-width: 1320px; }
+.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; max-width: 1320px; }
 /* Banda de nombre y rubro: acento marino a la izquierda, campos en una fila de distinto peso */
 .naming { border-left: 4px solid var(--color-ink); }
 .naming-head { display: grid; gap: 4px; }
@@ -298,7 +298,8 @@ h2 { margin: 0; font-size: 17px; }
 /* Pares de tarjetas hermanas: mismo ancho y mismo alto */
 .split.even { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
 .split.even .card { grid-template-rows: auto auto 1fr; }
-.card { display: grid; gap: 14px; align-content: start; padding: 20px 22px; background: var(--color-surface); box-shadow: var(--shadow-md); }
+/* minmax(0, 1fr): la columna no crece con el contenido (si no, en el teléfono la tarjeta se sale de la pantalla) */
+.card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; padding: 20px 22px; background: var(--color-surface); box-shadow: var(--shadow-md); }
 .card.accent { border-left: 4px solid var(--color-primary); }
 .hint { margin: -6px 0 0; font-size: 13px; color: var(--color-muted); }
 .me { display: flex; align-items: center; gap: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--color-line); }
@@ -325,5 +326,5 @@ h2 { margin: 0; font-size: 17px; }
 .box { border-left: 4px solid var(--color-ink); }
 .secret { padding: 10px 12px; font-size: 16px; letter-spacing: .08em; background: var(--color-canvas); border: 1px solid var(--color-line); word-break: break-all; }
 @media (max-width: 1023px) { .split, .split.even { grid-template-columns: minmax(0, 1fr); } .naming-row { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 767px) { .content { padding: 16px; } .role { width: 100%; } .card { padding: 16px; } }
+@media (max-width: 767px) { .content { padding: 16px; } .role { width: 100%; } .card { padding: 16px; } .naming-row { grid-template-columns: minmax(0, 1fr); } .naming-row > .btn { margin-top: 0; } }
 </style>

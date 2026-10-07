@@ -17,5 +17,6 @@ const s = useSession();
 
 <style scoped>
 .app { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); }
-.app-body { min-height: 0; }
+/* Fila 2 explícita: sin banda, el cuerpo no debe caer en la fila automática */
+.app-body { grid-row: 2; min-height: 0; }
 </style>

@@ -1,9 +1,9 @@
 // Formatos compartidos por Facturación y el backoffice.
 import type { WorkspaceStatus } from '@agencia-hub/contracts';
 
-/** Centavos de USD → "$6" / "$6.50" según el idioma */
+/** Centavos de USD → "$6" / "$6.50" (es-US para que el español no muestre "6 US$") */
 export const money = (cents: number, locale: string) =>
-  new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', minimumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100);
+  new Intl.NumberFormat(locale === 'es' ? 'es-US' : 'en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100);
 
 /** Bytes → "1.2 GB" */
 export function bytes(n: number, locale: string) {

@@ -101,8 +101,8 @@ function onKey(e: KeyboardEvent) {
 .trigger:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
 .value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Muestra de color (paleta de categorías): cuadro con borde interior para que el gris no se pierda */
-.sw { display: inline-block; width: 14px; height: 14px; flex: none; margin-right: 8px; vertical-align: -2px; box-shadow: inset 0 0 0 1px rgb(19 36 61 / .18); }
-li .sw { margin-right: 0; }
+.sw { display: inline-block; width: 14px; height: 14px; flex: none; vertical-align: -2px; box-shadow: inset 0 0 0 1px rgb(19 36 61 / .18); }
+.value .sw { margin-right: 8px; }
 .ph { color: var(--color-muted); }
 .chev { flex: none; color: var(--color-muted); transition: transform var(--duration); }
 .open .chev { transform: rotate(180deg); color: var(--color-ink); }

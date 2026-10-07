@@ -30,9 +30,9 @@ const other = computed(() => s.session!.workspaces.find((w) => w.slug !== s.work
 </template>
 
 <style scoped>
-.susp { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(260px, .6fr); gap: 22px; align-items: start; max-width: 1100px; padding: 32px 32px 40px 28px; }
+.susp { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, .7fr); gap: 22px; align-items: stretch; max-width: 1320px; padding: 32px 32px 40px 28px; }
 .susp :deep(.empty) { max-width: none; }
-.keep { display: grid; gap: 10px; padding: 18px 20px; background: var(--color-surface); box-shadow: var(--shadow-sm); border-top: 3px solid var(--color-ink); }
+.keep { display: grid; gap: 10px; align-content: start; padding: 18px 20px; background: var(--color-surface); box-shadow: var(--shadow-sm); border-top: 3px solid var(--color-ink); }
 h3 { margin: 0; font-size: 16px; }
 ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 14px; color: var(--color-muted); }
 li { display: flex; gap: 8px; align-items: flex-start; }

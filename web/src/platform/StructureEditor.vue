@@ -90,6 +90,7 @@ input:focus { border-color: var(--color-ink); background: var(--color-surface); 
 .icon:hover { color: var(--color-ink); background: var(--color-canvas); }
 .add { display: flex; gap: 8px; margin-top: auto; }
 .color { width: 150px; flex: none; }
+@media (max-width: 420px) { .color { width: 124px; } }
 .color :deep(.trigger) { min-height: 36px; box-shadow: none; border-color: var(--color-line); }
 .add input { border-color: var(--color-line-strong); background: var(--color-surface); }
 </style>

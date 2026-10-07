@@ -121,11 +121,11 @@ h2 { margin: 0; font-size: 18px; padding-bottom: 6px; border-bottom: 1px solid v
 .sw span { height: 44px; border: 1px solid var(--color-line); }
 .frame { background: var(--color-surface); border: 1px solid var(--color-line); }
 .note { margin: 0; color: var(--color-muted); font-size: 14px; }
-.cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); grid-auto-rows: 1fr; gap: 10px; }
 .cat { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px 12px; padding: 12px 14px; background: var(--color-surface); box-shadow: var(--shadow-sm); }
 .chip { width: 34px; height: 34px; grid-row: span 2; box-shadow: var(--shadow-sm); }
-.cat-txt { display: grid; font-size: 13px; }
-.cat-txt code { font-size: 11px; color: var(--color-muted); }
+.cat-txt { display: grid; min-width: 0; font-size: 13px; }
+.cat-txt code { font-size: 11px; color: var(--color-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .on-dark { grid-column: 2 / 4; display: flex; align-items: center; gap: 6px; padding: 4px 8px; font-size: 12px; color: var(--color-sidebar-text); background: var(--color-ink); }
 .on-dark i { width: 6px; height: 6px; }
 </style>

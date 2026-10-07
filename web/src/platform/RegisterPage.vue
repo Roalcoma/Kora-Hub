@@ -56,7 +56,7 @@ async function submit() {
 
 <template>
   <AuthLayout :title="t('auth.registerTitle')" :subtitle="t('auth.registerSubtitle')">
-    <form class="grid gap-4" novalidate @submit.prevent="submit">
+    <form class="grid grid-cols-1 gap-4" novalidate @submit.prevent="submit">
       <Input v-model="f.name" :label="t('auth.yourName')" autocomplete="name" :error="errors.name" />
       <Input v-model="f.email" :label="t('common.email')" type="email" autocomplete="email" :error="errors.email" />
       <Input v-model="f.password" :label="t('common.password')" type="password" autocomplete="new-password" :hint="t('auth.passwordHint')" :error="errors.password" />
@@ -81,7 +81,7 @@ async function submit() {
 </template>
 
 <style scoped>
-.tpl { display: grid; grid-auto-rows: 1fr; gap: 8px; margin: 0; padding: 0; border: 0; }
+.tpl { display: grid; grid-auto-rows: 1fr; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }   /* fieldset: sin min-width 0 no se encoge */
 legend { display: grid; gap: 2px; font-size: 13px; font-weight: 500; margin-bottom: 8px; }
 legend small { font-weight: 400; color: var(--color-muted); }
 /* Mismo alto para todas (grid-auto-rows: 1fr); la elegida se eleva y lleva el acento naranja */

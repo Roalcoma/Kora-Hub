@@ -189,7 +189,7 @@ async function simulate(event: 'paid' | 'payment_failed' | 'canceled', plan?: Pa
 </template>
 
 <style scoped>
-.billing { display: grid; gap: 22px; max-width: 1320px; }
+.billing { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; max-width: 1320px; }
 .card { background: var(--color-surface); box-shadow: var(--shadow-md); }
 h2, h3 { margin: 0; }
 /* Columna principal ancha + contexto angosto */
@@ -204,7 +204,7 @@ h2, h3 { margin: 0; }
 .cur-ttl { flex: 1; display: grid; }
 .cur-ttl small { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--color-muted); }
 .cur-ttl h2 { font-size: 24px; }
-.cur-body { display: grid; gap: 10px; align-content: start; padding: 18px 22px; }
+.cur-body { display: grid; gap: 10px; align-content: center; padding: 18px 22px; }
 .big { display: flex; align-items: center; gap: 14px; }
 .big b { font: 800 46px/1 var(--font-display); color: var(--color-ink); font-variant-numeric: tabular-nums; }
 .big span { display: grid; font-weight: 600; font-size: 16px; }

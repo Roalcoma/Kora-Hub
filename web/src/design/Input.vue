@@ -25,7 +25,8 @@ label { font-size: 13px; font-weight: 500; }
 .box:focus-within { border-color: var(--color-ink); box-shadow: 0 0 0 3px rgb(246 144 8 / .25); }
 .box.invalid { border-color: var(--color-danger); }
 .prefix { padding-left: 12px; color: var(--color-muted); font-size: 14px; white-space: nowrap; }
-input { flex: 1; min-width: 0; min-height: 40px; padding: 0 12px; border: 0; background: transparent; font: inherit; color: inherit; outline: none; }
+/* width 0 + flex 1: el ancho intrínseco del input no empuja la caja (con prefijo largo se salía en el teléfono) */
+input { flex: 1; width: 0; min-width: 0; min-height: 40px; padding: 0 12px; border: 0; background: transparent; font: inherit; color: inherit; outline: none; }
 .prefix + input { padding-left: 2px; }
 .hint { margin: 0; font-size: 12px; color: var(--color-muted); }
 .error { margin: 0; font-size: 12px; color: var(--color-danger); font-weight: 500; }
