@@ -1,5 +1,7 @@
 <script setup lang="ts">
-defineProps<{ tone?: 'primary' | 'neutral' | 'success' | 'warning' | 'danger' | 'salud' | 'vida' | 'medicare' }>();
+import type { CategoryTone } from './types.ts';
+// Tonos semánticos + los 8 colores de categoría (la paleta fija de tokens --color-cat-*)
+defineProps<{ tone?: 'primary' | 'neutral' | 'success' | 'warning' | 'danger' | CategoryTone }>();
 </script>
 
 <template>
@@ -13,7 +15,12 @@ defineProps<{ tone?: 'primary' | 'neutral' | 'success' | 'warning' | 'danger' | 
 .success { background: var(--color-success-light); color: var(--color-success); }
 .warning { background: var(--color-warning-light); color: var(--color-warning); }
 .danger { background: var(--color-danger-light); color: var(--color-danger); }
-.salud { background: var(--color-success-light); border-color: #B7DCC6; color: var(--color-success); }
-.vida { background: #EAF1F8; border-color: #C3D5E8; color: var(--color-leaf); }
-.medicare { background: #F1ECF8; border-color: #D5CAE8; color: #5B4B8A; }
+.green { background: var(--color-cat-green-light); border-color: var(--color-cat-green-line); color: var(--color-cat-green); }
+.blue { background: var(--color-cat-blue-light); border-color: var(--color-cat-blue-line); color: var(--color-cat-blue); }
+.purple { background: var(--color-cat-purple-light); border-color: var(--color-cat-purple-line); color: var(--color-cat-purple); }
+.orange { background: var(--color-cat-orange-light); border-color: var(--color-cat-orange-line); color: var(--color-cat-orange); }
+.red { background: var(--color-cat-red-light); border-color: var(--color-cat-red-line); color: var(--color-cat-red); }
+.teal { background: var(--color-cat-teal-light); border-color: var(--color-cat-teal-line); color: var(--color-cat-teal); }
+.pink { background: var(--color-cat-pink-light); border-color: var(--color-cat-pink-line); color: var(--color-cat-pink); }
+.gray { background: var(--color-cat-gray-light); border-color: var(--color-cat-gray-line); color: var(--color-cat-gray); }
 </style>

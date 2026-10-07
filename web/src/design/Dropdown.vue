@@ -65,7 +65,7 @@ function onKey(e: KeyboardEvent) {
     <span v-if="label" :id="`${id}-label`" class="lbl">{{ label }}</span>
     <button :id="`${id}-btn`" type="button" class="trigger" :disabled="disabled" aria-haspopup="listbox" :aria-expanded="open"
       :aria-labelledby="label ? `${id}-label ${id}-btn` : undefined" @click="toggle" @keydown.down.prevent="!open && toggle()">
-      <span class="value" :class="{ ph: !current }">{{ current?.label ?? placeholder ?? '—' }}</span>
+      <span class="value" :class="{ ph: !current }"><i v-if="current?.swatch" class="sw" :style="{ background: current.swatch }" />{{ current?.label ?? placeholder ?? '—' }}</span>
       <ChevronDown :size="16" class="chev" />
     </button>
     <Transition name="menu">
@@ -77,6 +77,7 @@ function onKey(e: KeyboardEvent) {
         <ul :id="`${id}-list`" ref="list" role="listbox" tabindex="-1" :aria-activedescendant="shown.length ? `${id}-o${active}` : undefined">
           <li v-for="(o, i) in shown" :id="`${id}-o${i}`" :key="o.value" role="option" :aria-selected="o.value === model"
             :class="{ active: i === active, selected: o.value === model }" @mousedown.prevent="choose(i)" @mousemove="active = i">
+            <i v-if="o.swatch" class="sw" :style="{ background: o.swatch }" />
             <span class="txt">{{ o.label }}<small v-if="o.hint">{{ o.hint }}</small></span>
             <Check v-if="o.value === model" :size="16" class="check" />
           </li>
@@ -99,6 +100,9 @@ function onKey(e: KeyboardEvent) {
 .open .trigger { border-color: var(--color-ink); box-shadow: 0 0 0 3px rgb(246 144 8 / .22), var(--shadow-md); }
 .trigger:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
 .value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Muestra de color (paleta de categorías): cuadro con borde interior para que el gris no se pierda */
+.sw { display: inline-block; width: 14px; height: 14px; flex: none; margin-right: 8px; vertical-align: -2px; box-shadow: inset 0 0 0 1px rgb(19 36 61 / .18); }
+li .sw { margin-right: 0; }
 .ph { color: var(--color-muted); }
 .chev { flex: none; color: var(--color-muted); transition: transform var(--duration); }
 .open .chev { transform: rotate(180deg); color: var(--color-ink); }
@@ -120,7 +124,7 @@ li.active { background: var(--color-canvas); }
 li.active::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; background: var(--color-primary); }
 li.selected .txt { font-weight: 700; }
 .check { color: var(--color-primary-dark); flex: none; }
-.txt { display: grid; gap: 1px; }
+.txt { display: grid; gap: 1px; flex: 1; }
 small { font-size: 12px; font-weight: 400; color: var(--color-muted); }
 .menu-enter-active, .menu-leave-active { transition: opacity 140ms, transform 140ms; }
 .menu-enter-from, .menu-leave-to { opacity: 0; transform: translateY(-4px) scale(.98); }

@@ -4,6 +4,7 @@ import { ref } from 'vue';
 import { ChevronRight, FileText } from 'lucide-vue-next';
 import type { DocumentNode } from '@agencia-hub/contracts';
 import { useSession } from '@/stores/session.ts';
+import { toneColor } from '@/design/types.ts';
 
 const props = defineProps<{ items: DocumentNode[]; children: Map<string, DocumentNode[]>; activeId?: string; openIds: Set<string>; depth?: number }>();
 const s = useSession();
@@ -24,7 +25,7 @@ function toggle(id: string) {
         <button v-if="children.get(n.id)?.length" type="button" class="tw" :class="{ open: isOpen(n.id) }" :aria-expanded="isOpen(n.id)" :aria-label="n.title" @click="toggle(n.id)"><ChevronRight :size="15" /></button>
         <FileText v-else :size="14" class="ic" />
         <RouterLink :to="`/w/${s.workspace!.slug}/manuals/${n.id}`" class="lnk">{{ n.title }}</RouterLink>
-        <span v-if="n.lineId" class="line" :class="s.lineTone(n.lineId)" :title="s.lineOf(n.lineId)?.name" />
+        <span v-if="n.lineId" class="line" :style="{ background: toneColor(s.lineTone(n.lineId)) }" :title="s.lineOf(n.lineId)?.name" />
       </div>
       <DocTree v-if="children.get(n.id)?.length && isOpen(n.id)" :items="children.get(n.id)!" :children="children" :active-id="activeId" :open-ids="openIds" :depth="(depth ?? 0) + 1" />
     </li>
@@ -42,9 +43,6 @@ function toggle(id: string) {
 .tw.open { transform: rotate(90deg); }
 .ic { width: 22px; color: var(--color-line-strong); }
 .lnk { flex: 1; min-width: 0; padding: 6px 0; font-size: 14px; color: var(--color-ink); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.line { width: 6px; height: 6px; flex: none; background: var(--color-line-strong); }
-.line.salud { background: var(--color-success); }
-.line.vida { background: var(--color-leaf); }
-.line.medicare { background: #5B4B8A; }
+.line { width: 6px; height: 6px; flex: none; }
 @media (max-width: 767px) { .row { min-height: var(--tap); } .lnk { font-size: 16px; } }
 </style>

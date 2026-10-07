@@ -6,6 +6,7 @@ export default {
     copied: 'Copied', saved: 'Changes saved', add: 'Add', later: "I'll do it later", loading: 'Loading…',
     error: 'Something went wrong. Please try again.', email: 'Email', password: 'Password', name: 'Name',
   },
+  category: { singular: 'Category', plural: 'Categories' },
   roles: { owner: 'Owner', admin: 'Admin', lead: 'Lead', member: 'Member', guest: 'Guest' },
   auth: {
     loginTitle: 'Sign in', loginSubtitle: "Go to your agency's workspace.",

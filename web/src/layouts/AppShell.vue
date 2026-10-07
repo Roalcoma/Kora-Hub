@@ -11,6 +11,7 @@ import Kbd from '@/design/Kbd.vue';
 import Tooltip from '@/design/Tooltip.vue';
 import ContextMenu from '@/design/ContextMenu.vue';
 import Avatar from '@/design/Avatar.vue';
+import { toneColor } from '@/design/types.ts';
 import ChannelList from '@/chat/ChannelList.vue';
 import QuickSwitcher from '@/chat/QuickSwitcher.vue';
 import TaskCompose from '@/tasks/TaskCompose.vue';
@@ -159,7 +160,7 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
         <div v-if="lines.length" class="lines" role="radiogroup" :aria-label="t('nav.line')">
           <button type="button" role="radio" :aria-checked="!line" :class="{ on: !line }" @click="line = ''">{{ t('nav.allLines') }}</button>
           <button v-for="l in lines" :key="l.id" type="button" role="radio" :aria-checked="line === l.id" :class="{ on: line === l.id }" @click="line = l.id">
-            <span class="dot" :class="s.lineTone(l.id)" />{{ l.name }}
+            <span class="dot" :style="{ background: toneColor(s.lineTone(l.id), true) }" />{{ l.name }}
           </button>
         </div>
         <button class="sb-search" type="button" @click="switcher = true"><Search :size="15" />{{ t('nav.search') }}<Kbd class="ml-auto">Ctrl K</Kbd></button>
@@ -238,10 +239,7 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
 .lines button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 28px; padding: 0 5px; font: inherit; font-size: 12.5px; white-space: nowrap; color: var(--color-sidebar-text); background: none; border: 0; cursor: pointer; transition: background var(--duration), color var(--duration), box-shadow var(--duration); }
 .lines button:hover:not(.on) { color: #fff; background: rgb(255 255 255 / .07); }
 .lines button.on { color: var(--color-ink); font-weight: 600; background: var(--color-primary); box-shadow: 0 3px 8px rgb(0 0 0 / .4); }
-.dot { width: 6px; height: 6px; flex: none; background: #8FA0B8; }
-.dot.salud { background: #3FC48A; }
-.dot.vida { background: var(--color-cta); }
-.dot.medicare { background: #B3A4E0; }
+.dot { width: 6px; height: 6px; flex: none; }
 .lines .on .dot { box-shadow: 0 0 0 1.5px var(--color-ink); }
 .sb-search { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; font: inherit; font-size: 14px; color: var(--color-sidebar-text); background: rgb(0 0 0 / .22); border: 0; box-shadow: inset 0 1px 3px rgb(0 0 0 / .35); cursor: pointer; }
 .sb-search:hover { color: #fff; }

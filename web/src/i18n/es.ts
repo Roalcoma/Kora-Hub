@@ -4,6 +4,8 @@ export default {
     copied: 'Copiado', saved: 'Cambios guardados', add: 'Agregar', later: 'Lo haré después', loading: 'Cargando…',
     error: 'Algo salió mal. Inténtalo de nuevo.', email: 'Email', password: 'Contraseña', name: 'Nombre',
   },
+  /** Nombre por defecto de las categorías cuando la agencia no eligió uno propio */
+  category: { singular: 'Categoría', plural: 'Categorías' },
   roles: { owner: 'Owner', admin: 'Admin', lead: 'Líder', member: 'Miembro', guest: 'Invitado' },
   auth: {
     loginTitle: 'Inicia sesión', loginSubtitle: 'Entra al espacio de trabajo de tu agencia.',
