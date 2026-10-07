@@ -12,6 +12,7 @@ import { toast } from '@/design/toast.ts';
 import { useChat, type UiMessage } from './store.ts';
 import { renderBody, plainBody } from './format.ts';
 import { useTasks } from '@/tasks/store.ts';
+import DocCard from '@/docs/DocCard.vue';
 import EmojiPicker from './EmojiPicker.vue';
 
 const props = defineProps<{ m: UiMessage; compact?: boolean; inThread?: boolean; channel: Channel; canWrite: boolean }>();
@@ -48,12 +49,17 @@ function openMenu(x: number, y: number) {
   menuPos.value = { x, y };
   menu.value = true;
 }
+// Enlaces a manuales de este workspace se muestran como tarjeta
+const docIds = computed(() => [...new Set([...props.m.body.matchAll(new RegExp(`/w/${s.workspace!.slug}/manuals/([0-9a-f-]{36})`, 'g'))].map((x) => x[1]!))].slice(0, 3));
+
 // "Crear tarea": el texto del mensaje propone el título y queda enlazado al mensaje
 const tasks = useTasks();
 const canTask = computed(() => s.workspace!.me.role !== 'guest');
 function createTask() {
   const text = plainBody(props.m.body, (id) => chat.memberById.get(id)?.name);
-  tasks.compose({ title: text.split('\n')[0]!.slice(0, 200), description: text, sourceMessageId: props.m.id, sourcePreview: `${chat.nameOf(props.m.userId)}: ${text}` });
+  // Título: primera línea sin enlaces (la descripción conserva el texto completo)
+  const title = text.split('\n')[0]!.replace(/https?:\/\/\S+/g, '').replace(/[\s:]+$/, '').trim();
+  tasks.compose({ title: (title || text).slice(0, 200), description: text, sourceMessageId: props.m.id, sourcePreview: `${chat.nameOf(props.m.userId)}: ${text}` });
 }
 
 const menuItems = computed(() => [
@@ -117,6 +123,7 @@ const cancelPress = () => clearTimeout(press);
       </div>
       <!-- eslint-disable-next-line vue/no-v-html -- renderBody escapa todo antes de agregar etiquetas conocidas -->
       <div v-else-if="m.body" class="body" v-html="html" />
+      <DocCard v-for="id in docIds" :key="id" :id="id" />
       <span v-if="m.editedAt && !m.deletedAt && !editing" class="edited">{{ t('chat.edited') }}</span>
 
       <div v-if="m.files.length" class="files">

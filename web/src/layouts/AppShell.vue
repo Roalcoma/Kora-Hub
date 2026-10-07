@@ -52,6 +52,8 @@ const tabs = computed(() => [
   { to: `${base.value}/settings/profile`, icon: CircleUser, label: t('nav.you'), on: route.path.includes('/settings'), badge: 0 },
 ]);
 const onHome = computed(() => route.name === 'home');
+// Misma clave = la pantalla no se vuelve a montar (cambiar de canal, de manual o abrir una tarea)
+const viewKey = computed(() => (route.name === 'thread' || route.name === 'channel' ? 'conv' : (route.meta.view as string) ?? route.fullPath));
 const inConversation = computed(() => ['channel', 'thread'].includes(route.name as string));
 
 // Título de la pestaña con no leídos
@@ -139,7 +141,7 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
       </div>
     </aside>
 
-    <main class="main"><RouterView :key="route.name === 'thread' || route.name === 'channel' ? 'conv' : route.fullPath" /></main>
+    <main class="main"><RouterView :key="viewKey" /></main>
 
     <nav class="tabbar" :aria-label="t('nav.home')">
       <RouterLink v-for="tb in tabs" :key="tb.label" :to="tb.to" :class="{ on: tb.on }">
