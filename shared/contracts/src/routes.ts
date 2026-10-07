@@ -58,6 +58,7 @@ export type Routes = {
   'PATCH /w/:slug/channels/:id': R<In<typeof C.UpdateChannelBody>, C.Channel>;
   'POST /w/:slug/channels/:id/join': R<never, C.Channel>;
   'POST /w/:slug/channels/:id/leave': R<never, NoContent>;
+  'GET /w/:slug/channels/:id/members': R<never, Id[]>;
   'POST /w/:slug/channels/:id/members': R<In<typeof C.ChannelMembersBody>, NoContent>;
   'DELETE /w/:slug/channels/:id/members/:userId': R<never, NoContent>;
   'PATCH /w/:slug/channels/:id/me': R<In<typeof C.MyChannelPrefsBody>, C.Channel>;

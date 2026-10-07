@@ -106,6 +106,14 @@ chatRouter.post('/channels/:id/leave', async (req, res) => {
   res.status(204).end();
 });
 
+chatRouter.get('/channels/:id/members', async (req, res) => {
+  const id = Id.parse(req.params.id);
+  res.json(await tx(req, async (db) => {
+    await readableChannel(db, id);
+    return channelMemberIds(db, id);
+  }));
+});
+
 chatRouter.post('/channels/:id/members', async (req, res) => {
   const id = Id.parse(req.params.id);
   const { userIds } = parse(ChannelMembersBody, req.body);

@@ -1,35 +1,26 @@
 <script setup lang="ts">
+// En escritorio, Inicio abre el último canal visitado (o #general). En móvil, el shell muestra la lista de canales.
+import { watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { useI18n } from 'vue-i18n';
-import { MessagesSquare, Settings, UserPlus } from 'lucide-vue-next';
 import { useSession } from '@/stores/session.ts';
-import EmptyState from '@/design/EmptyState.vue';
-import Button from '@/design/Button.vue';
-import Badge from '@/design/Badge.vue';
+import { useChat } from '@/chat/store.ts';
+import Skeleton from '@/design/Skeleton.vue';
 
-const { t, d } = useI18n();
 const router = useRouter();
 const s = useSession();
-const base = `/w/${s.workspace!.slug}`;
+const chat = useChat();
+
+watch(() => chat.ready, (ready) => {
+  if (!ready || !matchMedia('(min-width: 768px)').matches) return;
+  let last: string | null = null;
+  try { last = localStorage.getItem(`last-channel:${s.workspace!.slug}`); } catch { /* idem */ }
+  const target = chat.channels.find((c) => c.id === last && c.isMember)
+    ?? chat.channels.find((c) => c.kind === 'public' && c.name === 'general')
+    ?? chat.channels.find((c) => c.isMember);
+  if (target) router.replace(`/w/${s.workspace!.slug}/c/${target.id}`);
+}, { immediate: true });
 </script>
 
 <template>
-  <div class="home">
-    <header class="top">
-      <h1>{{ t('home.welcome', { name: s.user!.name.split(' ')[0] }) }}</h1>
-      <Badge v-if="s.workspace!.status === 'trialing'" tone="primary">{{ t('home.trial', { date: d(s.workspace!.trialEndsAt) }) }}</Badge>
-    </header>
-    <EmptyState :icon="MessagesSquare" :title="t('home.soonTitle')" :text="t('home.soonText')">
-      <template v-if="s.isAdmin">
-        <Button variant="primary" @click="router.push(`${base}/onboarding`)"><Settings :size="16" />{{ t('home.setup') }}</Button>
-        <Button @click="router.push(`${base}/settings/invitations`)"><UserPlus :size="16" />{{ t('home.invite') }}</Button>
-      </template>
-    </EmptyState>
-  </div>
+  <div class="grid gap-4 p-6 max-w-xl"><Skeleton height="56px" /><Skeleton v-for="n in 4" :key="n" height="44px" /></div>
 </template>
-
-<style scoped>
-.home { display: grid; align-content: start; }
-.top { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; min-height: 56px; padding: 0 20px; background: var(--color-surface); border-bottom: 1px solid var(--color-line); }
-h1 { margin: 0; font-size: 19px; }
-</style>

@@ -19,6 +19,7 @@ import { toast } from '@/design/toast.ts';
 import StructureEditor from './StructureEditor.vue';
 import InvitePanel from './InvitePanel.vue';
 import { errorText } from './errors.ts';
+import PushSetup from '@/chat/PushSetup.vue';
 
 type Tab = 'members' | 'invitations' | 'structure' | 'workspace' | 'profile';
 const { t } = useI18n();
@@ -180,6 +181,7 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
           <Input v-model="profile.timezone" :label="t('settings.timezone')" placeholder="America/New_York" />
           <div><Button type="submit" variant="primary">{{ t('common.save') }}</Button></div>
         </form>
+        <PushSetup />
         <div class="grid gap-3 box">
           <h2 class="flex items-center gap-2"><ShieldCheck :size="20" />{{ t('settings.title2fa') }}
             <Badge :tone="s.user!.totpEnabled ? 'success' : 'neutral'">{{ s.user!.totpEnabled ? t('settings.on2fa') : t('settings.off2fa') }}</Badge></h2>
@@ -202,12 +204,12 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
 </template>
 
 <style scoped>
-.top { display: flex; align-items: center; min-height: 56px; padding: 0 20px; background: var(--color-surface); }
+.top { display: flex; align-items: center; min-height: 58px; padding: 0 22px; background: var(--color-surface); }
 h1 { margin: 0; font-size: 19px; }
 h2 { margin: 0; font-size: 17px; }
 .content { padding: 20px; }
 .narrow { max-width: 640px; }
-.list { margin: 0; padding: 0; list-style: none; background: var(--color-surface); border: 1px solid var(--color-line); }
+.list { margin: 0; padding: 0; list-style: none; background: var(--color-surface); box-shadow: var(--shadow-md); max-width: 1000px; }
 .list li { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--color-line); }
 .list li:first-child { border-top: 0; }
 .list li.off { opacity: .6; }
@@ -218,7 +220,7 @@ h2 { margin: 0; font-size: 17px; }
 .seg { display: flex; border: 1px solid var(--color-line-strong); }
 .seg button { min-height: 36px; padding: 0 10px; font: inherit; font-size: 13px; color: var(--color-ink); background: var(--color-surface); border: 0; cursor: pointer; }
 .seg button[aria-checked="true"] { background: var(--color-ink); color: #fff; }
-.box { padding: 16px; background: var(--color-surface); border: 1px solid var(--color-line); }
+.box { padding: 16px 18px; background: var(--color-surface); box-shadow: var(--shadow-md); border-left: 4px solid var(--color-ink); }
 .secret { padding: 10px 12px; font-size: 16px; letter-spacing: .08em; background: var(--color-canvas); border: 1px solid var(--color-line); word-break: break-all; }
 @media (max-width: 767px) { .content { padding: 16px; } .role { width: 100%; } }
 </style>

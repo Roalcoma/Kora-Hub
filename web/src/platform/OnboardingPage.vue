@@ -8,17 +8,18 @@ import Button from '@/design/Button.vue';
 import Badge from '@/design/Badge.vue';
 import StructureEditor from './StructureEditor.vue';
 import InvitePanel from './InvitePanel.vue';
+import PushSetup from '@/chat/PushSetup.vue';
 
 const { t, tm, rt } = useI18n();
 const router = useRouter();
 const s = useSession();
 
-// ponytail: el paso "Activar notificaciones" se agrega cuando exista push (Ola 2)
 const steps = computed(() => [
   { key: 'departments', title: t('onboarding.departments'), hint: t('onboarding.departmentsHint') },
   { key: 'lines', title: t('onboarding.lines'), hint: t('onboarding.linesHint') },
   { key: 'invite', title: t('onboarding.invite'), hint: t('onboarding.inviteHint') },
   { key: 'phone', title: t('onboarding.phoneTitle'), hint: t('onboarding.phoneHint') },
+  { key: 'notifications', title: t('onboarding.notifications'), hint: t('onboarding.notificationsHint') },
 ] as const);
 const i = ref(0);
 const step = computed(() => steps.value[i.value]!);
@@ -48,6 +49,7 @@ function next() {
         <StructureEditor v-if="step.key === 'departments'" kind="departments" />
         <StructureEditor v-else-if="step.key === 'lines'" kind="lines" />
         <InvitePanel v-else-if="step.key === 'invite'" />
+        <PushSetup v-else-if="step.key === 'notifications'" />
         <div v-else class="grid gap-3">
           <p v-if="installed" class="ok-msg"><Check :size="18" />{{ t('onboarding.installed') }}</p>
           <template v-else>

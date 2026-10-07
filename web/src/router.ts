@@ -20,6 +20,11 @@ export const router = createRouter({
       component: () => import('@/layouts/AppShell.vue'),
       children: [
         { path: '', name: 'home', component: () => import('@/platform/HomePage.vue') },
+        { path: 'c/:id', name: 'channel', component: () => import('@/chat/ChannelPage.vue') },
+        { path: 'c/:id/t/:threadId', name: 'thread', component: () => import('@/chat/ChannelPage.vue') },
+        { path: 'search', component: () => import('@/chat/SearchPage.vue') },
+        { path: 'dms', component: () => import('@/chat/InboxPage.vue') },
+        { path: 'mentions', component: () => import('@/chat/InboxPage.vue') },
         { path: 'settings/:tab?', name: 'settings', component: () => import('@/platform/SettingsPage.vue') },
         { path: 'manuals', component: () => import('@/platform/ComingSoon.vue') },
         { path: 'tasks', component: () => import('@/platform/ComingSoon.vue') },
