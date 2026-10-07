@@ -167,7 +167,7 @@ export default {
     categoryNameHint: 'For example: Line, Product, Office or Client. Used in the sidebar, filters and forms.',
     singular: 'Singular', plural: 'Plural', industry: 'Industry', industryHint: 'Decides industry-specific notices (for example, PHI for insurance).',
     industries: { insurance: 'Insurance', marketing: 'Marketing', real_estate: 'Real estate', travel: 'Travel', other: 'Other' },
-    color: 'Color', noColor: 'No color', categoryTitle: 'Name and industry', useDefault: 'Use “{name}”',
+    color: 'Color', noColor: 'No color', categoryBoth: 'Enter both singular and plural, or leave both empty to use the default name.', categoryTitle: 'Name and industry', useDefault: 'Use “{name}”',
     colors: { green: 'Green', blue: 'Blue', purple: 'Purple', orange: 'Orange', red: 'Red', teal: 'Teal', pink: 'Pink', gray: 'Gray' },
     address: 'Address', plan: 'Plan and usage', planName: 'Plan', status: 'Status', trialEnds: 'Trial ends', maxFile: 'File size limit',
     plans: { trial: 'Trial', standard: 'Standard', pro: 'Pro' },

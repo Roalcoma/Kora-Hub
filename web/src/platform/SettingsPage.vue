@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { Building2, ShieldCheck, LogOut, UserPlus } from 'lucide-vue-next';
-import type { Member, Role } from '@agencia-hub/contracts';
+import { INDUSTRIES, type Industry, type Member, type Role } from '@agencia-hub/contracts';
 import { api } from '@/api.ts';
 import { useSession } from '@/stores/session.ts';
 import { setLocale } from '@/i18n/index.ts';
@@ -89,6 +89,26 @@ const saveWorkspace = () => guard(async () => {
   await s.refreshWorkspace();
 }, t('common.saved'));
 
+// ─── Estructura: cómo llama la agencia a sus categorías y su rubro ───
+const catForm = reactive({
+  singular: s.workspace!.settings.categoryLabel?.singular ?? '', plural: s.workspace!.settings.categoryLabel?.plural ?? '',
+  industry: s.workspace!.settings.industry as Industry,
+});
+const industryOptions = computed(() => INDUSTRIES.map((x) => ({ value: x, label: t(`settings.industries.${x}`) })));
+const catError = ref<string | null>(null);
+function saveCategory() {
+  const singular = catForm.singular.trim();
+  const plural = catForm.plural.trim();
+  catError.value = null;
+  // Ambos vacíos = volver al texto por defecto; uno solo no alcanza
+  if (!!singular !== !!plural) { catError.value = t('settings.categoryBoth'); return; }
+  return guard(async () => {
+    await api('PATCH /w/:slug', { params: { slug: slug.value }, body: { settings: {
+      categoryLabel: singular ? { singular, plural } : null, industry: catForm.industry } } });
+    await s.refreshWorkspace();
+  }, t('common.saved'));
+}
+
 // ─── Perfil ───
 const profile = reactive({ name: s.user!.name, locale: s.user!.locale, timezone: s.user!.timezone, title: s.workspace!.me.title ?? '' });
 const localeOptions = [{ value: 'es' as const, label: 'Español' }, { value: 'en' as const, label: 'English' }];
@@ -172,9 +192,25 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
 
       <InvitePanel v-else-if="tab === 'invitations'" />
 
-      <section v-else-if="tab === 'structure'" class="split even">
-        <div class="card accent"><h2>{{ t('onboarding.departments') }}</h2><p class="hint">{{ t('settings.deptHint') }}</p><StructureEditor kind="departments" /></div>
-        <div class="card accent"><h2>{{ t('onboarding.lines', s.cat) }}</h2><p class="hint">{{ t('settings.linesHint', s.cat) }}</p><StructureEditor kind="lines" /></div>
+      <section v-else-if="tab === 'structure'" class="stack">
+        <!-- Banda con el nombre de las categorías y el rubro; debajo, las dos listas como tarjetas hermanas -->
+        <form class="card naming" @submit.prevent="saveCategory">
+          <div class="naming-head">
+            <h2>{{ t('settings.categoryTitle') }}</h2>
+            <p class="hint">{{ t('settings.categoryNameHint') }}</p>
+          </div>
+          <div class="naming-row">
+            <Input v-model="catForm.singular" :label="`${t('settings.categoryName')} · ${t('settings.singular')}`" :placeholder="t('category.singular')" :error="catError" />
+            <Input v-model="catForm.plural" :label="t('settings.plural')" :placeholder="t('category.plural')" />
+            <Dropdown v-model="catForm.industry" :options="industryOptions" :label="t('settings.industry')" />
+            <Button type="submit" variant="primary">{{ t('common.save') }}</Button>
+          </div>
+          <p class="hint">{{ t('settings.industryHint') }}</p>
+        </form>
+        <div class="split even">
+          <div class="card accent"><h2>{{ t('onboarding.departments') }}</h2><p class="hint">{{ t('settings.deptHint') }}</p><StructureEditor kind="departments" /></div>
+          <div class="card accent"><h2>{{ t('onboarding.lines', s.cat) }}</h2><p class="hint">{{ t('settings.linesHint', s.cat) }}</p><StructureEditor kind="lines" /></div>
+        </div>
       </section>
 
       <section v-else-if="tab === 'workspace'" class="split">
@@ -246,6 +282,15 @@ h2 { margin: 0; font-size: 17px; }
 /* Dos columnas de distinto peso: la principal a la izquierda, el contexto a la derecha */
 .split { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr); gap: 22px; align-items: start; max-width: 1320px; }
 .col { display: grid; gap: 22px; }
+.stack { display: grid; gap: 22px; max-width: 1320px; }
+/* Banda de nombre y rubro: acento marino a la izquierda, campos en una fila de distinto peso */
+.naming { border-left: 4px solid var(--color-ink); }
+.naming-head { display: grid; gap: 4px; }
+.naming-head .hint { margin: 0; }
+.naming-row { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 14px; align-items: start; }
+/* El botón se alinea con los campos (debajo de la etiqueta), aunque un campo muestre error */
+.naming-row > .btn { margin-top: 25px; min-height: 42px; }
+.naming > .hint { margin: 0; }
 /* Pares de tarjetas hermanas: mismo ancho y mismo alto */
 .split.even { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
 .split.even .card { grid-template-rows: auto auto 1fr; }
@@ -275,6 +320,6 @@ h2 { margin: 0; font-size: 17px; }
 .seg button[aria-checked="true"] { background: var(--color-ink); color: #fff; }
 .box { border-left: 4px solid var(--color-ink); }
 .secret { padding: 10px 12px; font-size: 16px; letter-spacing: .08em; background: var(--color-canvas); border: 1px solid var(--color-line); word-break: break-all; }
-@media (max-width: 1023px) { .split, .split.even { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1023px) { .split, .split.even { grid-template-columns: minmax(0, 1fr); } .naming-row { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 767px) { .content { padding: 16px; } .role { width: 100%; } .card { padding: 16px; } }
 </style>

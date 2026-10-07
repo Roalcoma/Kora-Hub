@@ -166,7 +166,7 @@ export default {
     categoryNameHint: 'Por ejemplo: Línea, Producto, Sede o Cliente. Se usa en el sidebar, los filtros y los formularios.',
     singular: 'Singular', plural: 'Plural', industry: 'Rubro', industryHint: 'Decide los avisos propios del sector (por ejemplo, PHI en seguros).',
     industries: { insurance: 'Seguros', marketing: 'Marketing', real_estate: 'Inmobiliaria', travel: 'Viajes', other: 'Otro' },
-    color: 'Color', noColor: 'Sin color', categoryTitle: 'Nombre y rubro', useDefault: 'Usar «{name}»',
+    color: 'Color', noColor: 'Sin color', categoryBoth: 'Escribe el singular y el plural, o deja ambos vacíos para usar el nombre por defecto.', categoryTitle: 'Nombre y rubro', useDefault: 'Usar «{name}»',
     colors: { green: 'Verde', blue: 'Azul', purple: 'Morado', orange: 'Naranja', red: 'Rojo', teal: 'Turquesa', pink: 'Rosa', gray: 'Gris' },
     address: 'Dirección', plan: 'Plan y uso', planName: 'Plan', status: 'Estado', trialEnds: 'La prueba termina', maxFile: 'Límite por archivo',
     plans: { trial: 'Prueba', standard: 'Estándar', pro: 'Pro' },
