@@ -28,7 +28,7 @@ export const router = createRouter({
         { path: 'settings/:tab?', name: 'settings', component: () => import('@/platform/SettingsPage.vue') },
         { path: 'manuals/:id?', component: () => import('@/docs/DocsPage.vue'), meta: { view: 'manuals' } },
         { path: 'tasks', component: () => import('@/tasks/TasksPage.vue'), meta: { view: 'tasks' } },
-        { path: 'goals', component: () => import('@/platform/ComingSoon.vue') },
+        { path: 'goals', component: () => import('@/goals/GoalsPage.vue'), meta: { view: 'goals' } },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
