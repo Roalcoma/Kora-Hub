@@ -45,6 +45,8 @@ API `4300` · Web `5180` · Postgres `55432` · MinIO API `59000` / consola `590
    **Sin huecos:** a 1600 px el contenido llena el ancho (dos columnas de distinto peso, tarjetas); los estados vacíos van
    alineados a la izquierda (`EmptyState`), nunca un ícono centrado solo. Siempre visible quién está logueado (tarjeta al pie
    del sidebar). Títulos en Plus Jakarta Sans (Bricolage se descartó).
+   Tarjetas hermanas lado a lado (mismo tipo de contenido): mismo ancho y alto, acciones alineadas (`.split.even`).
+   Valores de una lista conocida (zona horaria, idioma…): `Dropdown` con `searchable`, nunca un input de texto.
 7. Toda feature incluye pruebas: caso feliz, permiso denegado y **aislamiento entre workspaces**.
 8. Commits pequeños por feature, en español, con el coautor que indique el sistema. **No hacer push a `main`.**
 9. Leer el código existente antes de escribir; imitar su estilo y densidad de comentarios.

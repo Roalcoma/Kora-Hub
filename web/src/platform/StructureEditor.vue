@@ -69,7 +69,7 @@ function rename(id: string, old: string, e: Event) {
 </template>
 
 <style scoped>
-.ed { display: grid; gap: 10px; }
+.ed { display: flex; flex-direction: column; gap: 10px; height: 100%; }
 ul { margin: 0; padding: 0; list-style: none; border: 1px solid var(--color-line); background: var(--color-surface); }
 li { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 4px; border-top: 1px solid var(--color-line); }
 li:first-child { border-top: 0; }
@@ -79,6 +79,6 @@ input:hover:not(:disabled) { border-color: var(--color-line); }
 input:focus { border-color: var(--color-ink); background: var(--color-surface); }
 .icon { width: 38px; height: 38px; display: grid; place-items: center; color: var(--color-muted); background: none; border: 0; cursor: pointer; }
 .icon:hover { color: var(--color-ink); background: var(--color-canvas); }
-.add { display: flex; gap: 8px; }
+.add { display: flex; gap: 8px; margin-top: auto; }
 .add input { border-color: var(--color-line-strong); background: var(--color-surface); }
 </style>

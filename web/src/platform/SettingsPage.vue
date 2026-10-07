@@ -19,11 +19,13 @@ import { toast } from '@/design/toast.ts';
 import StructureEditor from './StructureEditor.vue';
 import InvitePanel from './InvitePanel.vue';
 import { errorText } from './errors.ts';
+import { timezoneOptions } from './timezones.ts';
 import PushSetup from '@/chat/PushSetup.vue';
 
 type Tab = 'members' | 'invitations' | 'structure' | 'workspace' | 'profile';
 const { t, d } = useI18n();
 const origin = location.origin;
+const tzOptions = computed(() => timezoneOptions(s.user!.locale, s.user!.timezone));
 const route = useRoute();
 const router = useRouter();
 const s = useSession();
@@ -170,9 +172,9 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
 
       <InvitePanel v-else-if="tab === 'invitations'" />
 
-      <section v-else-if="tab === 'structure'" class="split">
+      <section v-else-if="tab === 'structure'" class="split even">
         <div class="card accent"><h2>{{ t('onboarding.departments') }}</h2><p class="hint">{{ t('settings.deptHint') }}</p><StructureEditor kind="departments" /></div>
-        <div class="card"><h2>{{ t('onboarding.lines') }}</h2><p class="hint">{{ t('settings.linesHint') }}</p><StructureEditor kind="lines" /></div>
+        <div class="card accent"><h2>{{ t('onboarding.lines') }}</h2><p class="hint">{{ t('settings.linesHint') }}</p><StructureEditor kind="lines" /></div>
       </section>
 
       <section v-else-if="tab === 'workspace'" class="split">
@@ -204,7 +206,7 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
           <Input v-model="profile.name" :label="t('common.name')" autocomplete="name" />
           <Input v-model="profile.title" :label="t('settings.jobTitle')" />
           <Dropdown v-model="profile.locale" :options="localeOptions" :label="t('settings.language')" />
-          <Input v-model="profile.timezone" :label="t('settings.timezone')" placeholder="America/New_York" />
+          <Dropdown v-model="profile.timezone" :options="tzOptions" :label="t('settings.timezone')" searchable :search-placeholder="t('settings.searchTimezone')" />
           <div><Button type="submit" variant="primary">{{ t('common.save') }}</Button></div>
         </form>
         </div>
@@ -244,6 +246,9 @@ h2 { margin: 0; font-size: 17px; }
 /* Dos columnas de distinto peso: la principal a la izquierda, el contexto a la derecha */
 .split { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr); gap: 22px; align-items: start; max-width: 1320px; }
 .col { display: grid; gap: 22px; }
+/* Pares de tarjetas hermanas: mismo ancho y mismo alto */
+.split.even { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+.split.even .card { grid-template-rows: auto auto 1fr; }
 .card { display: grid; gap: 14px; align-content: start; padding: 20px 22px; background: var(--color-surface); box-shadow: var(--shadow-md); }
 .card.accent { border-left: 4px solid var(--color-primary); }
 .hint { margin: -6px 0 0; font-size: 13px; color: var(--color-muted); }
@@ -270,6 +275,6 @@ h2 { margin: 0; font-size: 17px; }
 .seg button[aria-checked="true"] { background: var(--color-ink); color: #fff; }
 .box { border-left: 4px solid var(--color-ink); }
 .secret { padding: 10px 12px; font-size: 16px; letter-spacing: .08em; background: var(--color-canvas); border: 1px solid var(--color-line); word-break: break-all; }
-@media (max-width: 1023px) { .split { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1023px) { .split, .split.even { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 767px) { .content { padding: 16px; } .role { width: 100%; } .card { padding: 16px; } }
 </style>

@@ -152,6 +152,7 @@ export default {
     deleted: 'Task deleted',
   },
   settings: {
+    searchTimezone: 'Search city or zone (e.g. Lima, New York)',
     activeMembers: 'active', admins: 'Admins', leads: 'Leads', invitePeople: 'Invite people',
     deptHint: 'Agency areas: they organize channels, manuals, tasks and goals.', linesHint: 'Health, Life, Medicare… The sidebar selector filters by line.',
     address: 'Address', plan: 'Plan and usage', planName: 'Plan', status: 'Status', trialEnds: 'Trial ends', maxFile: 'File size limit',

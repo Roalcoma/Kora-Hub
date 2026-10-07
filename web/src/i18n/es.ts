@@ -150,6 +150,7 @@ export default {
     deleted: 'Tarea borrada',
   },
   settings: {
+    searchTimezone: 'Buscar ciudad o zona (ej.: Lima, New York)',
     activeMembers: 'activos', admins: 'Admin', leads: 'Líderes', invitePeople: 'Invitar personas',
     deptHint: 'Áreas de la agencia: ordenan canales, manuales, tareas y metas.', linesHint: 'Salud, Vida, Medicare… El selector del sidebar filtra por línea.',
     address: 'Dirección', plan: 'Plan y uso', planName: 'Plan', status: 'Estado', trialEnds: 'La prueba termina', maxFile: 'Límite por archivo',
