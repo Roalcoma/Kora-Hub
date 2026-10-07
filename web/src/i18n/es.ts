@@ -159,6 +159,23 @@ export default {
     writeComment: 'Escribe un comentario…', send: 'Enviar', delete: 'Borrar tarea', deleteConfirm: '¿Borrar la tarea? No se puede deshacer.',
     deleted: 'Tarea borrada',
   },
+  plan: {
+    trialEnds: 'La prueba gratis termina hoy. | La prueba gratis termina mañana. | La prueba gratis termina en {n} días.',
+    trialEndsHint: 'Elige un plan para seguir escribiendo sin interrupciones.',
+    pastDue: 'No se pudo cobrar el último pago.', pastDueHint: 'Actualiza el medio de pago antes de que la agencia pase a solo lectura.',
+    readOnly: 'La agencia está en solo lectura.', readOnlyHint: 'Puedes ver y exportar, pero no hacer cambios hasta que se pague el plan.',
+    suspended: 'La agencia está suspendida.', suspendedHint: 'Los datos se conservan. Se reactiva en cuanto se pague el plan.',
+    choosePlan: 'Elegir plan', updatePayment: 'Actualizar pago', askOwner: 'Avísale al Owner de la agencia.',
+    suspendedTitle: 'Esta agencia está suspendida',
+    suspendedText: 'Pasó un tiempo en solo lectura sin que se pagara el plan. No se borró nada: mensajes, manuales, tareas y metas siguen guardados y vuelven en cuanto se reactive.',
+    suspendedOwner: 'Como Owner, puedes reactivarla eligiendo un plan.', suspendedMember: 'Pídele al Owner de la agencia que elija un plan para reactivarla.',
+    suspendedKeep: 'Qué se conserva', suspendedKeepList: ['Todos los mensajes, canales y archivos', 'Manuales con su historial de versiones', 'Tareas, metas y reportes'],
+    goBilling: 'Ir a Facturación', otherWorkspace: 'Cambiar de agencia',
+    errors: {
+      workspace_read_only: 'La agencia está en solo lectura por el estado del plan: puedes ver y exportar, pero no hacer cambios. El Owner puede reactivarla en Ajustes → Facturación.',
+      workspace_suspended: 'La agencia está suspendida por el estado del plan. El Owner puede reactivarla en Ajustes → Facturación.',
+    },
+  },
   billing: {
     current: 'Plan actual', until: 'hasta el {date}', renews: 'Se renueva el', seats: 'Puestos', seatsHint: 'Miembros activos; los invitados no cuentan',
     estimated: 'Costo estimado', perMonth: 'al mes', perUser: 'por usuario al mes', total: 'Total',

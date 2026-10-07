@@ -1,5 +1,6 @@
 // Cliente tipado a partir del contrato: api('PATCH /w/:slug/members/:userId', { params, body }) → respuesta tipada.
 import type { Routes, ApiError } from '@agencia-hub/contracts';
+import { i18n } from '@/i18n/index.ts';
 
 type Params<K extends string> = K extends `${string}:${infer P}/${infer Rest}` ? P | Params<`/${Rest}`>
   : K extends `${string}:${infer P}` ? P : never;
@@ -20,6 +21,9 @@ export class RequestError extends Error {
 
 /** Llamadas sin sesión válida (401) disparan este gancho; el router redirige al login. */
 export const onUnauthenticated = { handler: () => {} };
+/** Escritura rechazada porque el plan dejó la agencia en solo lectura o suspendida (403); el shell refresca el estado. */
+export const onWorkspaceBlocked = { handler: (_code: string) => {} };
+const BLOCKED = ['workspace_read_only', 'workspace_suspended'];
 
 export async function api<K extends keyof Routes>(key: K, ...[opts]: {} extends Opts<K> ? [Opts<K>?] : [Opts<K>]): Promise<Routes[K]['res']> {
   const [method, template] = (key as string).split(' ') as [string, string];
@@ -37,6 +41,11 @@ export async function api<K extends keyof Routes>(key: K, ...[opts]: {} extends 
   const data = await res.json().catch(() => ({ error: 'Respuesta inválida del servidor', code: 'bad_response' }));
   if (!res.ok) {
     if (res.status === 401 && !key.startsWith('POST /auth/')) onUnauthenticated.handler();
+    // Mensaje amable en vez del genérico: quien muestre e.message ya explica qué pasa y qué hacer
+    if (res.status === 403 && BLOCKED.includes(data.code)) {
+      data.error = i18n.global.t(`plan.errors.${data.code}`);
+      onWorkspaceBlocked.handler(data.code);
+    }
     throw new RequestError(res.status, data);
   }
   return data;

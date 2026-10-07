@@ -160,6 +160,23 @@ export default {
     writeComment: 'Write a comment…', send: 'Send', delete: 'Delete task', deleteConfirm: 'Delete this task? This cannot be undone.',
     deleted: 'Task deleted',
   },
+  plan: {
+    trialEnds: 'The free trial ends today. | The free trial ends tomorrow. | The free trial ends in {n} days.',
+    trialEndsHint: 'Choose a plan to keep writing without interruptions.',
+    pastDue: 'The last payment could not be charged.', pastDueHint: 'Update the payment method before the agency becomes read-only.',
+    readOnly: 'The agency is read-only.', readOnlyHint: 'You can view and export, but not make changes until the plan is paid.',
+    suspended: 'The agency is suspended.', suspendedHint: 'Data is kept. It reactivates as soon as the plan is paid.',
+    choosePlan: 'Choose plan', updatePayment: 'Update payment', askOwner: "Let the agency's Owner know.",
+    suspendedTitle: 'This agency is suspended',
+    suspendedText: 'It spent a while read-only without the plan being paid. Nothing was deleted: messages, manuals, tasks and goals are kept and come back as soon as it is reactivated.',
+    suspendedOwner: 'As the Owner, you can reactivate it by choosing a plan.', suspendedMember: "Ask the agency's Owner to choose a plan to reactivate it.",
+    suspendedKeep: 'What is kept', suspendedKeepList: ['All messages, channels and files', 'Manuals with their version history', 'Tasks, goals and reports'],
+    goBilling: 'Go to Billing', otherWorkspace: 'Switch agency',
+    errors: {
+      workspace_read_only: 'The agency is read-only because of its plan: you can view and export, but not make changes. The Owner can reactivate it in Settings → Billing.',
+      workspace_suspended: 'The agency is suspended because of its plan. The Owner can reactivate it in Settings → Billing.',
+    },
+  },
   billing: {
     current: 'Current plan', until: 'until {date}', renews: 'Renews on', seats: 'Seats', seatsHint: 'Active members; guests are free',
     estimated: 'Estimated cost', perMonth: 'per month', perUser: 'per user per month', total: 'Total',

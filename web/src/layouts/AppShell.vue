@@ -15,6 +15,8 @@ import { toneColor } from '@/design/types.ts';
 import ChannelList from '@/chat/ChannelList.vue';
 import QuickSwitcher from '@/chat/QuickSwitcher.vue';
 import TaskCompose from '@/tasks/TaskCompose.vue';
+import PlanBand from './PlanBand.vue';
+import SuspendedView from '@/platform/SuspendedView.vue';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -22,11 +24,14 @@ const router = useRouter();
 const s = useSession();
 const chat = useChat();
 
-// El chat se reinicia al cambiar de workspace
-watch(() => s.workspace?.slug, (slug, old) => {
-  if (old) chat.disconnect();
-  if (slug) chat.init();
+// El chat se reinicia al cambiar de workspace. Una agencia suspendida no abre el chat (el servidor lo rechaza).
+const suspended = computed(() => s.workspace?.status === 'suspended');
+watch(() => [s.workspace?.slug, suspended.value] as const, ([slug, susp], old) => {
+  if (old?.[0]) chat.disconnect();
+  if (slug && !susp) chat.init();
 }, { immediate: true });
+// Suspendida: solo queda abierta la pestaña de Facturación para el Owner
+const showSuspended = computed(() => suspended.value && !(s.isOwner && route.name === 'settings' && route.params.tab === 'billing'));
 onBeforeUnmount(() => chat.disconnect());
 
 const base = computed(() => `/w/${s.workspace!.slug}`);
@@ -179,7 +184,10 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
       </button>
     </aside>
 
-    <main class="main"><RouterView :key="viewKey" /></main>
+    <div class="main-col">
+      <PlanBand />
+      <main class="main"><SuspendedView v-if="showSuspended" /><RouterView v-else :key="viewKey" /></main>
+    </div>
 
     <nav class="tabbar" :aria-label="t('nav.home')">
       <RouterLink v-for="tb in tabs" :key="tb.label" :to="tb.to" :class="{ on: tb.on }">
@@ -249,7 +257,8 @@ h4 { margin: 16px 0 2px; padding: 0 16px; font-size: 12px; font-weight: 500; tex
 .sb-item:hover { background: var(--color-ink-soft); color: #fff; }
 .sb-item.active { background: var(--color-ink-soft); color: #fff; font-weight: 500; box-shadow: 0 6px 16px rgb(0 0 0 / .28); }
 .sb-item.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--color-primary); }
-.main { min-width: 0; min-height: 0; overflow: auto; background: var(--color-canvas); }
+.main-col { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.main { flex: 1; min-width: 0; min-height: 0; overflow: auto; background: var(--color-canvas); }
 .tabbar { display: none; }
 
 @media (max-width: 767px) {
@@ -258,8 +267,9 @@ h4 { margin: 16px 0 2px; padding: 0 16px; font-size: 12px; font-weight: 500; tex
   .sidebar > * { min-width: 0; }
   .sidebar { display: none; padding-top: env(safe-area-inset-top, 0px); box-shadow: none; }
   .on-home .sidebar { display: flex; }
-  .on-home .main { display: none; }
-  .main { padding-top: env(safe-area-inset-top, 0px); overflow: hidden; }
+  .on-home .main-col { display: none; }
+  .main-col { padding-top: env(safe-area-inset-top, 0px); }
+  .main { overflow: hidden; }
   .sb-item { min-height: var(--tap); font-size: 16px; }
   .tabbar { position: relative; z-index: 6; display: grid; grid-template-columns: repeat(5, 1fr); background: var(--color-surface); border-top: 1px solid var(--color-line); padding-bottom: env(safe-area-inset-bottom, 0px); box-shadow: 0 -6px 18px rgb(19 36 61 / .10); }
   .in-conv { grid-template-rows: minmax(0, 1fr); }

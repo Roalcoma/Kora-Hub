@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useSession } from '@/stores/session.ts';
-import { onUnauthenticated } from '@/api.ts';
+import { onUnauthenticated, onWorkspaceBlocked } from '@/api.ts';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -59,4 +59,13 @@ onUnauthenticated.handler = () => {
   if (!s.loaded) return; // la carga inicial de sesión resuelve su propia redirección en beforeEach
   s.session = null;
   if (!router.currentRoute.value.meta.public) router.push({ path: '/login', query: { next: router.currentRoute.value.fullPath } });
+};
+
+// Una escritura rechazada por el plan suele significar que el estado cambió (venció la prueba o la gracia):
+// se recarga el workspace para que la banda del shell lo muestre. Como mucho una vez cada 10 s.
+let lastBlocked = 0;
+onWorkspaceBlocked.handler = () => {
+  if (Date.now() - lastBlocked < 10_000) return;
+  lastBlocked = Date.now();
+  useSession().refreshWorkspace().catch(() => {});
 };
