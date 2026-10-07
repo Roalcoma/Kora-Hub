@@ -40,6 +40,8 @@ API `4300` · Web `5180` · Postgres `55432` · MinIO API `59000` / consola `590
    elevación con sombras (`--shadow-sm` superficie, `--shadow-md` tarjetas/compositor, `--shadow-lg` flotantes y
    paneles), hovers que elevan, paneles que proyectan sombra sobre el contenido. Composición asimétrica: columnas de
    distinto peso, encabezados y estados vacíos alineados a un lado, acentos laterales; evitar todo centrado en espejo.
+   Fondo general gris casi blanco (`--color-canvas`). **Modales siempre centrados** (`Modal.vue`) y desplegables con
+   `Dropdown.vue`; nunca controles con aspecto nativo. El sidebar es contraíble (Ctrl+Shift+D) y debe seguir siéndolo.
 7. Toda feature incluye pruebas: caso feliz, permiso denegado y **aislamiento entre workspaces**.
 8. Commits pequeños por feature, en español, con el coautor que indique el sistema. **No hacer push a `main`.**
 9. Leer el código existente antes de escribir; imitar su estilo y densidad de comentarios.

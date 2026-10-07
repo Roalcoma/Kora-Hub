@@ -30,7 +30,7 @@ export default {
   nav: {
     home: 'Inicio', messages: 'Mensajes', mentions: 'Menciones', tasks: 'Tareas', you: 'Tú', manuals: 'Manuales', goals: 'Metas',
     settings: 'Ajustes', search: 'Buscar', line: 'Línea', allLines: 'Todas', addWorkspace: 'Agregar espacio de trabajo',
-    logout: 'Cerrar sesión', agency: 'Agencia', announcements: 'Anuncios',
+    logout: 'Cerrar sesión', collapse: 'Contraer barra lateral', expand: 'Mostrar barra lateral', agency: 'Agencia', announcements: 'Anuncios',
   },
   home: {
     welcome: 'Hola, {name}', trial: 'Prueba gratis hasta el {date}.',

@@ -180,7 +180,9 @@ const cancelPress = () => clearTimeout(press);
 </template>
 
 <style scoped>
-.msg { position: relative; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 0 10px; padding: 7px 24px 7px 18px; content-visibility: auto; contain-intrinsic-size: auto 60px; transition: background var(--duration), box-shadow var(--duration); }
+.msg { position: relative; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 0 10px; padding: 7px 24px 7px 18px; transition: background var(--duration), box-shadow var(--duration); }
+/* El mensaje activo se pone por encima de sus vecinos para que su barra y sus menús no queden tapados */
+.msg:hover, .msg:focus-within { z-index: 3; }
 .msg.compact { padding-top: 2px; padding-bottom: 2px; }
 /* Profundidad: el mensaje bajo el cursor se separa del lienzo */
 .msg:hover { background: var(--color-surface); box-shadow: var(--shadow-sm), inset 3px 0 0 var(--color-line-strong); }
@@ -197,7 +199,7 @@ const cancelPress = () => clearTimeout(press);
 .head time { font-size: 12px; color: var(--color-muted); font-variant-numeric: tabular-nums; }
 .pin-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: #8A4B00; }
 .body { line-height: 1.5; overflow-wrap: anywhere; }
-.body :deep(code) { font: 13px ui-monospace, 'Cascadia Mono', Consolas, monospace; padding: 1px 4px; background: #EDE9E1; color: #8A2A1B; }
+.body :deep(code) { font: 13px ui-monospace, 'Cascadia Mono', Consolas, monospace; padding: 1px 4px; background: var(--color-canvas-deep); color: #8A2A1B; }
 .body :deep(pre) { margin: 6px 0; padding: 10px 12px; background: var(--color-ink); color: #E8EEF6; overflow-x: auto; box-shadow: var(--shadow-sm); }
 .body :deep(pre code) { background: none; color: inherit; padding: 0; }
 .body :deep(ul) { margin: 4px 0; padding-left: 22px; }
@@ -235,7 +237,7 @@ const cancelPress = () => clearTimeout(press);
 .stack { display: flex; }
 .stack > * + * { margin-left: -5px; box-shadow: 0 0 0 2px var(--color-canvas); }
 
-.ack { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 10px; padding: 10px 12px; background: #FBFAF7; border: 1px solid var(--color-line); box-shadow: var(--shadow-sm); }
+.ack { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 10px; padding: 10px 12px; background: var(--color-canvas); border: 1px solid var(--color-line); box-shadow: var(--shadow-sm); }
 .acked { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--color-success-light); color: var(--color-success); font-weight: 700; font-size: 13px; }
 .ack-count { display: grid; gap: 4px; min-width: 140px; font-size: 12px; color: var(--color-muted); }
 .bar { height: 5px; background: var(--color-line); }
@@ -250,7 +252,7 @@ const cancelPress = () => clearTimeout(press);
 .edit-actions { display: flex; gap: 6px; justify-content: flex-end; }
 
 /* Barra de acciones: flota sobre el mensaje con su propia sombra */
-.toolbar { position: absolute; top: -16px; right: 24px; display: none; background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-md); }
+.toolbar { position: absolute; z-index: 4; top: -18px; right: 24px; display: none; background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-md); }
 .msg:hover .toolbar, .toolbar:focus-within, .toolbar.open { display: flex; }
 .toolbar button { width: 34px; height: 32px; display: grid; place-items: center; font-size: 16px; color: var(--color-ink); background: none; border: 0; cursor: pointer; }
 .toolbar button:hover { background: var(--color-canvas); }

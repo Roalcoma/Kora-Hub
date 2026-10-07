@@ -10,13 +10,14 @@
   --color-ink-soft: #1C3150;       /* hover del sidebar, riel de workspaces */
   --color-leaf: #2F5D8A;           /* enlaces sobre fondo claro */
   --color-cta: #60D0FA;            /* acento sobre fondo oscuro */
-  --color-canvas: #F6F4F0;         /* fondo del área de trabajo */
+  --color-canvas: #F7F8FA;         /* fondo del área de trabajo: gris casi blanco */
 
-  /* Neutros derivados (sesgo cálido hacia el canvas) */
+  /* Neutros fríos, con un leve sesgo hacia el marino de la marca */
   --color-surface: #FFFFFF;
-  --color-line: #E4E0D8;
-  --color-line-strong: #C9C3B7;
-  --color-muted: #5E6878;          /* texto secundario: 5.3:1 sobre canvas */
+  --color-canvas-deep: #EEF1F5;    /* rellenos dentro de superficies: código, esqueletos, pies de modal */
+  --color-line: #E4E7EC;
+  --color-line-strong: #CBD1DA;
+  --color-muted: #5E6878;          /* texto secundario: 5.6:1 sobre canvas */
   --color-sidebar-text: #C9D3E0;   /* texto leído en sidebar: 9.8:1 sobre ink */
 
   /* Semánticos */

@@ -14,3 +14,22 @@ body {
 h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
 a { color: var(--color-leaf); }
 .lucide { flex: none; }
+
+/* Controles nativos con el estilo del design system (nada con aspecto del sistema operativo) */
+input[type="checkbox"] {
+  appearance: none; flex: none; width: 18px; height: 18px; margin: 0; display: inline-grid; place-content: center;
+  background: var(--color-surface); border: 1.5px solid var(--color-line-strong); box-shadow: var(--shadow-sm);
+  cursor: pointer; transition: background var(--duration), border-color var(--duration);
+}
+input[type="checkbox"]:hover { border-color: var(--color-ink); }
+input[type="checkbox"]:checked { background: var(--color-ink); border-color: var(--color-ink); }
+input[type="checkbox"]:checked::after {
+  content: ''; width: 5px; height: 10px; margin-top: -2px;
+  border: solid var(--color-primary); border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+}
+input[type="date"] {
+  min-height: 36px; padding: 0 10px; font: inherit; font-size: 14px; color: var(--color-ink);
+  background: var(--color-surface); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-sm); outline: none;
+}
+input[type="date"]:focus { border-color: var(--color-ink); box-shadow: 0 0 0 3px rgb(246 144 8 / .22); }
+input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .6; }

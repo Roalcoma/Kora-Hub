@@ -4,7 +4,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut } from 'lucide-vue-next';
+import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen } from 'lucide-vue-next';
 import { useSession } from '@/stores/session.ts';
 import { useChat } from '@/chat/store.ts';
 import Dropdown from '@/design/Dropdown.vue';
@@ -57,8 +57,28 @@ const inConversation = computed(() => ['channel', 'thread'].includes(route.name 
 watch(() => chat.totalUnread, (n) => { document.title = n ? `(${n}) Agencia Hub` : 'Agencia Hub'; }, { immediate: true });
 
 const switcher = ref(false);
+
+// ─── Sidebar contraíble (Ctrl/⌘ + Shift + D, como Slack). Se recuerda por navegador. ───
+const collapsed = ref((() => { try { return localStorage.getItem('sidebar-collapsed') === '1'; } catch { return false; } })());
+watch(collapsed, (v) => { try { localStorage.setItem('sidebar-collapsed', v ? '1' : '0'); } catch { /* idem */ } });
+// En el teléfono no existe el modo contraído: Inicio ya es la lista completa
+const desktopMq = matchMedia('(min-width: 768px)');
+const isDesktop = ref(desktopMq.matches);
+desktopMq.addEventListener('change', (e) => { isDesktop.value = e.matches; });
+const sidebarHidden = computed(() => collapsed.value && isDesktop.value);
+const announcement = computed(() => chat.channels.find((c) => c.kind === 'announcement'));
+// Con el sidebar contraído, el riel muestra los accesos principales
+const railNav = computed(() => [
+  { to: announcement.value ? `${base.value}/c/${announcement.value.id}` : base.value, icon: Megaphone, label: t('chat.announcements'), badge: announcement.value?.unreadCount ?? 0 },
+  { to: `${base.value}/dms`, icon: MessageCircle, label: t('chat.directMessages'), badge: dmUnread.value },
+  { to: `${base.value}/mentions`, icon: AtSign, label: t('nav.mentions'), badge: mentionUnread.value },
+  ...agencyNav.value.map((n) => ({ ...n, badge: 0 })),
+]);
+
 const onKey = (e: KeyboardEvent) => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); switcher.value = true; }
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && !e.shiftKey && e.key.toLowerCase() === 'k') { e.preventDefault(); switcher.value = true; }
+  if (mod && e.shiftKey && e.key.toLowerCase() === 'd') { e.preventDefault(); collapsed.value = !collapsed.value; }
 };
 onMounted(() => window.addEventListener('keydown', onKey));
 onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
@@ -78,14 +98,32 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
 </script>
 
 <template>
-  <div class="shell" :class="{ 'on-home': onHome, 'in-conv': inConversation }">
+  <div class="shell" :class="{ 'on-home': onHome, 'in-conv': inConversation, collapsed: sidebarHidden }">
     <nav class="rail" :aria-label="t('nav.agency')">
       <Tooltip v-for="w in s.session!.workspaces" :key="w.id" :text="w.name" side="right">
         <RouterLink :to="`/w/${w.slug}`" class="ws" :class="{ active: w.slug === s.workspace!.slug }" :aria-label="w.name">{{ initials(w.name) }}</RouterLink>
       </Tooltip>
+      <Transition name="rail-nav">
+        <div v-if="collapsed" class="rail-nav">
+          <Tooltip :text="`${t('nav.search')} · Ctrl K`" side="right">
+            <button type="button" class="rail-btn" :aria-label="t('nav.search')" @click="switcher = true"><Search :size="19" /></button>
+          </Tooltip>
+          <Tooltip v-for="n in railNav" :key="n.to" :text="n.label" side="right">
+            <RouterLink :to="n.to" class="rail-btn" :class="{ active: route.path.startsWith(n.to) }" :aria-label="n.label">
+              <component :is="n.icon" :size="19" /><span v-if="n.badge" class="rail-badge">{{ n.badge }}</span>
+            </RouterLink>
+          </Tooltip>
+        </div>
+      </Transition>
+      <Tooltip :text="`${collapsed ? t('nav.expand') : t('nav.collapse')} · Ctrl Shift D`" side="right" class="rail-toggle">
+        <button type="button" class="rail-btn" :aria-label="collapsed ? t('nav.expand') : t('nav.collapse')" :aria-expanded="!collapsed" @click="collapsed = !collapsed">
+          <PanelLeftOpen v-if="collapsed" :size="19" /><PanelLeftClose v-else :size="19" />
+          <span v-if="collapsed && chat.totalUnread" class="rail-dot" />
+        </button>
+      </Tooltip>
     </nav>
 
-    <aside class="sidebar">
+    <aside class="sidebar" :inert="sidebarHidden">
       <div class="sb-head">
         <button class="sb-ws" type="button" @click="openWsMenu">{{ s.workspace!.name }}<ChevronDown :size="16" /></button>
         <Dropdown v-model="line" :options="lineOptions" dark :aria-label="t('nav.line')" />
@@ -113,7 +151,22 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
 </template>
 
 <style scoped>
-.shell { height: 100%; display: grid; grid-template-columns: 64px 264px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.shell { height: 100%; display: grid; grid-template-columns: 64px 264px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); transition: grid-template-columns 220ms cubic-bezier(.2, .8, .2, 1); }
+.shell.collapsed { grid-template-columns: 64px 0 minmax(0, 1fr); }
+/* El contenido del sidebar conserva su ancho mientras se contrae (se desliza en vez de aplastarse) */
+.sidebar { overflow: hidden; }
+.sidebar > * { min-width: 264px; }
+.collapsed .sidebar { box-shadow: none; visibility: hidden; transition: visibility 0s 220ms; }
+.rail-nav { display: grid; gap: 6px; padding-top: 10px; margin-top: 2px; border-top: 1px solid rgb(255 255 255 / .1); }
+.rail-btn { position: relative; width: 40px; height: 40px; display: grid; place-items: center; color: var(--color-sidebar-text); background: none; border: 0; text-decoration: none; cursor: pointer; transition: background var(--duration), color var(--duration), box-shadow var(--duration); }
+.rail-btn:hover { background: var(--color-ink); color: #fff; box-shadow: 0 4px 12px rgb(0 0 0 / .3); }
+.rail-btn.active { background: var(--color-ink); color: #fff; }
+.rail-btn.active::before { content: ''; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 4px; background: var(--color-primary); }
+.rail-badge { position: absolute; top: 2px; right: 0; min-width: 16px; padding: 0 3px; font-size: 10px; font-weight: 700; line-height: 15px; text-align: center; color: var(--color-ink); background: var(--color-primary); box-shadow: 0 2px 5px rgb(0 0 0 / .35); }
+.rail-dot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; background: var(--color-primary); box-shadow: 0 0 0 2px var(--color-ink-soft); }
+.rail-toggle { margin-top: auto; }
+.rail-nav-enter-active, .rail-nav-leave-active { transition: opacity 180ms, transform 180ms; }
+.rail-nav-enter-from, .rail-nav-leave-to { opacity: 0; transform: translateX(-6px); }
 .rail { position: relative; z-index: 6; background: var(--color-ink-soft); display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 14px 0; box-shadow: 2px 0 8px rgb(0 0 0 / .25); }
 .ws { position: relative; width: 40px; height: 40px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 15px; background: #2B4467; color: #fff; text-decoration: none; box-shadow: 0 3px 8px rgb(0 0 0 / .3); transition: transform var(--duration), box-shadow var(--duration); }
 .ws:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgb(0 0 0 / .35); }
@@ -137,6 +190,7 @@ h4 { margin: 16px 0 2px; padding: 0 16px; font-size: 12px; font-weight: 500; tex
 @media (max-width: 767px) {
   .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   .rail { display: none; }
+  .sidebar > * { min-width: 0; }
   .sidebar { display: none; padding-top: env(safe-area-inset-top, 0px); box-shadow: none; }
   .on-home .sidebar { display: flex; }
   .on-home .main { display: none; }

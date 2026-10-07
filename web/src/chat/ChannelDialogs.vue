@@ -114,5 +114,4 @@ async function openDm() {
 .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 8px; font-size: 13px; background: var(--color-primary-light); box-shadow: var(--shadow-sm); }
 .chip button { display: grid; place-items: center; width: 20px; height: 20px; background: none; border: 0; cursor: pointer; }
 .people { max-height: 340px; overflow: auto; }
-input[type="checkbox"] { width: 16px; height: 16px; margin-top: 2px; accent-color: var(--color-ink); }
 </style>

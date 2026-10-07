@@ -222,8 +222,6 @@ textarea { display: block; width: 100%; min-height: 44px; max-height: 220px; pad
 .also { display: flex; align-items: center; gap: 6px; margin-left: 8px; font-size: 13px; color: var(--color-muted); }
 .announce-opts { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 6px 14px 4px; font-size: 13px; color: var(--color-muted); border-top: 1px dashed var(--color-line); }
 .announce-opts label { display: flex; align-items: center; gap: 6px; }
-.announce-opts input[type="date"] { font: inherit; padding: 2px 6px; border: 1px solid var(--color-line-strong); }
-input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--color-ink); }
 
 .uploads { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px 0; }
 .up { position: relative; display: flex; align-items: center; gap: 8px; width: 220px; padding: 6px 30px 6px 6px; background: var(--color-canvas); border: 1px solid var(--color-line); box-shadow: var(--shadow-sm); }

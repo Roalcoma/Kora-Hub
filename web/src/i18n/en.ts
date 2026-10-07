@@ -32,7 +32,7 @@ export default {
   nav: {
     home: 'Home', messages: 'DMs', mentions: 'Mentions', tasks: 'Tasks', you: 'You', manuals: 'Manuals', goals: 'Goals',
     settings: 'Settings', search: 'Search', line: 'Line', allLines: 'All', addWorkspace: 'Add workspace',
-    logout: 'Sign out', agency: 'Agency', announcements: 'Announcements',
+    logout: 'Sign out', collapse: 'Collapse sidebar', expand: 'Show sidebar', agency: 'Agency', announcements: 'Announcements',
   },
   home: {
     welcome: 'Hi, {name}', trial: 'Free trial until {date}.',

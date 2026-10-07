@@ -96,7 +96,6 @@ const html = (h: string) => renderBody(h, (id) => chat.memberById.get(id)?.name,
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 22px; }
 .filters .dd { width: 200px; }
 .chk, .date { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-muted); }
-.date input { font: inherit; padding: 6px 8px; border: 1px solid var(--color-line-strong); background: var(--color-surface); }
 .results { flex: 1; overflow: auto; padding: 4px 22px 24px; display: grid; gap: 10px; align-content: start; max-width: 900px; }
 .hit { display: flex; gap: 12px; padding: 12px 14px; color: inherit; text-decoration: none; background: var(--color-surface); border-left: 3px solid transparent; box-shadow: var(--shadow-sm); transition: box-shadow var(--duration), transform var(--duration), border-color var(--duration); }
 .hit:hover { box-shadow: var(--shadow-md); transform: translateX(3px); border-left-color: var(--color-primary); }
@@ -107,6 +106,5 @@ const html = (h: string) => renderBody(h, (id) => chat.memberById.get(id)?.name,
 .txt p { margin: 0; line-height: 1.45; overflow-wrap: anywhere; }
 .txt p :deep(mark) { background: var(--color-primary-light); box-shadow: inset 0 -2px 0 var(--color-primary); color: inherit; }
 .file-ico { width: 36px; height: 40px; display: grid; place-items: center; background: var(--color-leaf); color: #fff; flex: none; }
-input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--color-ink); }
 @media (max-width: 767px) { .back { display: grid; } .top { padding: 8px 12px 8px 4px; } .filters, .results { padding-left: 12px; padding-right: 12px; } .filters .dd { width: calc(50% - 6px); } }
 </style>

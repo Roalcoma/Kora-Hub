@@ -118,7 +118,7 @@ const intro = computed(() => props.channel.kind === 'announcement' ? Megaphone :
 .intro h3 { margin: 2px 0 4px; font-size: 19px; }
 .intro p { margin: 0; color: var(--color-muted); line-height: 1.5; }
 /* Divisor de día: píldora que flota con sombra sobre la línea */
-.day { position: sticky; top: 6px; z-index: 2; display: flex; align-items: center; margin: 10px 0 4px; padding-left: 74px; pointer-events: none; }
+.day { position: sticky; top: 6px; z-index: 1; display: flex; align-items: center; margin: 10px 0 4px; padding-left: 74px; pointer-events: none; }
 .day::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--color-line); z-index: -1; }
 .day span { padding: 3px 12px; font-size: 12px; font-weight: 700; text-transform: capitalize; background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-sm); }
 .newline { display: flex; align-items: center; gap: 10px; margin: 6px 0; padding-right: 24px; }

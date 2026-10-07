@@ -7,6 +7,6 @@ defineProps<{ width?: string; height?: string }>();
 </template>
 
 <style scoped>
-.sk { display: block; background: linear-gradient(90deg, #ECE8E0 0%, #F6F3EE 50%, #ECE8E0 100%) 0 0 / 200% 100%; animation: sh 1.2s linear infinite; }
+.sk { display: block; background: linear-gradient(90deg, var(--color-canvas-deep) 0%, var(--color-canvas) 50%, var(--color-canvas-deep) 100%) 0 0 / 200% 100%; animation: sh 1.2s linear infinite; }
 @keyframes sh { to { background-position: -200% 0; } }
 </style>

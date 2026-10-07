@@ -76,9 +76,11 @@ function onKey(e: KeyboardEvent) {
 </template>
 
 <style scoped>
-/* Desplazado hacia arriba y a la izquierda del centro: más natural para leer que un modal centrado */
-.qs { margin: 12vh auto auto calc(50vw - 300px); width: min(560px, calc(100vw - 32px)); padding: 0; border: 0; background: var(--color-surface); box-shadow: var(--shadow-lg), 0 0 0 1px var(--color-line); }
-.qs::backdrop { background: rgb(19 36 61 / .4); }
+/* Centrado horizontal, en el tercio superior (como los buscadores de comandos) */
+.qs { margin: 14vh auto auto; width: min(560px, calc(100vw - 32px)); padding: 0; border: 0; background: var(--color-surface); box-shadow: var(--shadow-lg), 0 0 0 1px var(--color-line); }
+.qs::backdrop { background: rgb(19 36 61 / .42); backdrop-filter: blur(3px); }
+.qs[open] { animation: pop 200ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes pop { from { opacity: 0; transform: translateY(-8px) scale(.98); } }
 .field { display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 2px solid var(--color-primary); color: var(--color-muted); }
 input { flex: 1; min-height: 54px; font: inherit; font-size: 17px; color: var(--color-ink); border: 0; outline: none; background: transparent; }
 ul { margin: 0; padding: 6px 0; list-style: none; max-height: 380px; overflow: auto; }
