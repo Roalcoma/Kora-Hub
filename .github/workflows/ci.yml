@@ -1,8 +1,8 @@
 name: CI
 
+# ponytail: solo manual (pestaña Actions → CI → Run workflow); no corre en push ni PR.
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   check:
