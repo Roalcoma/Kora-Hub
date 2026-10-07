@@ -29,7 +29,9 @@ export async function workspaceContext(req: Request, _res: Response, next: NextF
   if (ws.status === 'suspended' && !billing && !(req.method === 'GET' && req.path === '/')) {
     throw new HttpError(403, 'workspace_suspended', 'Este espacio de trabajo está suspendido');
   }
-  if (ws.status === 'read_only' && !billing && req.method !== 'GET') {
+  // En solo lectura se sigue leyendo en tiempo real: ticket del WebSocket y marcar como leído no son escrituras de negocio
+  const readingAid = req.path === '/ws-ticket' || /^\/channels\/[^/]+\/read$/.test(req.path);
+  if (ws.status === 'read_only' && !billing && !readingAid && req.method !== 'GET') {
     throw new HttpError(403, 'workspace_read_only', 'Este espacio de trabajo está en solo lectura');
   }
   req.ws = ws;

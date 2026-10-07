@@ -66,7 +66,7 @@ after(async () => {
   server.close();
   const ids = [wsA, wsB];
   for (const t of ['audit_log', 'channel_members', 'channels', 'member_departments', 'member_lines', 'invitations',
-    'departments', 'business_lines', 'workspace_members', 'jobs']) {
+    'departments', 'business_lines', 'workspace_members', 'jobs', 'ws_tickets']) {
     await adminPool.query(`delete from ${t} where workspace_id = any($1)`, [ids]);
   }
   await adminPool.query('delete from workspaces where id = any($1)', [ids]);
@@ -151,6 +151,7 @@ test('solo lectura bloquea escribir pero deja ver y pagar', async () => {
   assert.equal(patch.status, 403);
   assert.equal(patch.body.code, 'workspace_read_only');
   assert.equal((await owner('GET', `/w/${slugA}/members`)).status, 200);
+  assert.equal((await owner('POST', `/w/${slugA}/ws-ticket`)).status, 200);   // el chat sigue en tiempo real
   assert.equal((await owner('GET', `/w/${slugA}/billing`)).status, 200);
   assert.equal((await owner('POST', `/w/${slugA}/billing/checkout`, { plan: 'standard' })).status, 200);
   assert.equal((await owner('POST', `/w/${slugA}/billing/portal`)).status, 200);
