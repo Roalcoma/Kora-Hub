@@ -160,6 +160,9 @@ export default {
     writeComment: 'Write a comment…', send: 'Send', delete: 'Delete task', deleteConfirm: 'Delete this task? This cannot be undone.',
     deleted: 'Task deleted',
   },
+  admin: {
+    impBand: 'You are viewing as {name} · {agency} · ends at {time}', impExit: 'Exit',
+  },
   plan: {
     trialEnds: 'The free trial ends today. | The free trial ends tomorrow. | The free trial ends in {n} days.',
     trialEndsHint: 'Choose a plan to keep writing without interruptions.',

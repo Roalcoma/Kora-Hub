@@ -159,6 +159,9 @@ export default {
     writeComment: 'Escribe un comentario…', send: 'Enviar', delete: 'Borrar tarea', deleteConfirm: '¿Borrar la tarea? No se puede deshacer.',
     deleted: 'Tarea borrada',
   },
+  admin: {
+    impBand: 'Estás viendo como {name} · {agency} · termina a las {time}', impExit: 'Salir',
+  },
   plan: {
     trialEnds: 'La prueba gratis termina hoy. | La prueba gratis termina mañana. | La prueba gratis termina en {n} días.',
     trialEndsHint: 'Elige un plan para seguir escribiendo sin interrupciones.',
