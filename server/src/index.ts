@@ -10,6 +10,7 @@ import { pushRouter } from './notifications/routes.ts';
 import { docsRouter } from './docs/routes.ts';
 import { tasksRouter } from './tasks/routes.ts';
 import { goalsRouter } from './goals/routes.ts';
+import { billingRouter, stripeWebhook } from './billing/routes.ts';
 import { errorHandler, HttpError } from './platform/http.ts';
 
 export const app = express();
@@ -19,6 +20,8 @@ app.use((_req, res, next) => {
   res.set({ 'x-content-type-options': 'nosniff', 'referrer-policy': 'same-origin', 'x-frame-options': 'DENY' });
   next();
 });
+// Webhook de Stripe con el cuerpo crudo (la firma se calcula sobre los bytes exactos): antes de express.json
+app.post('/api/v1/webhooks/stripe', express.raw({ type: () => true, limit: '1mb' }), stripeWebhook);
 app.use(express.json({ limit: '1mb' }));
 
 const api = express.Router();
@@ -29,6 +32,7 @@ api.use(pushRouter);
 const ws = express.Router({ mergeParams: true });
 ws.use(requireAuth, workspaceContext);
 ws.use(workspaceRouter);
+ws.use(billingRouter);
 ws.use(chatRouter);
 ws.use('/files', filesRouter);
 ws.use(docsRouter, tasksRouter, goalsRouter);

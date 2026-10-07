@@ -3,12 +3,17 @@ import { hostname } from 'node:os';
 import { adminPool } from '../db.ts';
 import { notifyMessage, notifyTask, remindReports } from '../notifications/push.ts';
 import { sendEmail } from '../notifications/email.ts';
+import { runLifecycle, syncSeats } from '../billing/lifecycle.ts';
+import { alert } from '../ops/alert.ts';
 
 const HANDLERS: Record<string, (payload: any) => Promise<void>> = {
   'notify.message': (p) => notifyMessage(p.messageId),
   'email.send': (p) => sendEmail(p),
   'notify.task': (p) => notifyTask(p),
   'reports.remind': () => remindReports(),
+  // Facturación (ADR 0005): vencimientos y avisos cada hora; puestos al cambiar miembros
+  'billing.lifecycle': () => runLifecycle(),
+  'billing.sync_seats': (p) => syncSeats(p.workspaceId),
   // Limpieza de tokens vencidos (se reencola sola cada hora)
   'cleanup.tokens': async () => {
     await adminPool.query("delete from ws_tickets where expires_at < now() - interval '1 minute'");
@@ -40,6 +45,7 @@ export async function runOnce(): Promise<boolean> {
       "update jobs set locked_at = null, last_error = $2, run_at = now() + make_interval(secs => $3) where id = $1",
       [job.id, String(err?.message ?? err).slice(0, 1000), wait]);
     console.error(JSON.stringify({ level: 'error', msg: 'job fallido', kind: job.kind, id: job.id, error: err?.message }));
+    if (job.attempts >= job.max_attempts) alert(`Job ${job.kind} #${job.id} agotó ${job.attempts} intentos: ${err?.message}`);
   }
   return true;
 }
@@ -52,10 +58,11 @@ export function startWorker() {
     try { while (await runOnce()); } catch (err: any) { console.error(JSON.stringify({ level: 'error', msg: 'worker', error: err?.message })); }
     running = false;
   }, 1000);
-  // Cada hora: limpieza (una por hora) y, los viernes desde las 15:00 de Nueva York, el recordatorio de reportes (uno por semana)
+  // Cada hora: limpieza y ciclo de facturación (uno por hora) y, los viernes desde las 15:00 de Nueva York, el recordatorio de reportes (uno por semana)
   const schedule = async () => {
     await adminPool.query(
-      `insert into jobs (kind, dedupe_key) values ('cleanup.tokens', 'cleanup:' || to_char(now(), 'YYYYMMDDHH24')) on conflict do nothing`);
+      `insert into jobs (kind, dedupe_key) values ('cleanup.tokens', 'cleanup:' || to_char(now(), 'YYYYMMDDHH24')),
+         ('billing.lifecycle', 'billing-lifecycle:' || to_char(now(), 'YYYYMMDDHH24')) on conflict do nothing`);
     await adminPool.query(
       `insert into jobs (kind, dedupe_key)
        select 'reports.remind', 'reports-remind:' || to_char(now() at time zone 'America/New_York', 'IYYY-IW')

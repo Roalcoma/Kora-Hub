@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler } from 'express';
 import { z } from 'zod';
+import { alert } from '../ops/alert.ts';
 
 /** Error con código HTTP y código estable para el cliente: `{ error, code }` */
 export class HttpError extends Error {
@@ -14,7 +15,7 @@ export class HttpError extends Error {
 
 export const parse = <S extends z.ZodType>(schema: S, data: unknown): z.output<S> => schema.parse(data);
 
-export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
+export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   if (err instanceof HttpError) return res.status(err.status).json({ error: err.message, code: err.code });
   if (err instanceof z.ZodError) {
     return res.status(400).json({ error: err.issues[0]?.message ?? 'Datos inválidos', code: 'invalid_input', issues: err.issues });
@@ -23,5 +24,6 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err?.code === '23505') return res.status(409).json({ error: 'Ya existe', code: 'conflict' });
   if (err?.code === '23503') return res.status(400).json({ error: 'Referencia inválida', code: 'invalid_reference' });
   console.error(JSON.stringify({ level: 'error', msg: err?.message, stack: err?.stack }));
+  alert(`500 en ${req.method} ${req.path}: ${err?.message}`);
   res.status(500).json({ error: 'Error interno', code: 'internal' });
 };

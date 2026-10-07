@@ -10,6 +10,7 @@ import { HttpError, parse } from './http.ts';
 import { newToken, sha256 } from './auth.ts';
 import { tx, requireRole } from './workspace.ts';
 import { toWorkspace, toDepartment, toLine, listMembers, audit } from './model.ts';
+import { enqueueSeatSync } from '../billing/lifecycle.ts';
 
 // Montado en index.ts detrás de requireAuth + workspaceContext
 export const workspaceRouter = Router({ mergeParams: true });
@@ -73,7 +74,7 @@ workspaceRouter.patch('/members/:userId', async (req, res) => {
   requireRole(req, 'admin');
   const targetId = Id.parse(req.params.userId);
   const body = parse(UpdateMemberBody, req.body);
-  res.json(await tx(req, async (db) => {
+  const member = await tx(req, async (db) => {
     const target = (await db.query(
       'select role from workspace_members where workspace_id = app_ws() and user_id = $1 for update', [targetId])).rows[0];
     if (!target) throw new HttpError(404, 'member_not_found', 'Miembro no encontrado');
@@ -112,8 +113,13 @@ workspaceRouter.patch('/members/:userId', async (req, res) => {
       await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: body.isActive ? 'member.reactivated' : 'member.deactivated',
         targetType: 'user', targetId, ip: req.ip });
     }
-    return (await listMembers(db, targetId))[0];
-  }));
+    return (await listMembers(db, targetId))[0]!;
+  });
+  // Pueden cambiar los puestos facturables (activo y no invitado); el job no hace nada si la cuenta no cambió
+  if (body.isActive !== undefined || body.role) {
+    await enqueueSeatSync(req.ws!.id);
+  }
+  res.json(member);
 });
 
 // ─── Invitaciones ───

@@ -12,6 +12,7 @@ import {
 } from './auth.ts';
 import { buildSession, audit, joinDefaultChannels } from './model.ts';
 import { seedWorkspace } from './template.ts';
+import { enqueueSeatSync } from '../billing/lifecycle.ts';
 
 export const authRouter = Router();
 const appUrl = () => process.env.APP_URL ?? 'http://localhost:5180';
@@ -218,6 +219,7 @@ authRouter.post('/invitations/accept', async (req, res) => {
         [inv.workspace_id, userId, inv.department_ids]);
       await joinDefaultChannels(db, inv.workspace_id, userId);
       await audit(db, { workspaceId: inv.workspace_id, actor: userId, action: 'member.joined', targetType: 'invitation', targetId: inv.id, ip: req.ip });
+      if (inv.role !== 'guest') await enqueueSeatSync(inv.workspace_id, db);
     }
     return { userId, tokenVersion, slug: inv.slug };
   });
