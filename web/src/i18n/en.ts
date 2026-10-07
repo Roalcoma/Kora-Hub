@@ -30,6 +30,7 @@ export default {
     },
   },
   nav: {
+    trialDays: 'Trial · {n} day left | Trial · {n} days left', agencyMenu: 'agency menu',
     profile: 'My profile', notifications: 'Notifications', account: 'My account',
     home: 'Home', messages: 'DMs', mentions: 'Mentions', tasks: 'Tasks', you: 'You', manuals: 'Manuals', goals: 'Goals',
     settings: 'Settings', search: 'Search', line: 'Line', allLines: 'All', addWorkspace: 'Add workspace',

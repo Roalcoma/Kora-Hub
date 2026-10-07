@@ -28,6 +28,7 @@ export default {
     },
   },
   nav: {
+    trialDays: 'Prueba · queda {n} día | Prueba · quedan {n} días', agencyMenu: 'menú de la agencia',
     profile: 'Mi perfil', notifications: 'Notificaciones', account: 'Mi cuenta',
     home: 'Inicio', messages: 'Mensajes', mentions: 'Menciones', tasks: 'Tareas', you: 'Tú', manuals: 'Manuales', goals: 'Metas',
     settings: 'Ajustes', search: 'Buscar', line: 'Línea', allLines: 'Todas', addWorkspace: 'Agregar espacio de trabajo',

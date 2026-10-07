@@ -7,7 +7,6 @@ import { useI18n } from 'vue-i18n';
 import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen, ChevronsUpDown, BellRing } from 'lucide-vue-next';
 import { useSession } from '@/stores/session.ts';
 import { useChat } from '@/chat/store.ts';
-import Dropdown from '@/design/Dropdown.vue';
 import Kbd from '@/design/Kbd.vue';
 import Tooltip from '@/design/Tooltip.vue';
 import ContextMenu from '@/design/ContextMenu.vue';
@@ -30,11 +29,15 @@ watch(() => s.workspace?.slug, (slug, old) => {
 onBeforeUnmount(() => chat.disconnect());
 
 const base = computed(() => `/w/${s.workspace!.slug}`);
-const lineOptions = computed(() => [
-  { value: '', label: t('nav.allLines') },
-  ...s.workspace!.lines.filter((l) => !l.archivedAt).map((l) => ({ value: l.id, label: l.name })),
-]);
 const line = computed({ get: () => s.lineId ?? '', set: (v: string) => { s.lineId = v || null; } });
+const lines = computed(() => s.workspace!.lines.filter((l) => !l.archivedAt));
+// Segunda línea bajo el nombre de la agencia: días de prueba o plan
+const wsSub = computed(() => {
+  const w = s.workspace!;
+  if (w.status !== 'trialing') return t(`settings.plans.${w.plan}`);
+  const days = Math.max(0, Math.ceil((new Date(w.trialEndsAt).getTime() - Date.now()) / 86400_000));
+  return t('nav.trialDays', { n: days }, days);
+});
 
 const agencyNav = computed(() => [
   { to: `${base.value}/manuals`, icon: BookOpen, label: t('nav.manuals') },
@@ -148,8 +151,17 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
 
     <aside class="sidebar" :inert="sidebarHidden">
       <div class="sb-head">
-        <button class="sb-ws" type="button" @click="openWsMenu">{{ s.workspace!.name }}<ChevronDown :size="16" /></button>
-        <Dropdown v-model="line" :options="lineOptions" dark :aria-label="t('nav.line')" />
+        <button class="sb-ws" type="button" :aria-label="`${s.workspace!.name} · ${t('nav.agencyMenu')}`" @click="openWsMenu">
+          <span class="ws-txt"><b>{{ s.workspace!.name }}</b><small><span class="ws-dot" />{{ wsSub }}</small></span>
+          <span class="ws-chev"><ChevronDown :size="15" /></span>
+        </button>
+        <!-- Filtro de línea: fichas de un clic (si la agencia usa líneas) -->
+        <div v-if="lines.length" class="lines" role="radiogroup" :aria-label="t('nav.line')">
+          <button type="button" role="radio" :aria-checked="!line" :class="{ on: !line }" @click="line = ''">{{ t('nav.allLines') }}</button>
+          <button v-for="l in lines" :key="l.id" type="button" role="radio" :aria-checked="line === l.id" :class="{ on: line === l.id }" @click="line = l.id">
+            <span class="dot" :class="s.lineTone(l.id)" />{{ l.name }}
+          </button>
+        </div>
         <button class="sb-search" type="button" @click="switcher = true"><Search :size="15" />{{ t('nav.search') }}<Kbd class="ml-auto">Ctrl K</Kbd></button>
       </div>
       <div class="sb-scroll">
@@ -213,8 +225,24 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
 .ws.active::before { content: ''; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 4px; background: #fff; }
 /* El sidebar proyecta sombra sobre el área de trabajo */
 .sidebar { position: relative; z-index: 5; background: linear-gradient(180deg, var(--color-ink) 0%, #0F1E34 100%); color: var(--color-sidebar-text); display: flex; flex-direction: column; min-height: 0; box-shadow: 6px 0 22px rgb(19 36 61 / .28); }
-.sb-head { padding: 14px 16px 12px; display: grid; gap: 10px; border-bottom: 1px solid rgb(255 255 255 / .08); box-shadow: 0 6px 12px -8px rgb(0 0 0 / .5); }
-.sb-ws { display: flex; align-items: center; gap: 6px; padding: 0; font: 800 18px/1.2 var(--font-display); letter-spacing: -.01em; color: #fff; background: none; border: 0; cursor: pointer; text-align: left; }
+.sb-head { padding: 16px 16px 14px; display: grid; gap: 12px; border-bottom: 1px solid rgb(255 255 255 / .08); box-shadow: 0 6px 12px -8px rgb(0 0 0 / .5); }
+.sb-ws { display: flex; align-items: center; gap: 10px; margin: -6px -8px 0; padding: 6px 8px; font: inherit; color: #fff; text-align: left; background: none; border: 0; cursor: pointer; transition: background var(--duration); }
+.sb-ws:hover { background: rgb(255 255 255 / .06); }
+.ws-txt { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.ws-txt b { font: 700 17px/1.25 var(--font-display); letter-spacing: -.005em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-txt small { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-sidebar-text); }
+.ws-dot { width: 6px; height: 6px; background: var(--color-primary); box-shadow: 0 0 0 3px rgb(246 144 8 / .18); }
+.ws-chev { width: 26px; height: 26px; display: grid; place-items: center; flex: none; color: var(--color-sidebar-text); background: rgb(255 255 255 / .07); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); transition: transform var(--duration); }
+.sb-ws:hover .ws-chev { color: #fff; }
+.lines { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(max-content, 1fr); padding: 3px; overflow-x: auto; scrollbar-width: none; background: rgb(0 0 0 / .25); box-shadow: inset 0 1px 3px rgb(0 0 0 / .4); }
+.lines button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 28px; padding: 0 5px; font: inherit; font-size: 12.5px; white-space: nowrap; color: var(--color-sidebar-text); background: none; border: 0; cursor: pointer; transition: background var(--duration), color var(--duration), box-shadow var(--duration); }
+.lines button:hover:not(.on) { color: #fff; background: rgb(255 255 255 / .07); }
+.lines button.on { color: var(--color-ink); font-weight: 600; background: var(--color-primary); box-shadow: 0 3px 8px rgb(0 0 0 / .4); }
+.dot { width: 6px; height: 6px; flex: none; background: #8FA0B8; }
+.dot.salud { background: #3FC48A; }
+.dot.vida { background: var(--color-cta); }
+.dot.medicare { background: #B3A4E0; }
+.lines .on .dot { box-shadow: 0 0 0 1.5px var(--color-ink); }
 .sb-search { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; font: inherit; font-size: 14px; color: var(--color-sidebar-text); background: rgb(0 0 0 / .22); border: 0; box-shadow: inset 0 1px 3px rgb(0 0 0 / .35); cursor: pointer; }
 .sb-search:hover { color: #fff; }
 .sb-scroll { flex: 1; overflow: auto; padding: 6px 0 20px; display: grid; align-content: start; gap: 2px; }
