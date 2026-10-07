@@ -9,13 +9,30 @@ export type User = {
   locale: Locale; timezone: string; totpEnabled: boolean;
 };
 
+// Rubro de la agencia: decide la plantilla inicial y los avisos propios del sector (PHI solo en seguros).
+export const INDUSTRIES = ['insurance', 'marketing', 'real_estate', 'travel', 'other'] as const;
+export const Industry = z.enum(INDUSTRIES);
+export type Industry = z.infer<typeof Industry>;
+export const TEMPLATES = ['insurance_agency', 'marketing_agency', 'real_estate_agency', 'travel_agency', 'blank'] as const;
+
+/** Paleta fija de las categorías (antes "líneas de negocio"): nombres de token, nunca hex libre */
+export const CATEGORY_COLORS = ['green', 'blue', 'purple', 'orange', 'red', 'teal', 'pink', 'gray'] as const;
+export const CategoryColor = z.enum(CATEGORY_COLORS);
+export type CategoryColor = z.infer<typeof CategoryColor>;
+/** Cómo llama cada agencia a sus categorías ("Línea", "Producto", "Sede"…). null = texto por defecto de la UI */
+export const CategoryLabel = z.object({ singular: z.string().trim().min(1).max(30), plural: z.string().trim().min(1).max(30) });
+export type CategoryLabel = z.infer<typeof CategoryLabel>;
+
 export type WorkspaceStatus = 'trialing' | 'active' | 'past_due' | 'read_only' | 'suspended' | 'closing';
 export type Plan = 'trial' | 'standard' | 'pro';
 
 export type Workspace = {
   id: Id; slug: string; name: string; logoUrl: string | null;
   plan: Plan; status: WorkspaceStatus; trialEndsAt: IsoDate;
-  settings: { maxFileMb: number; require2fa: boolean; weeklySummary: boolean };
+  settings: {
+    maxFileMb: number; require2fa: boolean; weeklySummary: boolean;
+    industry: Industry; categoryLabel: CategoryLabel | null;
+  };
 };
 
 export type Member = {
@@ -26,10 +43,34 @@ export type Member = {
 };
 
 export type Department = { id: Id; name: string; position: number; archivedAt: IsoDate | null };
-export type BusinessLine = { id: Id; name: string; color: string | null; position: number; archivedAt: IsoDate | null };
+export type BusinessLine = { id: Id; name: string; color: CategoryColor | null; position: number; archivedAt: IsoDate | null };
 
 /** Respuesta de login/registro: el JWT va en cookie httpOnly; el cuerpo trae el estado inicial */
-export type Session = { user: User; workspaces: Pick<Workspace, 'id' | 'slug' | 'name' | 'logoUrl'>[] };
+export type Session = {
+  user: User; workspaces: Pick<Workspace, 'id' | 'slug' | 'name' | 'logoUrl'>[];
+  platformAdmin: boolean;                 // ve el backoffice /admin
+  impersonation: Impersonation | null;    // sesión abierta por un superadmin "como" este usuario
+};
+export type Impersonation = { byUserId: Id; byName: string; workspaceSlug: string; expiresAt: IsoDate };
+
+// ─── Facturación (§3.4, §3.5, ADR 0005) ───
+
+export type BillingInfo = {
+  plan: Plan; status: WorkspaceStatus;
+  trialEndsAt: IsoDate; graceEndsAt: IsoDate | null; currentPeriodEnd: IsoDate | null;
+  seats: number;                                       // miembros activos que no son invitados
+  pricesCents: { standard: number; pro: number };      // por usuario al mes
+  estimatedMonthlyCents: number;                       // seats × precio del plan (o del Estándar en prueba)
+  hasSubscription: boolean;
+  simulated: boolean;                                  // sin llaves de Stripe: checkout y eventos simulados
+};
+
+// ─── Backoffice de plataforma (§3.6) ───
+
+export type AdminWorkspace = Workspace & {
+  members: number; storageBytes: number; mrrCents: number; createdAt: IsoDate; ownerEmail: string | null;
+};
+export type AdminMetrics = { mrrCents: number; activeWorkspaces: number; trials: number; signups30d: number; churn30d: number };
 
 export type Invitation = { id: Id; email: string | null; role: Role; expiresAt: IsoDate; uses: number; maxUses: number; url?: string };
 
@@ -45,7 +86,7 @@ const Slug = z.string().regex(/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/);
 
 export const RegisterBody = z.object({
   name: Name, email: z.email(), password: Password, locale: Locale,
-  workspace: z.object({ name: Name, slug: Slug, template: z.enum(['insurance_agency', 'blank']) }),
+  workspace: z.object({ name: Name, slug: Slug, template: z.enum(TEMPLATES) }),
 });
 export const LoginBody = z.object({ email: z.email(), password: z.string().min(1).max(200), totp: z.string().regex(/^\d{6}$/).optional() });
 export const ForgotPasswordBody = z.object({ email: z.email() });
@@ -65,7 +106,10 @@ export const UpdateMyMembershipBody = z.object({
 
 export const UpdateWorkspaceBody = z.object({
   name: Name, logoFileId: Id.nullable(),
-  settings: z.object({ maxFileMb: z.number().int().min(1).max(100), require2fa: z.boolean(), weeklySummary: z.boolean() }).partial(),
+  settings: z.object({
+    maxFileMb: z.number().int().min(1).max(100), require2fa: z.boolean(), weeklySummary: z.boolean(),
+    industry: Industry, categoryLabel: CategoryLabel.nullable(),
+  }).partial(),
 }).partial();
 
 export const CreateInvitationBody = z.object({
@@ -87,6 +131,13 @@ export const UpdateMemberBody = z.object({
 }).partial();
 
 export const DepartmentBody = z.object({ name: Name, position: z.number().int().optional() });
-export const BusinessLineBody = z.object({ name: Name, color: z.string().max(32).nullable().optional(), position: z.number().int().optional() });
+export const BusinessLineBody = z.object({ name: Name, color: CategoryColor.nullable().optional(), position: z.number().int().optional() });
 
 export const CheckoutBody = z.object({ plan: z.enum(['standard', 'pro']) });
+/** Solo en modo simulado (sin llaves de Stripe): el Owner provoca el evento que mandaría Stripe */
+export const SimulateBillingBody = z.object({
+  event: z.enum(['paid', 'payment_failed', 'canceled']), plan: z.enum(['standard', 'pro']).optional(),
+});
+
+export const AdminStatusBody = z.object({ status: z.enum(['active', 'suspended']) });
+export const ImpersonateBody = z.object({ reason: z.string().trim().min(5).max(300) });

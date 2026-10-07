@@ -49,6 +49,8 @@ export type Routes = {
   'PATCH /w/:slug/lines/:id': R<Partial<In<typeof P.BusinessLineBody>> & { archived?: boolean }, P.BusinessLine>;
   'POST /w/:slug/billing/checkout': R<In<typeof P.CheckoutBody>, { url: string }>;          // owner
   'POST /w/:slug/billing/portal': R<never, { url: string }>;                                // owner
+  'GET /w/:slug/billing': R<never, P.BillingInfo>;                                          // admin
+  'POST /w/:slug/billing/simulate': R<In<typeof P.SimulateBillingBody>, P.BillingInfo>;    // owner, solo modo simulado
   'POST /w/:slug/export': R<never, { jobId: string }>;                                      // owner, avisa por email
   'GET /w/:slug/search-all': R<never, { people: P.Member[]; channels: C.Channel[]; messages: C.SearchResult[]; documents: M.DocumentNode[]; tasks: M.Task[] }, { q: string }>;
 
@@ -114,10 +116,14 @@ export type Routes = {
 
   // ── Webhooks y superadmin (fuera de workspace) ──
   'POST /webhooks/stripe': R<unknown, NoContent>;                                             // firma verificada
-  'GET /admin/workspaces': R<never, (P.Workspace & { members: number; storageBytes: number; mrrCents: number })[]>;
-  'POST /admin/workspaces/:id/status': R<{ status: 'active' | 'suspended' }, NoContent>;
-  'POST /admin/workspaces/:id/impersonate': R<{ reason: string }, P.Session>;                 // queda en audit_log
-  'GET /admin/metrics': R<never, { mrrCents: number; activeWorkspaces: number; trials: number; churn30d: number }>;
+  'GET /admin/workspaces': R<never, P.AdminWorkspace[]>;
+  'POST /admin/workspaces/:id/status': R<In<typeof P.AdminStatusBody>, NoContent>;
+  'POST /admin/workspaces/:id/impersonate': R<In<typeof P.ImpersonateBody>, P.Session & { workspaceSlug: string }>;  // como el Owner; 30 min; audit_log
+  'POST /admin/impersonation/end': R<never, P.Session>;                                       // vuelve a la sesión del superadmin
+  'GET /admin/metrics': R<never, P.AdminMetrics>;
+
+  // ── Operación ──
+  'GET /health': R<never, { ok: true; db: boolean }>;
 };
 
 export type RouteKey = keyof Routes;
