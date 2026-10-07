@@ -77,8 +77,8 @@ export const CreateInvitationBody = z.object({
 });
 export const AcceptInvitationBody = z.object({
   token: z.string().min(20),
-  // Solo si el email no tiene cuenta todavía
-  newAccount: z.object({ name: Name, password: Password, locale: Locale }).optional(),
+  // Solo si el email no tiene cuenta todavía. `email` es obligatorio cuando la invitación es un enlace sin email.
+  newAccount: z.object({ name: Name, password: Password, locale: Locale, email: z.email().optional() }).optional(),
 });
 
 export const UpdateMemberBody = z.object({

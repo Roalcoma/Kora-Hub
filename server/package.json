@@ -3,15 +3,19 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "node --env-file-if-exists=../.env --watch src/main.ts",
     "migrate": "node --env-file-if-exists=../.env src/migrate.ts",
     "test": "node --env-file-if-exists=../.env --test --test-concurrency=1 \"test/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@agencia-hub/contracts": "*",
-    "pg": "^8.16.0"
+    "express": "^5.2.1",
+    "pg": "^8.16.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^22.15.0",
     "@types/pg": "^8.15.0",
     "typescript": "^5.9.0"
