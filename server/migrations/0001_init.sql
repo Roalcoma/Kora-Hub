@@ -1,4 +1,4 @@
--- 0001 · Esquema inicial de Agencia Hub (§9 del plan).
+-- 0001 · Esquema inicial de Kora (§9 del plan).
 -- Aislamiento: toda tabla de negocio lleva workspace_id, FK compuestas (workspace_id, id) para que la BD
 -- rechace referencias entre workspaces, y política RLS "tenant". Ver docs/decisiones/0001.
 

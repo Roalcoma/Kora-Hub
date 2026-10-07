@@ -32,7 +32,7 @@ const colors = ['primary', 'primary-dark', 'primary-light', 'ink', 'ink-soft', '
 
 <template>
   <div class="page">
-    <header><h1>Design system</h1><p>Componentes base de Agencia Hub. Esquinas rectas, tokens del CRM, Roboto + Bricolage Grotesque.</p></header>
+    <header><h1>Design system</h1><p>Componentes base de Kora. Esquinas rectas, tokens del CRM, Roboto + Bricolage Grotesque.</p></header>
 
     <section><h2>Colores</h2>
       <div class="swatches"><div v-for="c in colors" :key="c" class="sw"><span :style="{ background: `var(--color-${c})` }" /><code>--color-{{ c }}</code></div></div>

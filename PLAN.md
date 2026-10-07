@@ -1,4 +1,4 @@
-# Agencia Hub — Plan maestro del proyecto
+# Kora — Plan maestro del proyecto
 
 > **Nombre provisional.** SaaS multi-tenant de comunicación y operación interna para agencias de seguros
 > (Salud, Vida, Medicare), inspirado en Slack. Cliente piloto: la agencia que hizo la petición original.

@@ -1,6 +1,6 @@
 {
-  "name": "Agencia Hub",
-  "short_name": "Agencia Hub",
+  "name": "Kora",
+  "short_name": "Kora",
   "description": "Chat, anuncios, manuales, tareas y metas de tu agencia de seguros.",
   "start_url": "/",
   "scope": "/",

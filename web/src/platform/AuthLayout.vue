@@ -5,12 +5,12 @@ defineProps<{ title: string; subtitle?: string }>();
 <template>
   <div class="auth">
     <aside class="brand">
-      <div class="logo"><span class="mark">AH</span>Agencia Hub</div>
+      <div class="logo"><span class="mark">K</span>Kora</div>
       <p class="pitch">Chat, anuncios, manuales, tareas y metas de tu agencia de seguros, en una sola app.</p>
       <ul class="lines"><li>Salud</li><li>Vida</li><li>Medicare</li></ul>
     </aside>
     <main class="panel">
-      <div class="logo m"><span class="mark">AH</span>Agencia Hub</div>
+      <div class="logo m"><span class="mark">K</span>Kora</div>
       <div class="card">
         <h1>{{ title }}</h1>
         <p v-if="subtitle" class="sub">{{ subtitle }}</p>

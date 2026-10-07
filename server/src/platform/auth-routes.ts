@@ -122,7 +122,7 @@ authRouter.post('/me/totp/setup', requireAuth, async (req, res) => {
   const { rows } = await adminPool.query(
     'update users set totp_secret = $1 where id = $2 and not totp_enabled returning email', [secret, req.userId]);
   if (!rows[0]) throw new HttpError(409, 'totp_already_enabled', 'La verificación en dos pasos ya está activa');
-  const label = encodeURIComponent(`Agencia Hub:${rows[0].email}`);
+  const label = encodeURIComponent(`Kora:${rows[0].email}`);
   res.json({ secret, otpauthUrl: `otpauth://totp/${label}?secret=${secret}&issuer=Agencia%20Hub` });
 });
 

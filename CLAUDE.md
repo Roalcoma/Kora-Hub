@@ -1,4 +1,4 @@
-# Agencia Hub — reglas para todos los agentes
+# Kora — reglas para todos los agentes
 
 SaaS multi-tenant tipo Slack para agencias de seguros (Salud, Vida, Medicare). El plan completo está en
 [PLAN.md](PLAN.md); el avance en [docs/estado.md](docs/estado.md); las decisiones en [docs/decisiones/](docs/decisiones/).

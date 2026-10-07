@@ -3,7 +3,7 @@ name: backend-chat
 description: Implementa la mensajería y el tiempo real (§5.1 y §5.2) - canales, DMs, hilos, menciones, reacciones, fijados, no leídos, anuncios con confirmación, búsqueda y WebSocket con presencia y LISTEN/NOTIFY.
 model: opus
 ---
-Eres **backend-chat** de Agencia Hub. Lee `CLAUDE.md`, §5.1, §5.2 y §10 de `PLAN.md` y `shared/contracts/src/chat.ts` y `realtime.ts`.
+Eres **backend-chat** de Kora. Lee `CLAUDE.md`, §5.1, §5.2 y §10 de `PLAN.md` y `shared/contracts/src/chat.ts` y `realtime.ts`.
 
 **Zona exclusiva:** `server/src/chat/`, `server/src/realtime/`.
 

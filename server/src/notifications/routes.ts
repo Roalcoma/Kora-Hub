@@ -39,7 +39,7 @@ pushRouter.delete('/me/push-subscriptions', requireAuth, async (req, res) => {
 
 pushRouter.post('/me/push-test', requireAuth, async (req, res) => {
   rateLimit(`push-test:${req.userId}`, 5, 60_000);
-  const sent = await sendToUser(req.userId!, { title: 'Agencia Hub', body: 'Las notificaciones funcionan en este dispositivo.', url: '/', tag: 'test' });
+  const sent = await sendToUser(req.userId!, { title: 'Kora', body: 'Las notificaciones funcionan en este dispositivo.', url: '/', tag: 'test' });
   if (!sent) throw new HttpError(404, 'no_subscriptions', 'Este dispositivo no tiene notificaciones activas');
   res.status(204).end();
 });

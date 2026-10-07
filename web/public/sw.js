@@ -1,4 +1,4 @@
-// Service worker de Agencia Hub: notificaciones push y caché del shell para abrir sin red.
+// Service worker de Kora: notificaciones push y caché del shell para abrir sin red.
 const CACHE = 'ah-shell-v1';
 
 self.addEventListener('install', () => self.skipWaiting());
@@ -30,7 +30,7 @@ self.addEventListener('fetch', (e) => {
 
 // Push: siempre se muestra una notificación (iOS revoca la suscripción si no).
 self.addEventListener('push', (e) => {
-  let data = { title: 'Agencia Hub', body: '', url: '/', tag: 'general' };
+  let data = { title: 'Kora', body: '', url: '/', tag: 'general' };
   try { data = { ...data, ...e.data.json() }; } catch { /* payload vacío */ }
   e.waitUntil((async () => {
     await self.registration.showNotification(data.title, {

@@ -20,12 +20,12 @@ function New-Icon([int]$size, [string]$name, [double]$inset) {
   $g.FillRectangle($shadow, $pad + $off, $pad + $off * 2, $box - $off, $box - $off)
   $g.FillRectangle((New-Object System.Drawing.SolidBrush $cta), $pad + $box - $off * 2, $pad + $off * 2, $off, $box - $off * 3)
   $g.FillRectangle((New-Object System.Drawing.SolidBrush $orange), $pad - $off / 2, $pad - $off / 2, $box - $off * 2, $box - $off * 2)
-  $font = New-Object System.Drawing.Font 'Segoe UI', ([float]($box * 0.34)), ([System.Drawing.FontStyle]::Bold), ([System.Drawing.GraphicsUnit]::Pixel)
+  $font = New-Object System.Drawing.Font 'Segoe UI', ([float]($box * 0.52)), ([System.Drawing.FontStyle]::Bold), ([System.Drawing.GraphicsUnit]::Pixel)
   $fmt = New-Object System.Drawing.StringFormat
   $fmt.Alignment = 'Near'
   $fmt.LineAlignment = 'Far'
   $rect = New-Object System.Drawing.RectangleF ([float]($pad + $box * 0.06)), ([float]$pad), ([float]($box - $off * 2)), ([float]($box - $off * 2 - $box * 0.04))
-  $g.DrawString('AH', $font, (New-Object System.Drawing.SolidBrush $ink), $rect, $fmt)
+  $g.DrawString('K', $font, (New-Object System.Drawing.SolidBrush $ink), $rect, $fmt)
   $bmp.Save((Join-Path $dir $name), [System.Drawing.Imaging.ImageFormat]::Png)
   $g.Dispose()
   $bmp.Dispose()

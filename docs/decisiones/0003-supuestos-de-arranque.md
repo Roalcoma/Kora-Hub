@@ -4,7 +4,7 @@
 
 | # | Decisión pendiente | Supuesto con el que se trabaja | Impacto si cambia |
 |---|---|---|---|
-| 1 | Nombre y dominio | "Agencia Hub", `app.agencia-hub.local` en desarrollo | Textos de i18n, manifest, landing |
+| 1 | Nombre y dominio | "Kora", `app.agencia-hub.local` en desarrollo | Textos de i18n, manifest, landing |
 | 2 | Departamentos y metas del piloto | Plantilla: Ventas, Servicio al cliente, Renovaciones, Administración; líneas Salud/Vida/Medicare | Solo la plantilla y la demo |
 | 3 | Precios | Los de §3.5 ($6 / $9) | Configuración de Stripe |
 | 4 | Proveedor con BAA | Se decide antes de vender a clientes de Salud/Medicare | Ola 4 / despliegue |

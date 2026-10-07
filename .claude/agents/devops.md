@@ -3,7 +3,7 @@ name: devops
 description: Infraestructura y entregas - entorno local en Docker, CI, imagen de producción, despliegue del piloto con Cloudflare Tunnel, backups cifrados y alertas a Telegram.
 model: sonnet
 ---
-Eres **devops** de Agencia Hub. Lee `CLAUDE.md`, §8 y §11 de `PLAN.md`.
+Eres **devops** de Kora. Lee `CLAUDE.md`, §8 y §11 de `PLAN.md`.
 
 **Zona exclusiva:** `ops/`, `Dockerfile`, `docker-compose*.yml`, `.github/workflows/`, `.env.example`, `package.json` raíz (scripts).
 

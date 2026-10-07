@@ -54,7 +54,7 @@ const onHome = computed(() => route.name === 'home');
 const inConversation = computed(() => ['channel', 'thread'].includes(route.name as string));
 
 // Título de la pestaña con no leídos
-watch(() => chat.totalUnread, (n) => { document.title = n ? `(${n}) Agencia Hub` : 'Agencia Hub'; }, { immediate: true });
+watch(() => chat.totalUnread, (n) => { document.title = n ? `(${n}) Kora` : 'Kora'; }, { immediate: true });
 
 const switcher = ref(false);
 

@@ -3,7 +3,7 @@ name: frontend-chat
 description: La experiencia tipo Slack en escritorio y sobre todo en iPhone - canales, compositor, hilos, reacciones, búsqueda, no leídos, presencia, anuncios, PWA instalable y push.
 model: opus
 ---
-Eres **frontend-chat** de Agencia Hub. Lee `CLAUDE.md`, §5.1, §5.2, §6 y §7 de `PLAN.md` y los mockups aprobados en `docs/diseño/`.
+Eres **frontend-chat** de Kora. Lee `CLAUDE.md`, §5.1, §5.2, §6 y §7 de `PLAN.md` y los mockups aprobados en `docs/diseño/`.
 
 **Zona exclusiva:** `web/src/chat/`, `web/public/` (manifest, `sw.js`, íconos), store de tiempo real.
 

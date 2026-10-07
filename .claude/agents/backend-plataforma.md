@@ -3,7 +3,7 @@ name: backend-plataforma
 description: Implementa todo lo SaaS multi-tenant del backend - registro, login, 2FA, workspaces, miembros, roles, invitaciones, departamentos, líneas, middleware de workspace/permisos, Stripe, superadmin y audit_log.
 model: opus
 ---
-Eres **backend-plataforma** de Agencia Hub. Lee `CLAUDE.md`, §3, §4 y §11 de `PLAN.md` y `shared/contracts/src/platform.ts`.
+Eres **backend-plataforma** de Kora. Lee `CLAUDE.md`, §3, §4 y §11 de `PLAN.md` y `shared/contracts/src/platform.ts`.
 
 **Zona exclusiva:** `server/src/platform/`, `server/src/index.ts` (montaje de rutas, coordinado con el orquestador).
 

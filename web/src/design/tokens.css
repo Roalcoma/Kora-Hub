@@ -1,4 +1,4 @@
-/* Tokens del design system de Agencia Hub (§7 del plan). Colores del CRM Rocco.
+/* Tokens del design system de Kora (§7 del plan). Colores del CRM Rocco.
    @theme los expone como variables CSS y como utilidades de Tailwind (bg-primary, text-ink, font-display…).
    Reglas: border-radius 0 en todo (excepto .presence); texto sobre --color-primary siempre en --color-ink. */
 @theme {
