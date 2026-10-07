@@ -4,9 +4,8 @@
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { Search, Plus, BookOpen, ChevronLeft, X } from 'lucide-vue-next';
+import { Search, Plus, ChevronLeft, X } from 'lucide-vue-next';
 import type { DocumentNode } from '@agencia-hub/contracts';
-import EmptyState from '@/design/EmptyState.vue';
 import Skeleton from '@/design/Skeleton.vue';
 import Badge from '@/design/Badge.vue';
 import { api } from '@/api.ts';
@@ -15,6 +14,7 @@ import { renderBody } from '@/chat/format.ts';
 import DocTree from './DocTree.vue';
 import DocView from './DocView.vue';
 import NewDocModal from './NewDocModal.vue';
+import DocsHome from './DocsHome.vue';
 import { useDocs } from './store.ts';
 
 const { t } = useI18n();
@@ -99,7 +99,7 @@ const newOpen = computed({ get: () => !!newIn.value, set: (v) => { if (!v) newIn
 
     <main class="page">
       <DocView v-if="id" :id="id" />
-      <EmptyState v-else :icon="BookOpen" :title="t('docs.pick')" :text="t('docs.pickHint')" class="pick" />
+      <DocsHome v-else @create="newIn = $event" />
     </main>
     <NewDocModal v-if="newIn" v-model="newOpen" :department-id="newIn" />
   </div>
@@ -130,7 +130,6 @@ h1 { margin: 0; font-size: 24px; }
 .hit p { margin: 4px 0 0; font-size: 13px; line-height: 1.45; color: var(--color-muted); }
 .hit p :deep(mark) { background: var(--color-primary-light); box-shadow: inset 0 -2px 0 var(--color-primary); color: var(--color-ink); }
 .page { min-width: 0; overflow: auto; }
-.pick { margin: 60px 48px; max-width: 460px; }
 @media (max-width: 767px) {
   .docs { grid-template-columns: minmax(0, 1fr); }
   .back { display: grid; margin-left: -14px; }

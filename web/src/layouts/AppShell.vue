@@ -4,13 +4,14 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen } from 'lucide-vue-next';
+import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen, ChevronsUpDown, BellRing } from 'lucide-vue-next';
 import { useSession } from '@/stores/session.ts';
 import { useChat } from '@/chat/store.ts';
 import Dropdown from '@/design/Dropdown.vue';
 import Kbd from '@/design/Kbd.vue';
 import Tooltip from '@/design/Tooltip.vue';
 import ContextMenu from '@/design/ContextMenu.vue';
+import Avatar from '@/design/Avatar.vue';
 import ChannelList from '@/chat/ChannelList.vue';
 import QuickSwitcher from '@/chat/QuickSwitcher.vue';
 import TaskCompose from '@/tasks/TaskCompose.vue';
@@ -97,6 +98,22 @@ const wsMenuItems = computed(() => [
   { label: t('nav.settings'), icon: Settings, action: () => router.push(`${base.value}/settings`) },
   { label: t('nav.logout'), icon: LogOut, danger: true, action: async () => { chat.disconnect(); await s.logout(); router.replace('/login'); } },
 ]);
+// ─── Mi cuenta: quién está conectado y acceso al perfil (pie del sidebar o riel contraído) ───
+const meMenu = ref(false);
+const mePos = ref({ x: 0, y: 0 });
+const meLabel = computed(() => s.workspace!.me.title || t(`roles.${s.workspace!.me.role}`));
+function openMe(e: MouseEvent) {
+  const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  // El menú abre hacia arriba: el botón está al pie de la pantalla
+  mePos.value = { x: r.left + (collapsed.value ? r.width + 8 : 0), y: Math.max(8, r.top - 3 * 44 - 12) };
+  meMenu.value = true;
+}
+const meItems = computed(() => [
+  { label: t('nav.profile'), icon: CircleUser, action: () => router.push(`${base.value}/settings/profile`) },
+  { label: t('nav.notifications'), icon: BellRing, action: () => router.push(`${base.value}/settings/profile`) },
+  { label: t('nav.logout'), icon: LogOut, danger: true, action: async () => { chat.disconnect(); await s.logout(); router.replace('/login'); } },
+]);
+
 const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 </script>
 
@@ -118,7 +135,10 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
           </Tooltip>
         </div>
       </Transition>
-      <Tooltip :text="`${collapsed ? t('nav.expand') : t('nav.collapse')} · Ctrl Shift D`" side="right" class="rail-toggle">
+      <Tooltip v-if="sidebarHidden" :text="s.user!.name" side="right" class="rail-me">
+        <button type="button" class="me-av" :aria-label="t('nav.account')" @click="openMe"><Avatar :name="s.user!.name" :size="34" presence="active" /></button>
+      </Tooltip>
+      <Tooltip :text="`${collapsed ? t('nav.expand') : t('nav.collapse')} · Ctrl Shift D`" side="right" :class="{ 'rail-toggle': !sidebarHidden }">
         <button type="button" class="rail-btn" :aria-label="collapsed ? t('nav.expand') : t('nav.collapse')" :aria-expanded="!collapsed" @click="collapsed = !collapsed">
           <PanelLeftOpen v-if="collapsed" :size="19" /><PanelLeftClose v-else :size="19" />
           <span v-if="collapsed && chat.totalUnread" class="rail-dot" />
@@ -139,6 +159,11 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
           <component :is="n.icon" :size="16" />{{ n.label }}
         </RouterLink>
       </div>
+      <button type="button" class="sb-me" :aria-label="t('nav.account')" @click="openMe">
+        <Avatar :name="s.user!.name" :size="36" presence="active" />
+        <span class="me-txt"><b>{{ s.user!.name }}</b><small>{{ meLabel }}</small></span>
+        <ChevronsUpDown :size="16" class="me-chev" />
+      </button>
     </aside>
 
     <main class="main"><RouterView :key="viewKey" /></main>
@@ -149,6 +174,7 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
       </RouterLink>
     </nav>
     <ContextMenu v-model="wsMenu" :items="wsMenuItems" :x="menuPos.x" :y="menuPos.y" />
+    <ContextMenu v-model="meMenu" :items="meItems" :x="mePos.x" :y="mePos.y" />
     <QuickSwitcher v-model="switcher" />
     <TaskCompose />
   </div>
@@ -168,21 +194,30 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
 .rail-btn.active::before { content: ''; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 4px; background: var(--color-primary); }
 .rail-badge { position: absolute; top: 2px; right: 0; min-width: 16px; padding: 0 3px; font-size: 10px; font-weight: 700; line-height: 15px; text-align: center; color: var(--color-ink); background: var(--color-primary); box-shadow: 0 2px 5px rgb(0 0 0 / .35); }
 .rail-dot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; background: var(--color-primary); box-shadow: 0 0 0 2px var(--color-ink-soft); }
-.rail-toggle { margin-top: auto; }
+.rail-toggle, .rail-me { margin-top: auto; }
+.me-av { padding: 0; background: none; border: 0; cursor: pointer; box-shadow: 0 3px 8px rgb(0 0 0 / .35); transition: transform var(--duration); }
+.me-av:hover { transform: translateY(-1px); }
+/* Mi cuenta: tarjeta al pie del sidebar, elevada sobre la lista */
+.sb-me { display: flex; align-items: center; gap: 10px; margin: 0; padding: 12px 14px 12px 16px; font: inherit; text-align: left; color: #fff; background: rgb(0 0 0 / .22); border: 0; border-top: 1px solid rgb(255 255 255 / .08); box-shadow: 0 -8px 16px -10px rgb(0 0 0 / .6); cursor: pointer; transition: background var(--duration); }
+.sb-me:hover { background: var(--color-ink-soft); }
+.me-txt { flex: 1; min-width: 0; display: grid; }
+.me-txt b { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-txt small { font-size: 12px; color: var(--color-sidebar-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-chev { color: var(--color-sidebar-text); }
 .rail-nav-enter-active, .rail-nav-leave-active { transition: opacity 180ms, transform 180ms; }
 .rail-nav-enter-from, .rail-nav-leave-to { opacity: 0; transform: translateX(-6px); }
 .rail { position: relative; z-index: 6; background: var(--color-ink-soft); display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 14px 0; box-shadow: 2px 0 8px rgb(0 0 0 / .25); }
-.ws { position: relative; width: 40px; height: 40px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 15px; background: #2B4467; color: #fff; text-decoration: none; box-shadow: 0 3px 8px rgb(0 0 0 / .3); transition: transform var(--duration), box-shadow var(--duration); }
+.ws { position: relative; width: 40px; height: 40px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: 15px; background: #2B4467; color: #fff; text-decoration: none; box-shadow: 0 3px 8px rgb(0 0 0 / .3); transition: transform var(--duration), box-shadow var(--duration); }
 .ws:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgb(0 0 0 / .35); }
 .ws.active { background: var(--color-primary); color: var(--color-ink); }
 .ws.active::before { content: ''; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 4px; background: #fff; }
 /* El sidebar proyecta sombra sobre el área de trabajo */
 .sidebar { position: relative; z-index: 5; background: linear-gradient(180deg, var(--color-ink) 0%, #0F1E34 100%); color: var(--color-sidebar-text); display: flex; flex-direction: column; min-height: 0; box-shadow: 6px 0 22px rgb(19 36 61 / .28); }
 .sb-head { padding: 14px 16px 12px; display: grid; gap: 10px; border-bottom: 1px solid rgb(255 255 255 / .08); box-shadow: 0 6px 12px -8px rgb(0 0 0 / .5); }
-.sb-ws { display: flex; align-items: center; gap: 6px; padding: 0; font: 700 18px var(--font-display); color: #fff; background: none; border: 0; cursor: pointer; text-align: left; }
+.sb-ws { display: flex; align-items: center; gap: 6px; padding: 0; font: 800 18px/1.2 var(--font-display); letter-spacing: -.01em; color: #fff; background: none; border: 0; cursor: pointer; text-align: left; }
 .sb-search { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; font: inherit; font-size: 14px; color: var(--color-sidebar-text); background: rgb(0 0 0 / .22); border: 0; box-shadow: inset 0 1px 3px rgb(0 0 0 / .35); cursor: pointer; }
 .sb-search:hover { color: #fff; }
-.sb-scroll { overflow: auto; padding: 6px 0 20px; display: grid; align-content: start; gap: 2px; }
+.sb-scroll { flex: 1; overflow: auto; padding: 6px 0 20px; display: grid; align-content: start; gap: 2px; }
 h4 { margin: 16px 0 2px; padding: 0 16px; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; color: #8FA0B8; }
 .sb-item { position: relative; display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 0 16px; font-size: 15px; color: var(--color-sidebar-text); text-decoration: none; transition: background var(--duration), color var(--duration); }
 .sb-item:hover { background: var(--color-ink-soft); color: #fff; }

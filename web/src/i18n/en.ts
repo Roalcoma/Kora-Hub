@@ -30,6 +30,7 @@ export default {
     },
   },
   nav: {
+    profile: 'My profile', notifications: 'Notifications', account: 'My account',
     home: 'Home', messages: 'DMs', mentions: 'Mentions', tasks: 'Tasks', you: 'You', manuals: 'Manuals', goals: 'Goals',
     settings: 'Settings', search: 'Search', line: 'Line', allLines: 'All', addWorkspace: 'Add workspace',
     logout: 'Sign out', collapse: 'Collapse sidebar', expand: 'Show sidebar', agency: 'Agency', announcements: 'Announcements',
@@ -114,6 +115,8 @@ export default {
     unarchive: 'Reactivate',
   },
   docs: {
+    library: 'Library', libraryOf: '{name} manuals', libraryCount: '{n} page in the library | {n} pages in the library',
+    lastUpdate: 'Last edit: {date}', writeFirst: 'Write the first one', recent: 'Recently updated',
     search: 'Search manuals', results: '{n} result | {n} results', newPage: 'New page', newSubpage: 'New subpage',
     inside: 'Inside “{title}”', pageTitle: 'Title', pageTitleHint: 'E.g.: How to quote a Life policy', lineLabel: 'Business line',
     allLines: 'All lines', create: 'Create page', emptyDept: 'No pages yet.',
@@ -149,6 +152,14 @@ export default {
     deleted: 'Task deleted',
   },
   settings: {
+    activeMembers: 'active', admins: 'Admins', leads: 'Leads', invitePeople: 'Invite people',
+    deptHint: 'Agency areas: they organize channels, manuals, tasks and goals.', linesHint: 'Health, Life, Medicare… The sidebar selector filters by line.',
+    address: 'Address', plan: 'Plan and usage', planName: 'Plan', status: 'Status', trialEnds: 'Trial ends', maxFile: 'File size limit',
+    plans: { trial: 'Trial', standard: 'Standard', pro: 'Pro' },
+    statuses: { trialing: 'Trial', active: 'Active', past_due: 'Payment due', read_only: 'Read only', suspended: 'Suspended', closing: 'Closing' },
+    billingSoon: 'Billing and plan changes arrive in the next release.',
+    sessions: 'Sessions', sessionsHint: 'If you lost a phone or used someone else\'s computer, sign out everywhere.',
+    inviteTitle: 'Invite to the agency', pendingEmpty: 'No pending invitations. The ones you create show here until used or expired.',
     title: 'Settings', members: 'Members', invitations: 'Invitations', structure: 'Departments and lines', profile: 'My profile', workspace: 'Agency',
     role: 'Role', departments: 'Departments', lead: 'Lead', active: 'Active', deactivate: 'Deactivate', reactivate: 'Reactivate', inactive: 'Inactive',
     inviteLink: 'Invite link', inviteLinkHint: 'Anyone with the link joins with the chosen role. Expires in 7 days.',

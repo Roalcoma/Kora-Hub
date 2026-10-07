@@ -73,25 +73,28 @@ async function revoke(id: string) {
 </script>
 
 <template>
-  <div class="grid gap-5">
-    <Dropdown v-model="role" :options="roleOptions" :label="t('settings.role')" class="max-w-60" />
-    <section class="grid gap-2">
-      <h3 class="m-0 text-base">{{ t('settings.inviteLink') }}</h3>
-      <p class="m-0 text-sm text-muted">{{ t('settings.inviteLinkHint') }}</p>
-      <div class="flex flex-wrap gap-2">
-        <input v-if="link" class="link" :value="link" readonly :aria-label="t('settings.link')" @focus="($event.target as HTMLInputElement).select()">
-        <Button v-if="link" @click="copy(link)"><Copy :size="16" />{{ t('common.copy') }}</Button>
-        <Button v-else variant="primary" :loading="busy" @click="createLink"><Link2 :size="16" />{{ t('settings.createLink') }}</Button>
-      </div>
-    </section>
-    <form class="grid gap-2" @submit.prevent="sendEmails">
-      <h3 class="m-0 text-base">{{ t('settings.inviteByEmail') }}</h3>
-      <Input v-model="emails" :label="t('settings.emails')" :hint="t('settings.emailsHint')" placeholder="ana@agencia.com, carlos@agencia.com" />
-      <div><Button type="submit" :loading="busy"><Mail :size="16" />{{ t('settings.sendInvites') }}</Button></div>
-    </form>
-    <section v-if="pending.length" class="grid gap-2">
-      <h3 class="m-0 text-base">{{ t('settings.pending') }}</h3>
-      <ul class="pend">
+  <div class="split">
+    <div class="card accent">
+      <h2>{{ t('settings.inviteTitle') }}</h2>
+      <Dropdown v-model="role" :options="roleOptions" :label="t('settings.role')" class="max-w-60" />
+      <section class="grid gap-2 block">
+        <h3>{{ t('settings.inviteLink') }}</h3>
+        <p class="hint">{{ t('settings.inviteLinkHint') }}</p>
+        <div class="flex flex-wrap gap-2">
+          <input v-if="link" class="link" :value="link" readonly :aria-label="t('settings.link')" @focus="($event.target as HTMLInputElement).select()">
+          <Button v-if="link" @click="copy(link)"><Copy :size="16" />{{ t('common.copy') }}</Button>
+          <Button v-else variant="primary" :loading="busy" @click="createLink"><Link2 :size="16" />{{ t('settings.createLink') }}</Button>
+        </div>
+      </section>
+      <form class="grid gap-2 block" @submit.prevent="sendEmails">
+        <h3>{{ t('settings.inviteByEmail') }}</h3>
+        <Input v-model="emails" :label="t('settings.emails')" :hint="t('settings.emailsHint')" placeholder="ana@agencia.com, carlos@agencia.com" />
+        <div><Button type="submit" :loading="busy"><Mail :size="16" />{{ t('settings.sendInvites') }}</Button></div>
+      </form>
+    </div>
+    <aside class="card">
+      <h2>{{ t('settings.pending') }} <small v-if="pending.length">{{ pending.length }}</small></h2>
+      <ul v-if="pending.length" class="pend">
         <li v-for="p in pending" :key="p.id">
           <span class="flex-1 min-w-0 truncate">{{ p.email ?? t('settings.link') }}</span>
           <Badge>{{ t(`roles.${p.role}`) }}</Badge>
@@ -99,15 +102,25 @@ async function revoke(id: string) {
           <button type="button" class="icon" :aria-label="t('settings.revoke')" @click="revoke(p.id)"><X :size="16" /></button>
         </li>
       </ul>
-    </section>
+      <p v-else class="hint">{{ t('settings.pendingEmpty') }}</p>
+    </aside>
   </div>
 </template>
 
 <style scoped>
+.split { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr); gap: 22px; align-items: start; max-width: 1320px; }
+.card { display: grid; gap: 16px; align-content: start; padding: 20px 22px; background: var(--color-surface); box-shadow: var(--shadow-md); }
+.card.accent { border-left: 4px solid var(--color-primary); }
+h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 17px; }
+h2 small { padding: 0 7px; font-size: 12px; font-family: var(--font-sans); color: var(--color-ink); background: var(--color-primary); }
+h3 { margin: 0; font-size: 15px; }
+.block { padding-top: 14px; border-top: 1px solid var(--color-line); }
+.hint { margin: 0; font-size: 13px; color: var(--color-muted); }
 .link { flex: 1; min-width: 220px; min-height: 38px; padding: 0 10px; font: inherit; font-size: 13px; background: var(--color-canvas); border: 1px solid var(--color-line-strong); color: var(--color-ink); }
-.pend { margin: 0; padding: 0; list-style: none; border: 1px solid var(--color-line); background: var(--color-surface); }
-.pend li { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 6px 6px 12px; border-top: 1px solid var(--color-line); font-size: 14px; }
+.pend { margin: 0; padding: 0; list-style: none; }
+.pend li { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 4px 8px 12px; border-top: 1px solid var(--color-line); font-size: 14px; }
 .pend li:first-child { border-top: 0; }
 .icon { width: 36px; height: 36px; display: grid; place-items: center; color: var(--color-muted); background: none; border: 0; cursor: pointer; }
 .icon:hover { color: var(--color-danger); background: var(--color-danger-light); }
+@media (max-width: 1023px) { .split { grid-template-columns: minmax(0, 1fr); } }
 </style>

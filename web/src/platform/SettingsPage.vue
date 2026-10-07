@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { Building2, ShieldCheck, LogOut } from 'lucide-vue-next';
+import { Building2, ShieldCheck, LogOut, UserPlus } from 'lucide-vue-next';
 import type { Member, Role } from '@agencia-hub/contracts';
 import { api } from '@/api.ts';
 import { useSession } from '@/stores/session.ts';
@@ -22,7 +22,8 @@ import { errorText } from './errors.ts';
 import PushSetup from '@/chat/PushSetup.vue';
 
 type Tab = 'members' | 'invitations' | 'structure' | 'workspace' | 'profile';
-const { t } = useI18n();
+const { t, d } = useI18n();
+const origin = location.origin;
 const route = useRoute();
 const router = useRouter();
 const s = useSession();
@@ -125,7 +126,13 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
     <Tabs v-model="tab" :tabs="tabs" class="px-4 bg-surface" />
     <div class="content">
       <!-- Miembros -->
-      <section v-if="tab === 'members'">
+      <section v-if="tab === 'members'" class="grid gap-4">
+        <div v-if="members" class="summary">
+          <span><b>{{ members.filter((m) => m.isActive).length }}</b> {{ t('settings.activeMembers') }}</span>
+          <span><b>{{ members.filter((m) => ['owner', 'admin'].includes(m.role)).length }}</b> {{ t('settings.admins') }}</span>
+          <span><b>{{ members.filter((m) => m.leadOfDepartmentIds.length).length }}</b> {{ t('settings.leads') }}</span>
+          <Button variant="primary" class="ml-auto" @click="tab = 'invitations'"><UserPlus :size="16" />{{ t('settings.invitePeople') }}</Button>
+        </div>
         <div v-if="!members" class="grid gap-3"><Skeleton v-for="n in 4" :key="n" height="52px" /></div>
         <ul v-else class="list">
           <li v-for="m in members" :key="m.userId" :class="{ off: !m.isActive }">
@@ -161,28 +168,49 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
         </SlideOver>
       </section>
 
-      <InvitePanel v-else-if="tab === 'invitations'" class="narrow" />
+      <InvitePanel v-else-if="tab === 'invitations'" />
 
-      <section v-else-if="tab === 'structure'" class="narrow grid gap-6">
-        <div class="grid gap-2"><h2>{{ t('onboarding.departments') }}</h2><StructureEditor kind="departments" /></div>
-        <div class="grid gap-2"><h2>{{ t('onboarding.lines') }}</h2><StructureEditor kind="lines" /></div>
+      <section v-else-if="tab === 'structure'" class="split">
+        <div class="card accent"><h2>{{ t('onboarding.departments') }}</h2><p class="hint">{{ t('settings.deptHint') }}</p><StructureEditor kind="departments" /></div>
+        <div class="card"><h2>{{ t('onboarding.lines') }}</h2><p class="hint">{{ t('settings.linesHint') }}</p><StructureEditor kind="lines" /></div>
       </section>
 
-      <form v-else-if="tab === 'workspace'" class="narrow grid gap-4" @submit.prevent="saveWorkspace">
-        <Input v-model="wsName" :label="t('settings.agencyName')" />
-        <div><Button type="submit" variant="primary">{{ t('common.save') }}</Button></div>
-      </form>
+      <section v-else-if="tab === 'workspace'" class="split">
+        <form class="card accent" @submit.prevent="saveWorkspace">
+          <h2>{{ t('settings.workspace') }}</h2>
+          <Input v-model="wsName" :label="t('settings.agencyName')" />
+          <p class="addr"><span>{{ t('settings.address') }}</span><code>{{ origin }}/w/{{ s.workspace!.slug }}</code></p>
+          <div><Button type="submit" variant="primary">{{ t('common.save') }}</Button></div>
+        </form>
+        <aside class="card plan">
+          <h2>{{ t('settings.plan') }}</h2>
+          <dl>
+            <dt>{{ t('settings.planName') }}</dt><dd><Badge tone="primary">{{ t(`settings.plans.${s.workspace!.plan}`) }}</Badge></dd>
+            <dt>{{ t('settings.status') }}</dt><dd>{{ t(`settings.statuses.${s.workspace!.status}`) }}</dd>
+            <template v-if="s.workspace!.status === 'trialing'"><dt>{{ t('settings.trialEnds') }}</dt><dd>{{ d(s.workspace!.trialEndsAt, 'long') }}</dd></template>
+            <dt>{{ t('settings.maxFile') }}</dt><dd>{{ s.workspace!.settings.maxFileMb }} MB</dd>
+          </dl>
+          <p class="hint">{{ t('settings.billingSoon') }}</p>
+        </aside>
+      </section>
 
-      <section v-else class="narrow grid gap-8">
-        <form class="grid gap-4" @submit.prevent="saveProfile">
+      <section v-else class="split">
+        <div class="col">
+        <form class="card accent" @submit.prevent="saveProfile">
+          <header class="me">
+            <Avatar :name="s.user!.name" :size="56" presence="active" />
+            <div><h2>{{ s.user!.name }}</h2><small>{{ s.user!.email }} · {{ t(`roles.${s.workspace!.me.role}`) }}</small></div>
+          </header>
           <Input v-model="profile.name" :label="t('common.name')" autocomplete="name" />
           <Input v-model="profile.title" :label="t('settings.jobTitle')" />
           <Dropdown v-model="profile.locale" :options="localeOptions" :label="t('settings.language')" />
           <Input v-model="profile.timezone" :label="t('settings.timezone')" placeholder="America/New_York" />
           <div><Button type="submit" variant="primary">{{ t('common.save') }}</Button></div>
         </form>
+        </div>
+        <div class="col">
         <PushSetup />
-        <div class="grid gap-3 box">
+        <div class="card box">
           <h2 class="flex items-center gap-2"><ShieldCheck :size="20" />{{ t('settings.title2fa') }}
             <Badge :tone="s.user!.totpEnabled ? 'success' : 'neutral'">{{ s.user!.totpEnabled ? t('settings.on2fa') : t('settings.off2fa') }}</Badge></h2>
           <template v-if="s.user!.totpEnabled">
@@ -197,7 +225,12 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
           </template>
           <div v-else><Button @click="startTotp">{{ t('settings.enable2fa') }}</Button></div>
         </div>
-        <div><Button variant="ghost" @click="logoutAll"><LogOut :size="16" />{{ t('settings.logoutAll') }}</Button></div>
+        <div class="card">
+          <h2>{{ t('settings.sessions') }}</h2>
+          <p class="hint">{{ t('settings.sessionsHint') }}</p>
+          <div><Button variant="ghost" @click="logoutAll"><LogOut :size="16" />{{ t('settings.logoutAll') }}</Button></div>
+        </div>
+        </div>
       </section>
     </div>
   </div>
@@ -207,9 +240,24 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
 .top { display: flex; align-items: center; min-height: 58px; padding: 0 22px; background: var(--color-surface); }
 h1 { margin: 0; font-size: 19px; }
 h2 { margin: 0; font-size: 17px; }
-.content { padding: 20px; }
-.narrow { max-width: 640px; }
-.list { margin: 0; padding: 0; list-style: none; background: var(--color-surface); box-shadow: var(--shadow-md); max-width: 1000px; }
+.content { padding: 24px 32px 40px 28px; }
+/* Dos columnas de distinto peso: la principal a la izquierda, el contexto a la derecha */
+.split { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr); gap: 22px; align-items: start; max-width: 1320px; }
+.col { display: grid; gap: 22px; }
+.card { display: grid; gap: 14px; align-content: start; padding: 20px 22px; background: var(--color-surface); box-shadow: var(--shadow-md); }
+.card.accent { border-left: 4px solid var(--color-primary); }
+.hint { margin: -6px 0 0; font-size: 13px; color: var(--color-muted); }
+.me { display: flex; align-items: center; gap: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--color-line); }
+.me h2 { font-size: 20px; }
+.me small { color: var(--color-muted); font-size: 13px; }
+.addr { display: grid; gap: 6px; margin: 0; font-size: 14px; font-weight: 500; }
+.addr code { padding: 8px 10px; font-size: 13px; font-weight: 400; background: var(--color-canvas); border: 1px solid var(--color-line); overflow-wrap: anywhere; }
+.plan dl { display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; margin: 0; font-size: 14px; }
+.plan dt { color: var(--color-muted); }
+.plan dd { margin: 0; }
+.summary { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 26px; padding: 14px 18px; background: var(--color-surface); box-shadow: var(--shadow-md); border-left: 4px solid var(--color-leaf); color: var(--color-muted); font-size: 14px; }
+.summary b { font: 800 22px var(--font-display); color: var(--color-ink); margin-right: 4px; }
+.list { margin: 0; padding: 0; list-style: none; background: var(--color-surface); box-shadow: var(--shadow-md); }
 .list li { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--color-line); }
 .list li:first-child { border-top: 0; }
 .list li.off { opacity: .6; }
@@ -220,7 +268,8 @@ h2 { margin: 0; font-size: 17px; }
 .seg { display: flex; border: 1px solid var(--color-line-strong); }
 .seg button { min-height: 36px; padding: 0 10px; font: inherit; font-size: 13px; color: var(--color-ink); background: var(--color-surface); border: 0; cursor: pointer; }
 .seg button[aria-checked="true"] { background: var(--color-ink); color: #fff; }
-.box { padding: 16px 18px; background: var(--color-surface); box-shadow: var(--shadow-md); border-left: 4px solid var(--color-ink); }
+.box { border-left: 4px solid var(--color-ink); }
 .secret { padding: 10px 12px; font-size: 16px; letter-spacing: .08em; background: var(--color-canvas); border: 1px solid var(--color-line); word-break: break-all; }
-@media (max-width: 767px) { .content { padding: 16px; } .role { width: 100%; } }
+@media (max-width: 1023px) { .split { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 767px) { .content { padding: 16px; } .role { width: 100%; } .card { padding: 16px; } }
 </style>

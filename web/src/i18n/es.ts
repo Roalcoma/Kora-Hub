@@ -28,6 +28,7 @@ export default {
     },
   },
   nav: {
+    profile: 'Mi perfil', notifications: 'Notificaciones', account: 'Mi cuenta',
     home: 'Inicio', messages: 'Mensajes', mentions: 'Menciones', tasks: 'Tareas', you: 'Tú', manuals: 'Manuales', goals: 'Metas',
     settings: 'Ajustes', search: 'Buscar', line: 'Línea', allLines: 'Todas', addWorkspace: 'Agregar espacio de trabajo',
     logout: 'Cerrar sesión', collapse: 'Contraer barra lateral', expand: 'Mostrar barra lateral', agency: 'Agencia', announcements: 'Anuncios',
@@ -112,6 +113,8 @@ export default {
     unarchive: 'Reactivar',
   },
   docs: {
+    library: 'Biblioteca', libraryOf: 'Manuales de {name}', libraryCount: '{n} página en la biblioteca | {n} páginas en la biblioteca',
+    lastUpdate: 'Última edición: {date}', writeFirst: 'Escribir el primero', recent: 'Actualizados recientemente',
     search: 'Buscar en manuales', results: '{n} resultado | {n} resultados', newPage: 'Nueva página', newSubpage: 'Nueva subpágina',
     inside: 'Dentro de «{title}»', pageTitle: 'Título', pageTitleHint: 'Ej.: Cómo cotizar una póliza de Vida', lineLabel: 'Línea de negocio',
     allLines: 'Todas las líneas', create: 'Crear página', emptyDept: 'Sin páginas todavía.',
@@ -147,6 +150,14 @@ export default {
     deleted: 'Tarea borrada',
   },
   settings: {
+    activeMembers: 'activos', admins: 'Admin', leads: 'Líderes', invitePeople: 'Invitar personas',
+    deptHint: 'Áreas de la agencia: ordenan canales, manuales, tareas y metas.', linesHint: 'Salud, Vida, Medicare… El selector del sidebar filtra por línea.',
+    address: 'Dirección', plan: 'Plan y uso', planName: 'Plan', status: 'Estado', trialEnds: 'La prueba termina', maxFile: 'Límite por archivo',
+    plans: { trial: 'Prueba', standard: 'Estándar', pro: 'Pro' },
+    statuses: { trialing: 'En prueba', active: 'Activo', past_due: 'Pago pendiente', read_only: 'Solo lectura', suspended: 'Suspendido', closing: 'En cierre' },
+    billingSoon: 'La facturación y el cambio de plan llegan en la siguiente entrega.',
+    sessions: 'Sesiones', sessionsHint: 'Si perdiste un teléfono o usaste una computadora ajena, cierra todas las sesiones.',
+    inviteTitle: 'Invitar a la agencia', pendingEmpty: 'No hay invitaciones pendientes. Las que crees aparecen aquí hasta que se usen o venzan.',
     title: 'Ajustes', members: 'Miembros', invitations: 'Invitaciones', structure: 'Departamentos y líneas', profile: 'Mi perfil', workspace: 'Agencia',
     role: 'Rol', departments: 'Departamentos', lead: 'Líder', active: 'Activo', deactivate: 'Desactivar', reactivate: 'Reactivar', inactive: 'Inactivo',
     inviteLink: 'Enlace de invitación', inviteLinkHint: 'Cualquiera con el enlace entra con el rol elegido. Vence en 7 días.',

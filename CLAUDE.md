@@ -42,6 +42,9 @@ API `4300` · Web `5180` · Postgres `55432` · MinIO API `59000` / consola `590
    distinto peso, encabezados y estados vacíos alineados a un lado, acentos laterales; evitar todo centrado en espejo.
    Fondo general gris casi blanco (`--color-canvas`). **Modales siempre centrados** (`Modal.vue`) y desplegables con
    `Dropdown.vue`; nunca controles con aspecto nativo. El sidebar es contraíble (Ctrl+Shift+D) y debe seguir siéndolo.
+   **Sin huecos:** a 1600 px el contenido llena el ancho (dos columnas de distinto peso, tarjetas); los estados vacíos van
+   alineados a la izquierda (`EmptyState`), nunca un ícono centrado solo. Siempre visible quién está logueado (tarjeta al pie
+   del sidebar). Títulos en Plus Jakarta Sans (Bricolage se descartó).
 7. Toda feature incluye pruebas: caso feliz, permiso denegado y **aislamiento entre workspaces**.
 8. Commits pequeños por feature, en español, con el coautor que indique el sistema. **No hacer push a `main`.**
 9. Leer el código existente antes de escribir; imitar su estilo y densidad de comentarios.

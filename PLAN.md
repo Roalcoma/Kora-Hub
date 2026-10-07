@@ -220,7 +220,7 @@ Todo lo siguiente entra en la **Fase 1** (nada queda para después):
 
 - **Contraste:** el blanco sobre naranja **no** pasa AA → sobre `#F69008` el texto va en `--color-ink`.
   Sobre el sidebar marino, texto blanco/gris claro. Verificar AA en todo componente.
-- **Tipografía:** Roboto (texto) + Bricolage Grotesque (títulos, nombre del workspace).
+- **Tipografía:** Roboto (texto) + Plus Jakarta Sans (títulos, nombre del workspace). Bricolage Grotesque se descartó el 2026-10-07: Rodrigo la vio chata.
 - **Íconos:** Lucide. **Sin emojis en la interfaz** (los emojis solo existen como contenido: reacciones y mensajes).
 - **Sin `<select>` nativos:** dropdowns propios (mismo criterio que el CRM).
 - Profundidad con sombras sutiles, hovers notorios, animaciones cortas (150–200 ms) que respetan `prefers-reduced-motion`.
