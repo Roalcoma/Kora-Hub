@@ -80,6 +80,7 @@ export type Routes = {
   // ── Archivos ──
   'POST /w/:slug/files': R<In<typeof F.CreateUploadBody>, F.CreateUploadResponse>;
   'POST /w/:slug/files/:id/complete': R<never, F.FileRef>;
+  'GET /w/:slug/files/:id': R<never, never>;                                                  // 302 a URL prefirmada
 
   // ── Manuales ──
   'GET /w/:slug/documents': R<never, M.DocumentNode[], In<typeof M.ListDocumentsQuery>>;

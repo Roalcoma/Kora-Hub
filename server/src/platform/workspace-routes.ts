@@ -7,12 +7,12 @@ import {
 } from '@agencia-hub/contracts';
 import { enqueue } from '../jobs/queue.ts';
 import { HttpError, parse } from './http.ts';
-import { requireAuth, newToken, sha256 } from './auth.ts';
-import { workspaceContext, tx, requireRole } from './workspace.ts';
+import { newToken, sha256 } from './auth.ts';
+import { tx, requireRole } from './workspace.ts';
 import { toWorkspace, toDepartment, toLine, listMembers, audit } from './model.ts';
 
+// Montado en index.ts detrás de requireAuth + workspaceContext
 export const workspaceRouter = Router({ mergeParams: true });
-workspaceRouter.use(requireAuth, workspaceContext);
 
 const appUrl = () => process.env.APP_URL ?? 'http://localhost:5180';
 const archivedAt = (archived?: boolean) => (archived === undefined ? undefined : archived ? new Date() : null);

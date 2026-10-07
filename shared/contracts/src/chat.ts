@@ -13,7 +13,7 @@ export type Channel = {
   memberIds?: Id[];               // solo en dm / group_dm
   // Estado del usuario actual
   isMember: boolean; muted: boolean; starred: boolean; notifLevel: 'all' | 'mentions' | 'none' | null;
-  unreadCount: number; mentionCount: number; lastReadAt: IsoDate | null;
+  unreadCount: number; mentionCount: number; lastReadAt: IsoDate | null; lastMessageAt: IsoDate | null;
 };
 
 export type Reaction = { emoji: string; count: number; userIds: Id[] };
@@ -21,8 +21,10 @@ export type Reaction = { emoji: string; count: number; userIds: Id[] };
 export type Mention = { kind: 'user'; userId: Id } | { kind: 'channel' } | { kind: 'here' };
 
 export type Message = {
-  id: Id; channelId: Id; userId: Id | null; parentId: Id | null;
-  body: string;                   // markdown restringido: **negrita** _cursiva_ ~tachado~ `código` listas enlaces
+  id: Id; clientId: string | null; channelId: Id; userId: Id | null; parentId: Id | null;
+  // Markdown restringido: **negrita** _cursiva_ ~tachado~ `código` ```bloque``` listas y enlaces.
+  // Menciones en el texto: <@userId>, <!channel> (todo el canal), <!here> (conectados).
+  body: string;
   mentions: Mention[]; files: FileRef[]; reactions: Reaction[];
   alsoInChannel: boolean; replyCount: number; lastReplyAt: IsoDate | null; replyUserIds: Id[];
   ackRequired: boolean; ackCount?: number; ackedByMe?: boolean;

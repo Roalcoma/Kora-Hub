@@ -6,7 +6,9 @@ import { Id } from './common.ts';
 export type FileRef = {
   id: Id; name: string; mime: string; size: number;
   width: number | null; height: number | null;
-  url: string; thumbUrl: string | null;   // URLs prefirmadas de vida corta
+  // `url` es la ruta de la API (/api/v1/w/:slug/files/:id) que redirige a una URL prefirmada de vida corta:
+  // el enlace del mensaje nunca caduca y el archivo nunca es público.
+  url: string; thumbUrl: string | null;
 };
 
 export const ALLOWED_MIME = [
@@ -22,6 +24,8 @@ export const CreateUploadBody = z.object({
   name: z.string().min(1).max(255),
   mime: z.enum(ALLOWED_MIME),
   size: z.number().int().positive(),       // el backend valida contra settings.maxFileMb y la cuota
+  width: z.number().int().positive().optional(),   // imágenes: el navegador informa sus dimensiones
+  height: z.number().int().positive().optional(),
   context: z.enum(['message', 'document', 'avatar', 'logo', 'task']),
 });
 export type CreateUploadResponse = { fileId: Id; uploadUrl: string; headers: Record<string, string> };

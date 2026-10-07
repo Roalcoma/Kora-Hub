@@ -36,6 +36,10 @@ API `4300` · Web `5180` · Postgres `55432` · MinIO API `59000` / consola `590
 5. El contrato de `shared/contracts/` es la **fuente de verdad**. Solo el `arquitecto` lo cambia.
 6. **Diseño:** solo tokens y componentes de `web/src/design/`; `border-radius: 0` en todo (excepto el punto de
    presencia); sin `<select>` nativo; sin emojis en la UI; texto sobre `#F69008` en `--color-ink`.
+   **Profundidad y asimetría (pedido de Rodrigo, punto importante):** nada plano ni simétrico. Tres niveles de
+   elevación con sombras (`--shadow-sm` superficie, `--shadow-md` tarjetas/compositor, `--shadow-lg` flotantes y
+   paneles), hovers que elevan, paneles que proyectan sombra sobre el contenido. Composición asimétrica: columnas de
+   distinto peso, encabezados y estados vacíos alineados a un lado, acentos laterales; evitar todo centrado en espejo.
 7. Toda feature incluye pruebas: caso feliz, permiso denegado y **aislamiento entre workspaces**.
 8. Commits pequeños por feature, en español, con el coautor que indique el sistema. **No hacer push a `main`.**
 9. Leer el código existente antes de escribir; imitar su estilo y densidad de comentarios.

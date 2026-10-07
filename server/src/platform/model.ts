@@ -1,6 +1,7 @@
 // Consultas y conversiones fila → contrato compartidas por las rutas de plataforma.
 import type pg from 'pg';
 import type { User, Workspace, Member, Department, BusinessLine, Session, Role } from '@agencia-hub/contracts';
+import { onlineUserIds } from '../realtime/hub.ts';
 
 export const ROLE_RANK: Record<Role, number> = { guest: 0, member: 1, lead: 2, admin: 3, owner: 4 };
 
@@ -18,17 +19,17 @@ export const toWorkspace = (r: any): Workspace => ({
 export const toDepartment = (r: any): Department => ({ id: r.id, name: r.name, position: r.position, archivedAt: r.archived_at?.toISOString() ?? null });
 export const toLine = (r: any): BusinessLine => ({ id: r.id, name: r.name, color: r.color, position: r.position, archivedAt: r.archived_at?.toISOString() ?? null });
 
-const toMember = (r: any): Member => ({
+const toMember = (r: any, online: Set<string>): Member => ({
   userId: r.user_id, name: r.name, email: r.email, avatarUrl: null, role: r.role, title: r.title,
   statusText: r.status_text, statusUntil: r.status_until?.toISOString() ?? null, isActive: r.is_active,
   departmentIds: r.dept_ids, leadOfDepartmentIds: r.lead_ids, lineIds: r.line_ids,
-  presence: 'away', // ponytail: la presencia real llega por WebSocket (Ola 2)
+  presence: online.has(r.user_id) ? 'active' : 'away',
 });
 
 /** Miembros del workspace activo (corre dentro de withWorkspace). */
 export async function listMembers(db: pg.PoolClient, userId?: string): Promise<Member[]> {
   const { rows } = await db.query(
-    `select m.user_id, u.name, u.email, m.role, m.title, m.status_text, m.status_until, m.is_active,
+    `select m.workspace_id, m.user_id, u.name, u.email, m.role, m.title, m.status_text, m.status_until, m.is_active,
        coalesce(array_agg(distinct md.department_id) filter (where md.department_id is not null), '{}') as dept_ids,
        coalesce(array_agg(distinct md.department_id) filter (where md.is_lead), '{}') as lead_ids,
        coalesce(array_agg(distinct ml.line_id) filter (where ml.line_id is not null), '{}') as line_ids
@@ -41,7 +42,8 @@ export async function listMembers(db: pg.PoolClient, userId?: string): Promise<M
      order by u.name`,
     [userId ?? null],
   );
-  return rows.map(toMember);
+  const online = onlineUserIds(rows[0]?.workspace_id ?? (await db.query('select app_ws() as id')).rows[0].id);
+  return rows.map((r) => toMember(r, online));
 }
 
 /** Sesión: usuario + workspaces activos donde es miembro (adminPool o withWorkspace sin ws). */

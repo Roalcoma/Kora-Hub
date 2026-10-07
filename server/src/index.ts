@@ -2,6 +2,11 @@
 import express from 'express';
 import { authRouter } from './platform/auth-routes.ts';
 import { workspaceRouter } from './platform/workspace-routes.ts';
+import { requireAuth } from './platform/auth.ts';
+import { workspaceContext } from './platform/workspace.ts';
+import { chatRouter } from './chat/routes.ts';
+import { filesRouter } from './files/routes.ts';
+import { pushRouter } from './notifications/routes.ts';
 import { errorHandler, HttpError } from './platform/http.ts';
 
 export const app = express();
@@ -15,7 +20,16 @@ app.use(express.json({ limit: '1mb' }));
 
 const api = express.Router();
 api.use(authRouter);
-api.use('/w/:slug', workspaceRouter);
+api.use(pushRouter);
+
+// Todo lo que vive bajo un workspace: sesión + membresía validada + contexto RLS
+const ws = express.Router({ mergeParams: true });
+ws.use(requireAuth, workspaceContext);
+ws.use(workspaceRouter);
+ws.use(chatRouter);
+ws.use('/files', filesRouter);
+api.use('/w/:slug', ws);
+
 api.use((_req, _res) => { throw new HttpError(404, 'not_found', 'Ruta no encontrada'); });
 app.use('/api/v1', api);
 app.use(errorHandler);
