@@ -31,6 +31,8 @@ export default {
     inviteInvalid: "This invitation doesn't exist or has expired. Ask the person who invited you for a new one.",
     createAccount: 'Create your account to join', loginToAccept: 'That email already has an account. Sign in to accept.',
     errors: {
+      billing_manual: 'Online payment is not available yet. Write to us and we will activate your plan.',
+      admin_2fa_required: 'Turn on two-step verification in My profile to use the back office.',
       invalid_credentials: 'Wrong email or password.', email_taken: 'That email already has an account. Sign in.',
       slug_taken: 'That address is taken. Try another one.', rate_limited: 'Too many attempts. Wait a few minutes.',
       invalid_totp: 'That code is wrong or expired.', invalid_token: 'This link expired or was already used. Request a new one.',

@@ -6,7 +6,7 @@ import type { BillingInfo } from '@agencia-hub/contracts';
 import { adminPool, withAdmin } from '../db.ts';
 import { enqueue } from '../jobs/queue.ts';
 import { audit } from '../platform/model.ts';
-import { simulated, pricesCents, stripe, planFromPrice } from './stripe.ts';
+import { simulated, hasStripe, pricesCents, stripe, planFromPrice } from './stripe.ts';
 
 export type BillingEvent =
   | { type: 'paid'; plan?: 'standard' | 'pro' | null; customerId?: string | null; subscriptionId?: string | null; periodEnd?: Date | null }
@@ -133,7 +133,7 @@ export async function syncSeats(workspaceId: string) {
   const w = (await adminPool.query('select billing_seats, stripe_subscription_id from workspaces where id = $1', [workspaceId])).rows[0];
   if (!w || w.billing_seats === seats) return;
   const sub = w.stripe_subscription_id as string | null;
-  if (!simulated() && sub && !sub.startsWith('sim_')) {
+  if (hasStripe() && sub && !sub.startsWith('sim_')) {
     const s = await stripe('GET', `/subscriptions/${sub}`);
     const item = s.items?.data?.[0];
     if (item && item.quantity !== seats) {

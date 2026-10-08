@@ -30,6 +30,8 @@ export default {
     inviteInvalid: 'Esta invitación no existe o ya expiró. Pide una nueva a quien te invitó.',
     createAccount: 'Crea tu cuenta para entrar', loginToAccept: 'Ya tienes cuenta con ese email. Inicia sesión para aceptar.',
     errors: {
+      billing_manual: 'El pago en línea todavía no está disponible. Escríbenos y activamos tu plan.',
+      admin_2fa_required: 'Activa la verificación en dos pasos en Mi perfil para usar el backoffice.',
       invalid_credentials: 'Email o contraseña incorrectos.', email_taken: 'Ese email ya tiene cuenta. Inicia sesión.',
       slug_taken: 'Esa dirección ya está en uso. Prueba otra.', rate_limited: 'Demasiados intentos. Espera unos minutos.',
       invalid_totp: 'El código no es correcto o ya venció.', invalid_token: 'El enlace expiró o ya se usó. Pide uno nuevo.',

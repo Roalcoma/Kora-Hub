@@ -12,6 +12,7 @@ import {
 } from './auth.ts';
 import { buildSession, audit, joinDefaultChannels } from './model.ts';
 import { seedWorkspace } from './template.ts';
+import { disconnectUser } from '../realtime/hub.ts';
 import { enqueueSeatSync } from '../billing/lifecycle.ts';
 
 export const authRouter = Router();
@@ -67,6 +68,7 @@ authRouter.post('/auth/logout', (_req, res) => {
 authRouter.post('/auth/logout-all', requireAuth, async (req, res) => {
   forbidImpersonation(req);
   await adminPool.query('update users set token_version = token_version + 1 where id = $1', [req.userId]);
+  disconnectUser(req.userId!);
   clearSessionCookie(res);
   res.status(204).end();
 });
@@ -88,7 +90,7 @@ authRouter.post('/auth/forgot-password', async (req, res) => {
 authRouter.post('/auth/reset-password', async (req, res) => {
   const body = parse(ResetPasswordBody, req.body);
   const passwordHash = await hashPassword(body.password);
-  await withAdmin(async (db) => {
+  const userId = await withAdmin(async (db) => {
     const { rows } = await db.query(
       'update password_resets set used_at = now() where token_hash = $1 and used_at is null and expires_at > now() returning user_id',
       [sha256(body.token)]);
@@ -96,7 +98,9 @@ authRouter.post('/auth/reset-password', async (req, res) => {
     // Cambiar la contraseña cierra todas las sesiones abiertas
     await db.query('update users set password_hash = $1, token_version = token_version + 1 where id = $2', [passwordHash, rows[0].user_id]);
     await audit(db, { workspaceId: null, actor: rows[0].user_id, action: 'auth.password_reset', ip: req.ip });
+    return rows[0].user_id as string;
   });
+  disconnectUser(userId);
   res.status(204).end();
 });
 

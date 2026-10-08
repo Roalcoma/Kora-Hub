@@ -10,8 +10,25 @@ import type { ServerEvent, ClientEvent } from '@agencia-hub/contracts';
 import { adminPool, withWorkspace } from '../db.ts';
 import { sha256 } from '../platform/auth.ts';
 
-type Conn = { ws: WebSocket; userId: string; workspaceId: string; visible: boolean; alive: boolean; lastTyping: Map<string, number> };
+type Conn = {
+  ws: WebSocket; userId: string; workspaceId: string; visible: boolean; alive: boolean; lastTyping: Map<string, number>;
+  until: number | null;   // ms: fin de la sesión impersonada que pidió el ticket
+};
 const conns = new Set<Conn>();
+
+// Tickets emitidos por una sesión impersonada → hasta cuándo vale el socket (mismo proceso: bus en memoria, ADR 0004)
+const ticketLimits = new Map<string, number>();
+export function limitTicket(tokenHash: string, untilMs: number) {
+  ticketLimits.set(tokenHash, untilMs);
+  setTimeout(() => ticketLimits.delete(tokenHash), 60_000).unref();
+}
+
+/** Cierra los sockets de un usuario (en un workspace o en todos): logout-all, reset, baja del miembro. */
+export function disconnectUser(userId: string, workspaceId?: string) {
+  for (const c of conns) {
+    if (c.userId === userId && (!workspaceId || c.workspaceId === workspaceId)) c.ws.close(4001, 'session_revoked');
+  }
+}
 
 const send = (c: Conn, e: ServerEvent) => { if (c.ws.readyState === c.ws.OPEN) c.ws.send(JSON.stringify(e)); };
 
@@ -49,42 +66,67 @@ export function attachRealtime(server: Server) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
 
   server.on('upgrade', async (req: IncomingMessage, socket: Duplex, head: Buffer) => {
-    const url = new URL(req.url ?? '/', 'http://x');
-    if (url.pathname !== '/ws') return socket.destroy();
-    const ticket = url.searchParams.get('ticket') ?? '';
-    const { rows } = await adminPool.query(
-      'delete from ws_tickets where token_hash = $1 and expires_at > now() returning user_id, workspace_id', [sha256(ticket)]);
-    if (!rows[0]) {
-      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-      return socket.destroy();
+    // Un error aquí no puede tumbar el proceso (revisión de seguridad A1)
+    socket.on('error', () => socket.destroy());
+    try {
+      const url = new URL(req.url ?? '/', 'http://x');
+      if (url.pathname !== '/ws') return socket.destroy();
+      const hash = sha256(url.searchParams.get('ticket') ?? '');
+      const { rows } = await adminPool.query(
+        'delete from ws_tickets where token_hash = $1 and expires_at > now() returning user_id, workspace_id', [hash]);
+      if (!rows[0]) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        return socket.destroy();
+      }
+      const until = ticketLimits.get(hash) ?? null;
+      ticketLimits.delete(hash);
+      wss.handleUpgrade(req, socket, head, (ws) => onConnection(ws, rows[0].user_id, rows[0].workspace_id, until));
+    } catch {
+      socket.destroy();
     }
-    wss.handleUpgrade(req, socket, head, (ws) => onConnection(ws, rows[0].user_id, rows[0].workspace_id));
   });
 
   // Latido: cierra conexiones muertas (iOS suspende la PWA sin cerrar el socket)
   const beat = setInterval(() => {
     for (const c of conns) {
-      if (!c.alive) { c.ws.terminate(); continue; }
+      if (!c.alive || (c.until && c.until < Date.now())) { c.ws.terminate(); continue; }
       c.alive = false;
       c.ws.ping();
     }
+    revalidate().catch(() => {});
   }, 30_000);
   beat.unref(); // no mantiene vivo el proceso por sí solo
   wss.on('close', () => clearInterval(beat));
   return wss;
 }
 
-function onConnection(ws: WebSocket, userId: string, workspaceId: string) {
+/** Cierra los sockets de quien ya no es miembro activo (desactivado, agencia suspendida): red de seguridad cada 30 s */
+async function revalidate() {
+  if (!conns.size) return;
+  const list = [...conns];
+  const { rows } = await adminPool.query(
+    `select m.user_id, m.workspace_id from workspace_members m join workspaces w on w.id = m.workspace_id
+     where m.is_active and w.status <> 'suspended'
+       and (m.user_id, m.workspace_id) in (select * from unnest($1::uuid[], $2::uuid[]))`,
+    [list.map((c) => c.userId), list.map((c) => c.workspaceId)]);
+  const ok = new Set(rows.map((r) => `${r.user_id}|${r.workspace_id}`));
+  for (const c of list) if (!ok.has(`${c.userId}|${c.workspaceId}`)) c.ws.close(4001, 'session_revoked');
+}
+
+function onConnection(ws: WebSocket, userId: string, workspaceId: string, until: number | null) {
   const wasOnline = isOnline(workspaceId, userId);
-  const c: Conn = { ws, userId, workspaceId, visible: true, alive: true, lastTyping: new Map() };
+  const c: Conn = { ws, userId, workspaceId, visible: true, alive: true, lastTyping: new Map(), until };
   conns.add(c);
   if (!wasOnline) publish(workspaceId, 'all', { type: 'presence', userId, presence: 'active' }, userId);
 
   ws.on('pong', () => { c.alive = true; });
+  // Sin este manejador, un mensaje mayor que maxPayload emite 'error' y tumba el proceso (revisión de seguridad A1)
+  ws.on('error', () => ws.terminate());
   ws.on('message', (raw) => {
     c.alive = true;
     let msg: ClientEvent;
     try { msg = JSON.parse(String(raw)); } catch { return; }
+    if (!msg || typeof msg !== 'object') return;
     if (msg.type === 'ping') send(c, { type: 'pong' });
     else if (msg.type === 'visibility') c.visible = !!msg.visible;
     else if (msg.type === 'typing' && typeof msg.channelId === 'string') onTyping(c, msg.channelId, msg.parentId ?? null).catch(() => {});

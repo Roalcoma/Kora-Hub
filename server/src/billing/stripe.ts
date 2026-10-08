@@ -1,9 +1,15 @@
 // Cliente Stripe mínimo: REST con fetch (form-urlencoded) y firma de webhooks con node:crypto, sin SDK (ADR 0005 §1).
-// Sin STRIPE_SECRET_KEY la facturación queda simulada: nadie llama a Stripe y los eventos los provoca el Owner.
+// Sin STRIPE_SECRET_KEY nadie llama a Stripe. Fuera de producción la facturación queda simulada (los eventos los
+// provoca el Owner); en producción es manual: el superadmin activa la agencia desde /admin (revisión de seguridad M3).
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { Plan } from '@agencia-hub/contracts';
 
-export const simulated = () => !process.env.STRIPE_SECRET_KEY;
+export const hasStripe = () => !!process.env.STRIPE_SECRET_KEY;
+/** Simulador solo sin llaves y fuera de producción, salvo BILLING_SIMULATED=true explícito (demos) */
+export const simulated = () =>
+  !hasStripe() && (process.env.NODE_ENV !== 'production' || process.env.BILLING_SIMULATED === 'true');
+/** Sin Stripe ni simulador: el cobro se gestiona a mano */
+export const manualBilling = () => !hasStripe() && !simulated();
 
 /** Lo que muestra la UI, por usuario al mes (supuesto de precios del ADR 0003) */
 export const pricesCents = () => ({

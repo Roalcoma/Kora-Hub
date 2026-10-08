@@ -7,7 +7,11 @@ import { HttpError, parse } from '../platform/http.ts';
 import { forbidImpersonation } from '../platform/auth.ts';
 import { tx, requireRole } from '../platform/workspace.ts';
 import { alert } from '../ops/alert.ts';
-import { simulated, stripe, priceId, verifyWebhook } from './stripe.ts';
+import { simulated, manualBilling, stripe, priceId, verifyWebhook } from './stripe.ts';
+
+const noManualBilling = () => {
+  if (manualBilling()) throw new HttpError(409, 'billing_manual', 'El pago en línea aún no está disponible; escríbenos para activar tu plan');
+};
 import { applyBillingEvent, billingInfo, countSeats, handleStripeEvent, enqueueSeatSync } from './lifecycle.ts';
 
 // Montado en index.ts dentro de /w/:slug (requireAuth + workspaceContext)
@@ -30,6 +34,7 @@ billingRouter.get('/billing', async (req, res) => {
 billingRouter.post('/billing/checkout', async (req, res) => {
   ownerOnly(req);
   const { plan } = parse(CheckoutBody, req.body);
+  noManualBilling();
   if (simulated()) return res.json({ url: `${billingPage(req)}?simulated=${plan}` });
 
   const w = (await adminPool.query(
@@ -54,6 +59,7 @@ billingRouter.post('/billing/checkout', async (req, res) => {
 
 billingRouter.post('/billing/portal', async (req, res) => {
   ownerOnly(req);
+  noManualBilling();
   if (simulated()) return res.json({ url: billingPage(req) });
   const customer = (await adminPool.query('select stripe_customer_id from workspaces where id = $1', [req.ws!.id])).rows[0].stripe_customer_id;
   if (!customer) throw new HttpError(409, 'no_customer', 'Todavía no hay un método de pago; elige un plan primero');

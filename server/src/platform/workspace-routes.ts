@@ -10,6 +10,7 @@ import { HttpError, parse } from './http.ts';
 import { newToken, sha256 } from './auth.ts';
 import { tx, requireRole } from './workspace.ts';
 import { toWorkspace, toDepartment, toLine, listMembers, audit } from './model.ts';
+import { disconnectUser } from '../realtime/hub.ts';
 import { enqueueSeatSync } from '../billing/lifecycle.ts';
 
 // Montado en index.ts detrás de requireAuth + workspaceContext
@@ -119,6 +120,7 @@ workspaceRouter.patch('/members/:userId', async (req, res) => {
   if (body.isActive !== undefined || body.role) {
     await enqueueSeatSync(req.ws!.id);
   }
+  if (body.isActive === false) disconnectUser(req.params.userId as string, req.ws!.id);
   res.json(member);
 });
 

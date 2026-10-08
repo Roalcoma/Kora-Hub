@@ -17,10 +17,14 @@ import { adminPool } from './db.ts';
 import { errorHandler, HttpError } from './platform/http.ts';
 
 export const app = express();
-app.set('trust proxy', 'loopback');   // detrás de Vite (dev) o Cloudflare Tunnel (piloto)
+// Detrás de Vite (dev, loopback) o de cloudflared en otro contenedor (red privada de Docker): confiar en esos saltos
+// para que req.ip sea la IP real del cliente en el rate-limit y en audit_log (revisión de seguridad A2)
+app.set('trust proxy', 'loopback, uniquelocal');
 app.disable('x-powered-by');
-app.use((_req, res, next) => {
+app.use((req, res, next) => {
   res.set({ 'x-content-type-options': 'nosniff', 'referrer-policy': 'same-origin', 'x-frame-options': 'DENY' });
+  // Nada de la API se guarda en caché (Cloudflare cachea .csv por defecto: revisión de seguridad A3)
+  if (req.path.startsWith('/api/')) res.set('cache-control', 'no-store');
   next();
 });
 // Webhook de Stripe con el cuerpo crudo (la firma se calcula sobre los bytes exactos): antes de express.json

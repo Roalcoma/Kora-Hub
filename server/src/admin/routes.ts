@@ -11,13 +11,18 @@ import { pricesCents } from '../billing/stripe.ts';
 
 export const adminRouter = Router();
 
-const isPlatformAdmin = async (userId: string) =>
-  !!(await adminPool.query('select 1 from platform_admins where user_id = $1', [userId])).rowCount;
+const adminRow = async (userId: string) => (await adminPool.query(
+  'select u.totp_enabled from platform_admins a join users u on u.id = a.user_id where a.user_id = $1', [userId])).rows[0];
 
 adminRouter.use(requireAuth, async (req: Request, _res: Response, next: NextFunction) => {
   if (req.path === '/impersonation/end') return next();
   if (req.imp) throw new HttpError(403, 'impersonation_forbidden', 'No disponible mientras ves la cuenta como otra persona');
-  if (!(await isPlatformAdmin(req.userId!))) throw new HttpError(403, 'forbidden', 'No tienes acceso al backoffice');
+  const admin = await adminRow(req.userId!);
+  if (!admin) throw new HttpError(403, 'forbidden', 'No tienes acceso al backoffice');
+  // El backoffice entra a todas las agencias: en producción exige 2FA (revisión de seguridad M4)
+  if (process.env.NODE_ENV === 'production' && !admin.totp_enabled) {
+    throw new HttpError(403, 'admin_2fa_required', 'Activa la verificación en dos pasos para usar el backoffice');
+  }
   next();
 });
 

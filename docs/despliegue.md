@@ -17,8 +17,8 @@ Internet → Cloudflare → túnel (contenedor cloudflared, red del túnel)
 
 - Ningún contenedor publica puertos al host. `kora-app` está en dos redes: `kora_internal` (BD y MinIO) y la **red del
   túnel**, para que `cloudflared` lo alcance por nombre.
-- `kora-app` sirve la API (`/api/v1`), el WebSocket (`/ws`), la SPA (`app.<dominio>`) y la landing estática
-  (`<dominio>`, distinguida por `LANDING_HOST`). Un solo puerto interno: `4300`.
+- `kora-app` sirve la API (`/api/v1`), el WebSocket (`/ws`) y la SPA en `kora.arbolaureo.org` (la landing estática
+  por `LANDING_HOST` existe pero no se usa por ahora). Un solo puerto interno: `4300`.
 - Al arrancar, el contenedor corre `node src/migrate.ts` y después el servidor. Healthcheck: `/api/v1/health`.
 
 ## 1. Carpeta y secretos
@@ -43,7 +43,7 @@ openssl rand -base64 24 | tr -d '/+='             # PG_PASSWORD, APP_DB_PASSWORD
 npx web-push generate-vapid-keys                  # VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY
 ```
 
-Rellena también `APP_URL=https://app.<dominio>`, `LANDING_HOST=<dominio>`, `MAIL_FROM`, `BACKUP_DIR` (ruta absoluta) y,
+Rellena también `APP_URL=https://kora.arbolaureo.org`, `LANDING_HOST=` (vacío), `MAIL_FROM`, `BACKUP_DIR` (ruta absoluta) y,
 si ya los tienes, `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` (el bot de las alertas de Rocco sirve; chat aparte si prefieres).
 Las variables de Stripe pueden quedar vacías: la facturación queda **simulada** (ADR 0005).
 
@@ -89,11 +89,17 @@ El túnel se configura de forma remota, en el panel (Zero Trust → Networks →
 
 | Hostname | Servicio |
 |---|---|
-| `app.<dominio>` | `http://kora-app:4300` |
-| `<dominio>` | `http://kora-app:4300` (la landing; la API la distingue por `LANDING_HOST`) |
+| `kora.arbolaureo.org` | `http://kora-app:4300` |
+
+Sin landing por ahora (decisión del 2026-10-07): deja `LANDING_HOST` vacío.
 
 El DNS lo crea el panel solo (CNAME al túnel). `NODE_ENV=production` activa las cookies `secure`; solo funciona
 detrás de HTTPS (Cloudflare lo da).
+
+**Caché (obligatorio, revisión de seguridad A3):** la API ya responde `Cache-Control: no-store`, pero además crea en
+Cloudflare (Caching → Cache Rules) una regla "Bypass cache" para `kora.arbolaureo.org/api/*` y `/ws`. Después de
+desplegar comprueba que `curl -sI https://kora.arbolaureo.org/api/v1/health | grep -i cf-cache-status` diga `DYNAMIC`
+o `BYPASS`, nunca `HIT`.
 
 ## 5. SMTP de producción (invitaciones y recuperación de contraseña)
 
@@ -101,19 +107,24 @@ Opción por defecto: **Brevo** (plan gratuito, 300 correos/día).
 
 1. Crear cuenta, verificar el dominio (registros SPF y DKIM en Cloudflare DNS) y generar una clave SMTP.
 2. En `.env`: `SMTP_URL=smtp://LOGIN:CLAVE@smtp-relay.brevo.com:587` (codifica en URL los caracteres especiales de la clave)
-   y `MAIL_FROM="Kora <no-reply@<dominio>>"` con un remitente verificado.
+   y `MAIL_FROM="Kora <no-reply@arbolaureo.org>"` con un remitente verificado.
 3. `docker compose -f compose.prod.yml --env-file .env up -d` para recrear la app y probar con "Olvidé mi contraseña".
 
 ## 6. Crear el superadmin
 
-Primero registra tu usuario normalmente desde `https://app.<dominio>`; luego:
+Primero registra tu usuario normalmente desde `https://kora.arbolaureo.org`; luego:
 
 ```bash
 docker exec kora-app node /app/ops/make-admin.ts tu@email.com
 ```
 
 (El contenedor ya trae las variables de entorno, así que no hace falta `--env-file`; en local es
-`node --env-file=.env ops/make-admin.ts email`.) Entra en `/admin`.
+`node --env-file=.env ops/make-admin.ts email`.) En producción `/admin` exige que tengas activada la verificación
+en dos pasos (Mi perfil → 2FA): actívala antes de entrar.
+
+**Facturación en el piloto:** sin `STRIPE_SECRET_KEY` y con `NODE_ENV=production` el cobro es **manual**: el botón
+"Elegir plan" avisa que se escriba a soporte y tú activas la agencia desde `/admin` (Reactivar). El simulador solo se
+enciende a propósito con `BILLING_SIMULATED=true` (demos; nunca con clientes reales).
 
 ## 7. Backups con cron
 

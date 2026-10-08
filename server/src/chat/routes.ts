@@ -10,7 +10,7 @@ import { newToken, sha256 } from '../platform/auth.ts';
 import { tx, requireRole } from '../platform/workspace.ts';
 import { ROLE_RANK } from '../platform/model.ts';
 import { enqueue } from '../jobs/queue.ts';
-import { publish, publishToChannel, channelMemberIds } from '../realtime/hub.ts';
+import { publish, publishToChannel, channelMemberIds, limitTicket } from '../realtime/hub.ts';
 import { toFileRef } from '../files/routes.ts';
 import { highlight } from './highlight.ts';
 import {
@@ -27,6 +27,8 @@ chatRouter.post('/ws-ticket', async (req, res) => {
   const { rows } = await adminPool.query(
     "insert into ws_tickets (token_hash, user_id, workspace_id, expires_at) values ($1, $2, $3, now() + interval '30 seconds') returning expires_at",
     [sha256(ticket), req.userId, req.ws!.id]);
+  // El socket de una sesión impersonada muere cuando vence la impersonación
+  if (req.imp) limitTicket(sha256(ticket), req.imp.exp * 1000);
   res.json({ ticket, expiresAt: rows[0].expires_at.toISOString() });
 });
 
