@@ -95,11 +95,16 @@ con sus tres productos).
 | Backoffice `/admin`: métricas, agencias, suspender/reactivar, impersonar con motivo (30 min, auditado) y banda roja | backend-plataforma · frontend | Hecho |
 | `/health`, servido de la SPA en producción, alertas a Telegram | backend-plataforma | Hecho |
 | Dockerfile (imagen *healthy*), `ops/compose.prod.yml`, backups cifrados con prueba de restauración, `docs/despliegue.md`, CI construye la imagen | devops | Hecho |
-| Pruebas: 76 en verde (facturación, superadmin, impersonación, plantillas, aislamiento) | qa | Hecho |
-| Revisión de seguridad Olas 0–4 (`docs/seguridad/`) | seguridad | En curso |
+| Pruebas: 83 en verde (facturación, superadmin, impersonación, plantillas, aislamiento, regresiones de seguridad) | qa | Hecho |
+| Revisión de seguridad Olas 0–4 ([informe](seguridad/revision-olas-0-4.md)): 3 altos y M1/M3/M4 corregidos con pruebas | seguridad · orquestador | Hecho |
 | Despliegue en el servidor y push en iPhone real | devops + Rodrigo | Pendiente (faltan SMTP, Telegram y precios) |
 
 ### Pendientes de la Ola 4
+- **Seguridad, sin bloquear el piloto** (detalle en el informe): M2 los invitados ven todos los canales públicos y los
+  emails; M5 registro sin verificar email y 10 GB por prueba (llenar el disco del servidor); M6 las suscripciones push
+  siguen tras cerrar sesión o restablecer la contraseña; bajos B1–B12 (cookie `__Host-`, CSP, `require_2fa` sin
+  aplicar, `JWT_SECRET` de ejemplo aceptado, push a URLs internas…) e informativos I1–I9.
+- Facturación en producción sin Stripe = **cobro manual**: el superadmin reactiva la agencia desde `/admin`.
 - **MinIO** ya no publica imágenes en Docker Hub: fijar una imagen disponible o cambiar a otro S3 (p. ej. Garage) antes de desplegar.
 - Stripe real: probar checkout, portal y `sync_seats` en modo test cuando exista la cuenta.
 - Los planes todavía no limitan funciones (Pro = Estándar salvo el texto); la tarjeta de Pro promete "retención de datos configurable", que no existe.
