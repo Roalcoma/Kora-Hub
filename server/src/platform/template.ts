@@ -58,7 +58,7 @@ export const SEEDS: Record<Template, Seed> = {
 export async function seedWorkspace(db: pg.PoolClient, workspaceId: string, ownerId: string, template: Template, locale: Locale) {
   const seed = SEEDS[template];
   await db.query('update workspaces set settings = settings || $2 where id = $1',
-    [workspaceId, { industry: seed.industry, category_label: seed.label?.[locale] ?? null }]);
+    [workspaceId, { industry: seed.industry, category_label: seed.label?.[locale] ?? null, sales_module: seed.industry === 'insurance' }]);
   for (const [i, name] of seed.departments[locale].entries()) {
     await db.query('insert into departments (workspace_id, name, position) values ($1, $2, $3)', [workspaceId, name, i]);
   }

@@ -6,6 +6,7 @@ import type * as P from './platform.ts';
 import type * as C from './chat.ts';
 import type * as F from './files.ts';
 import type * as M from './modules.ts';
+import type * as S from './sales.ts';
 import type { Page, Id } from './common.ts';
 import type { WsTicketResponse } from './realtime.ts';
 
@@ -113,6 +114,28 @@ export type Routes = {
   'PUT /w/:slug/reports': R<In<typeof M.SubmitReportBody>, M.WeeklyReport>;                  // lead del depto; admin edita histórico
   'GET /w/:slug/goals/dashboard': R<never, M.GoalsDashboard, In<typeof M.DashboardQuery>>;
   'GET /w/:slug/goals/dashboard.csv': R<never, string, In<typeof M.DashboardQuery>>;
+
+  // ── Ventas y comisiones (solo con settings.salesModule) ──
+  'GET /w/:slug/carriers': R<never, S.Carrier[]>;
+  'POST /w/:slug/carriers': R<In<typeof S.CarrierBody>, S.Carrier>;                          // admin
+  'PATCH /w/:slug/carriers/:id': R<In<typeof S.UpdateCarrierBody>, S.Carrier>;               // admin
+  'POST /w/:slug/carriers/:id/products': R<In<typeof S.ProductBody>, S.Carrier>;             // admin
+  'PATCH /w/:slug/products/:id': R<In<typeof S.UpdateProductBody>, S.Carrier>;               // admin
+  'GET /w/:slug/agents': R<never, S.AgentProfile[]>;                                         // admin: todos; resto: el suyo
+  'PATCH /w/:slug/agents/:userId': R<In<typeof S.UpdateAgentProfileBody>, S.AgentProfile>;   // admin
+  'POST /w/:slug/agents/:userId/rates': R<In<typeof S.RateBody>, S.AgentProfile>;            // admin
+  'GET /w/:slug/sales': R<never, S.SalesList, In<typeof S.SalesQuery>>;                      // admin: todas; dueño: suyas y de sus agentes; resto: suyas
+  'GET /w/:slug/sales.csv': R<never, string, In<typeof S.SalesQuery>>;
+  'POST /w/:slug/sales': R<In<typeof S.SaleBody>, S.Sale>;                                   // admin
+  'PATCH /w/:slug/sales/:id': R<In<typeof S.UpdateSaleBody>, S.Sale>;                        // admin, solo pendientes
+  'POST /w/:slug/sales/:id/issue': R<In<typeof S.IssueSaleBody>, S.Sale>;                    // admin; genera las cuotas
+  'POST /w/:slug/sales/:id/decline': R<never, S.Sale>;                                       // admin, solo pendientes
+  'POST /w/:slug/sales/:id/cancel': R<In<typeof S.CancelSaleBody>, S.Sale>;                  // admin, ISSUED → chargeback
+  'GET /w/:slug/commissions': R<never, S.CommissionsList, In<typeof S.CommissionsQuery>>;    // mismas reglas de visibilidad
+  'GET /w/:slug/commissions.csv': R<never, string, In<typeof S.CommissionsQuery>>;
+  'POST /w/:slug/commissions/pay': R<In<typeof S.PayInstallmentsBody>, NoContent>;           // admin
+  'GET /w/:slug/sales-inbox': R<never, S.InboxItem[]>;                                       // admin
+  'POST /w/:slug/sales-inbox/:id/dismiss': R<never, NoContent>;                              // admin
 
   // ── Webhooks y superadmin (fuera de workspace) ──
   'POST /webhooks/stripe': R<unknown, NoContent>;                                             // firma verificada

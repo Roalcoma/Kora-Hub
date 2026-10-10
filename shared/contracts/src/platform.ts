@@ -32,6 +32,7 @@ export type Workspace = {
   settings: {
     maxFileMb: number; require2fa: boolean; weeklySummary: boolean;
     industry: Industry; categoryLabel: CategoryLabel | null;
+    salesModule: boolean;                 // ventas y comisiones por agente
   };
 };
 
@@ -108,7 +109,7 @@ export const UpdateWorkspaceBody = z.object({
   name: Name, logoFileId: Id.nullable(),
   settings: z.object({
     maxFileMb: z.number().int().min(1).max(100), require2fa: z.boolean(), weeklySummary: z.boolean(),
-    industry: Industry, categoryLabel: CategoryLabel.nullable(),
+    industry: Industry, categoryLabel: CategoryLabel.nullable(), salesModule: z.boolean(),
   }).partial(),
 }).partial();
 

@@ -18,6 +18,7 @@ export const toWorkspace = (r: any): Workspace => ({
   settings: {
     maxFileMb: r.settings.max_file_mb, require2fa: r.settings.require_2fa, weeklySummary: r.settings.weekly_summary,
     industry: r.settings.industry ?? 'other', categoryLabel: r.settings.category_label ?? null,
+    salesModule: r.settings.sales_module ?? false,
   },
 });
 
