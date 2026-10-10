@@ -1,9 +1,9 @@
 <script setup lang="ts">
 // Comisiones: cuotas por fecha de pago (adelanto al ISSUE, resto a los 12 meses, chargebacks), resumen por
 // beneficiario y, para el Admin, marcar pagadas en lote.
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Download, Wallet, CircleCheck, Undo2 } from 'lucide-vue-next';
+import { Download, Wallet, CircleCheck, Undo2, ArrowRight, ArrowLeft } from 'lucide-vue-next';
 import type { Installment, InstallmentStatus } from '@agencia-hub/contracts';
 import Dropdown from '@/design/Dropdown.vue';
 import Button from '@/design/Button.vue';
@@ -50,9 +50,36 @@ async function load() {
   selected.value = new Set();
   try {
     items.value = (await api('GET /w/:slug/commissions', { params: { slug: slug() }, query: query.value })).items;
+    await reveal();
   } catch (e) { toast(errorText(e), 'error'); }
 }
 watch(query, load, { immediate: true });
+
+// ─── Saltar a la otra cuota de la misma comisión (adelanto ↔ resto) ───
+const focusId = ref<string | null>(null);
+const flash = ref<string | null>(null);
+/** Lleva a la página de la cuota buscada, la centra y la resalta un momento */
+async function reveal() {
+  if (!focusId.value) return;
+  await nextTick();   // deja que la paginación procese la lista nueva antes de elegir página
+  const idx = rows.value.findIndex((i) => i.id === focusId.value);
+  if (idx < 0) return;
+  page.value = Math.floor(idx / size.value) + 1;
+  await nextTick();
+  document.getElementById(`inst-${focusId.value}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  flash.value = focusId.value;
+  focusId.value = null;
+  setTimeout(() => { flash.value = null; }, 2400);
+}
+/** Si la pareja no está en el filtro actual, se abre el filtro a "Todas" de ese beneficiario */
+function jump(i: Installment) {
+  focusId.value = i.sibling!.id;
+  if (rows.value.some((r) => r.id === focusId.value)) return reveal();
+  who.value = i.beneficiaryUserId;
+  status.value = '';
+  if (period.value === 'all' && !query.value.status) reveal();
+  else period.value = 'all';
+}
 
 const rows = computed(() => (items.value ?? []).filter((i) => !who.value || i.beneficiaryUserId === who.value));
 const { page, size, rows: pageRows, total } = usePaged(rows);
@@ -152,22 +179,28 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
             <th scope="col">{{ t('sales.dueDate') }}</th><th scope="col">{{ t('sales.beneficiary') }}</th><th scope="col">{{ t('sales.concept') }}</th>
             <th scope="col">{{ t('sales.client') }}</th><th scope="col">{{ t('sales.product') }}</th>
             <th scope="col" class="num">{{ t('sales.saleAmount') }}</th><th scope="col" class="num">{{ t('sales.levelRate') }}</th>
-            <th scope="col" class="num">{{ t('sales.commission') }}</th><th scope="col">{{ t('sales.statusLabel') }}</th>
+            <th scope="col" class="num">{{ t('sales.installmentCol') }}</th><th scope="col">{{ t('sales.statusLabel') }}</th>
           </tr></thead>
           <tbody>
-            <tr v-for="i in pageRows" :key="i.id" :class="{ off: i.status === 'void' }">
+            <tr v-for="i in pageRows" :id="`inst-${i.id}`" :key="i.id" :class="{ off: i.status === 'void', flash: flash === i.id }">
               <td v-if="s.isAdmin"><input v-if="i.status !== 'void'" type="checkbox" :checked="selected.has(i.id)" :aria-label="i.sale.clientName" @change="toggle(i.id)"></td>
               <td class="nowrap">{{ day(i.dueDate) }}</td>
               <td>{{ ref_.memberName(i.beneficiaryUserId) }}</td>
               <td>
                 <Badge :tone="i.kind === 'override' ? 'purple' : 'blue'">{{ t(`sales.kind.${i.kind}`) }}</Badge>
-                <small>{{ t(`sales.part.${i.part}`) }}</small>
+                <small class="part">{{ t(`sales.part.${i.part}`) }}<template v-if="i.sibling"> · {{ t('sales.nOf2', { n: i.part === 'advance' ? 1 : 2 }) }}</template></small>
+                <button v-if="i.sibling" type="button" class="pair" @click="jump(i)">
+                  <ArrowLeft v-if="i.sibling.part === 'advance'" :size="13" />
+                  {{ t(i.sibling.part === 'advance' ? 'sales.seeAdvance' : 'sales.seeRemainder', { amount: money(i.sibling.amount), date: day(i.sibling.dueDate) }) }}
+                  <ArrowRight v-if="i.sibling.part === 'remainder'" :size="13" />
+                </button>
               </td>
               <td><b>{{ i.sale.clientName }}</b><small v-if="i.kind === 'override'">{{ t('sales.soldBy', { name: ref_.memberName(i.sale.agentUserId) }) }}</small></td>
               <td>{{ ref_.productLabel(i.sale.productId) }}</td>
               <td class="num">{{ money(i.sale.amount) }}</td>
               <td class="num">{{ i.level ?? '—' }} · {{ i.rate }}%</td>
-              <td class="num" :class="{ neg: i.amount < 0 }"><b>{{ money(i.amount) }}</b></td>
+              <td class="num" :class="{ neg: i.amount < 0 }"><b>{{ money(i.amount) }}</b>
+                <small v-if="i.sibling">{{ t('sales.ofTotal', { total: money(i.total) }) }}</small></td>
               <td><Badge :tone="STATUS_TONE[i.status]">{{ t(`sales.installment.${i.status}`) }}</Badge><small v-if="i.paidAt">{{ day(i.paidAt) }}</small></td>
             </tr>
           </tbody>
@@ -208,6 +241,11 @@ td { padding: 10px 14px; vertical-align: top; border-bottom: 1px solid var(--col
 td small { display: block; margin-top: 3px; font-size: 12px; color: var(--color-muted); }
 tr:hover td, tr:hover th { background: var(--color-canvas); }
 tr.off td { color: var(--color-muted); }
+/* Cuota a la que se saltó desde su pareja: se ilumina y se apaga sola */
+tr.flash td, tr.flash th { background: var(--color-primary-light); transition: background 600ms; }
+.part { display: block; }
+.pair { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; white-space: nowrap; padding: 0; font: inherit; font-size: 12px; font-weight: 600; color: var(--color-leaf); text-align: left; background: none; border: 0; cursor: pointer; }
+.pair:hover { text-decoration: underline; }
 tr.off b { text-decoration: line-through; }
 .pick { cursor: pointer; }
 .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }

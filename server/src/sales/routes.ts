@@ -365,8 +365,14 @@ async function queryInstallments(req: Request, q: ReturnType<typeof CommissionsQ
     or exists (select 1 from agent_profiles ap where ap.user_id = s.agent_user_id and ap.upline_user_id = app_user()))`;
   return tx(req, async (db) => (await db.query(
     `select i.*, ${day('i.due_date')} as due, ${day('i.paid_at')} as paid, s.agent_user_id, s.product_id, p.carrier_id,
-       s.client_name, s.amount as sale_amount, ${day('s.issued_at')} as issued, s.status as sale_status
+       s.client_name, s.amount as sale_amount, ${day('s.issued_at')} as issued, s.status as sale_status, sib.sibling
      from commission_installments i join sales s on s.id = i.sale_id join carrier_products p on p.id = s.product_id
+     -- La pareja (adelanto ↔ resto) es del mismo beneficiario, venta y tipo: si veo una cuota, veo la otra
+     left join lateral (
+       select json_build_object('id', o.id, 'part', o.part, 'amount', o.amount, 'dueDate', ${day('o.due_date')}, 'status', o.status) as sibling
+       from commission_installments o
+       where o.sale_id = i.sale_id and o.beneficiary_user_id = i.beneficiary_user_id and o.kind = i.kind and o.id <> i.id
+         and i.part <> 'chargeback' and o.part <> 'chargeback' limit 1) sib on true
      where ${visible}
        and ($1::date is null or i.due_date >= $1) and ($2::date is null or i.due_date <= $2)
        and ($3::uuid is null or i.beneficiary_user_id = $3) and ($4::text is null or i.status = $4)
@@ -375,6 +381,8 @@ async function queryInstallments(req: Request, q: ReturnType<typeof CommissionsQ
   )).rows.map((r) => ({
     id: r.id, saleId: r.sale_id, beneficiaryUserId: r.beneficiary_user_id, kind: r.kind, part: r.part,
     level: r.level, rate: Number(r.rate), amount: Number(r.amount), dueDate: r.due, status: r.status, paidAt: r.paid,
+    total: (toCents(r.amount) + (r.sibling ? toCents(r.sibling.amount) : 0)) / 100,
+    sibling: r.sibling ? { ...r.sibling, amount: Number(r.sibling.amount) } : null,
     sale: { agentUserId: r.agent_user_id, carrierId: r.carrier_id, productId: r.product_id, clientName: r.client_name,
       amount: Number(r.sale_amount), issuedAt: r.issued, status: r.sale_status },
   })));
@@ -392,9 +400,9 @@ salesRouter.get('/commissions.csv', async (req, res) => {
   const names = await nameMaps(req);
   const PART = { advance: 'Adelanto', remainder: 'Resto 12 meses', chargeback: 'Chargeback' };
   sendCsv(res, 'comisiones.csv', [
-    ['Beneficiario', 'Tipo', 'Cuota', 'Agente', 'Cliente', 'Compañía', 'Producto', 'Monto venta', 'Nivel', '%', 'Comisión', 'Fecha de pago', 'Estado', 'Pagada el'],
+    ['Beneficiario', 'Tipo', 'Cuota', 'Agente', 'Cliente', 'Compañía', 'Producto', 'Monto venta', 'Nivel', '%', 'Monto de la cuota', 'Comisión total', 'Fecha de pago', 'Estado', 'Pagada el'],
     ...items.map((i) => [names.get(i.beneficiaryUserId), i.kind === 'direct' ? 'Directa' : 'Override', PART[i.part], names.get(i.sale.agentUserId),
-      i.sale.clientName, names.get(i.sale.carrierId), names.get(i.sale.productId), i.sale.amount.toFixed(2), i.level ?? '', i.rate, i.amount.toFixed(2),
+      i.sale.clientName, names.get(i.sale.carrierId), names.get(i.sale.productId), i.sale.amount.toFixed(2), i.level ?? '', i.rate, i.amount.toFixed(2), i.total.toFixed(2),
       i.dueDate, i.status, i.paidAt ?? '']),
   ]);
 });

@@ -176,6 +176,11 @@ test('ISSUE genera las cuotas con el nivel y la tabla vigentes a esa fecha', asy
     [carlosId, 'override', 'advance', 105, 25, 225, '2026-10-15'], [carlosId, 'override', 'remainder', 105, 25, 75, '2027-10-15'],
   ].sort());
   assert.equal(c.totals.pending, 1080);
+  // Cada cuota trae el total de su comisión y su pareja (adelanto ↔ resto)
+  const adv = c.items.find((i: any) => i.beneficiaryUserId === anaId && i.part === 'advance');
+  const rem = c.items.find((i: any) => i.beneficiaryUserId === anaId && i.part === 'remainder');
+  assert.deepEqual([adv.total, adv.sibling], [780, { id: rem.id, part: 'remainder', amount: 195, dueDate: '2027-10-15', status: 'pending' }]);
+  assert.equal(rem.sibling.id, adv.id);
   // Ya no se edita ni se vuelve a hacer ISSUE
   assert.equal((await owner('PATCH', A(`/sales/${saleId}`), { amount: 1 })).status, 409);
   assert.equal((await owner('POST', A(`/sales/${saleId}/issue`), { issuedAt: '2026-10-16' })).status, 409);

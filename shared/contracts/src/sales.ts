@@ -50,6 +50,9 @@ export type SalesList = {
 export type Installment = {
   id: Id; saleId: Id; beneficiaryUserId: Id; kind: 'direct' | 'override'; part: 'advance' | 'remainder' | 'chargeback';
   level: number | null; rate: number; amount: number; dueDate: Day; status: InstallmentStatus; paidAt: Day | null;
+  total: number;                          // comisión completa: adelanto + resto (en chargeback, el mismo monto)
+  /** La otra cuota de la misma comisión (adelanto ↔ resto); null en chargebacks */
+  sibling: { id: Id; part: 'advance' | 'remainder'; amount: number; dueDate: Day; status: InstallmentStatus } | null;
   sale: Pick<Sale, 'agentUserId' | 'carrierId' | 'productId' | 'clientName' | 'amount' | 'issuedAt' | 'status'>;
 };
 export type CommissionsList = {
