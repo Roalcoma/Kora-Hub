@@ -4,7 +4,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen, ChevronsUpDown, BellRing, ShieldCheck } from 'lucide-vue-next';
+import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen, ChevronsUpDown, BellRing, ShieldCheck, BadgeDollarSign } from 'lucide-vue-next';
 import { useSession } from '@/stores/session.ts';
 import { useChat } from '@/chat/store.ts';
 import Kbd from '@/design/Kbd.vue';
@@ -49,6 +49,7 @@ const agencyNav = computed(() => [
   { to: `${base.value}/manuals`, icon: BookOpen, label: t('nav.manuals') },
   { to: `${base.value}/tasks`, icon: SquareKanban, label: t('nav.tasks') },
   { to: `${base.value}/goals`, icon: Target, label: t('nav.goals') },
+  ...(s.workspace!.settings.salesModule ? [{ to: `${base.value}/sales`, icon: BadgeDollarSign, label: t('nav.sales') }] : []),
   ...(s.isAdmin ? [{ to: `${base.value}/settings`, icon: Settings, label: t('nav.settings') }] : []),
 ]);
 

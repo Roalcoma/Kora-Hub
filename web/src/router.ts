@@ -31,6 +31,7 @@ export const router = createRouter({
         { path: 'manuals/:id?', component: () => import('@/docs/DocsPage.vue'), meta: { view: 'manuals' } },
         { path: 'tasks', component: () => import('@/tasks/TasksPage.vue'), meta: { view: 'tasks' } },
         { path: 'goals', component: () => import('@/goals/GoalsPage.vue'), meta: { view: 'goals' } },
+        { path: 'sales/:tab?', component: () => import('@/sales/SalesPage.vue'), meta: { view: 'sales' } },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
