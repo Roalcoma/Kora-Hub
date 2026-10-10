@@ -274,6 +274,7 @@ export default {
     discordConnect: 'Conectar canal', discordReconnect: 'Guardar y releer', discordDisconnect: 'Desconectar', discordConnected: 'Canal conectado',
     discordNoBot: 'Falta el token del bot en el servidor (DISCORD_BOT_TOKEN). Sin él no se lee Discord.',
     discordError: 'Última lectura con error: {error}', discordLastRead: 'Leído por última vez: {date}', discordWaiting: 'Conectado; la primera lectura llega en un minuto.',
+    defaultProduct: 'Producto cuando el mensaje no lo dice', noDefaultProduct: 'Ninguno: va a la bandeja', default: 'Por defecto', defaultProductHint: 'Ej.: "$3600 NLG UPPON ISSUE OH (…)" se registra con este producto. Un mensaje que nombra un producto que no está cargado se ignora.', 
     gridHint: 'Para cada nivel de contrato, el % de comisión del producto.', gridNewRevision: 'Se guardará como revisión nueva; la del {date} sigue rigiendo para las fechas anteriores.',
     discordPlaceholder: 'ID numérico', gridSummary: '{n} niveles · de {lo} a {hi}', addLevel: 'Agregar nivel', removeRow: 'Quitar fila',
   },

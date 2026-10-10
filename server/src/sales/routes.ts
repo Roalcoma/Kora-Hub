@@ -45,7 +45,7 @@ async function listCarriers(db: pg.PoolClient, id?: string): Promise<Carrier[]> 
      where $1::uuid is null or c.id = $1 group by c.id order by c.name`, [id ?? null]);
   return rows.map((r) => ({
     id: r.id, name: r.name, aliases: r.aliases, advanceMonths: r.advance_months, archivedAt: r.archived_at?.toISOString() ?? null,
-    products: r.products,
+    products: r.products, defaultProductId: r.default_product_id,
   }));
 }
 const oneCarrier = async (db: pg.PoolClient, id: string) => {
@@ -75,10 +75,14 @@ salesRouter.patch('/carriers/:id', async (req, res) => {
   const id = Id.parse(req.params.id);
   const body = parse(UpdateCarrierBody, req.body);
   res.json(await tx(req, async (db) => {
+    if (body.defaultProductId && !(await db.query('select 1 from carrier_products where id = $1 and carrier_id = $2', [body.defaultProductId, id])).rowCount) {
+      throw new HttpError(400, 'invalid_product', 'El producto por defecto debe ser de esta compañía');
+    }
     await db.query(
       `update carriers set name = coalesce($2, name), aliases = coalesce($3, aliases), advance_months = coalesce($4, advance_months),
-         ${archivedSql(5)} where id = $1`,
-      [id, body.name ?? null, body.aliases ? aliases(body.aliases) : null, body.advanceMonths ?? null, body.archived ?? null]);
+         ${archivedSql(5)}, default_product_id = case when $6 then $7::uuid else default_product_id end where id = $1`,
+      [id, body.name ?? null, body.aliases ? aliases(body.aliases) : null, body.advanceMonths ?? null, body.archived ?? null,
+        body.defaultProductId !== undefined, body.defaultProductId ?? null]);
     return oneCarrier(db, id);
   }));
 });

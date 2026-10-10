@@ -78,10 +78,10 @@ const saveLevel = async () => {
 type Edit = { kind: 'carrier'; carrier: Carrier | null } | { kind: 'product'; carrier: Carrier; product: Product | null };
 const edit = ref<Edit | null>(null);
 const editOpen = computed({ get: () => !!edit.value, set: (v) => { if (!v) edit.value = null; } });
-const form = reactive({ name: '', aliases: '', advanceMonths: '9' });
+const form = reactive({ name: '', aliases: '', advanceMonths: '9', defaultProductId: '' });
 function openCarrier(c: Carrier | null) {
   edit.value = { kind: 'carrier', carrier: c };
-  Object.assign(form, { name: c?.name ?? '', aliases: c?.aliases.join(', ') ?? '', advanceMonths: String(c?.advanceMonths ?? 9) });
+  Object.assign(form, { name: c?.name ?? '', aliases: c?.aliases.join(', ') ?? '', advanceMonths: String(c?.advanceMonths ?? 9), defaultProductId: c?.defaultProductId ?? '' });
 }
 function openProduct(c: Carrier, p: Product | null) {
   edit.value = { kind: 'product', carrier: c, product: p };
@@ -94,7 +94,7 @@ async function saveEdit() {
   const ok = await guard(() => {
     if (e.kind === 'carrier') {
       const body = { name: form.name.trim(), aliases, advanceMonths: Number(form.advanceMonths) };
-      return e.carrier ? api('PATCH /w/:slug/carriers/:id', { params: { ...params, id: e.carrier.id }, body })
+      return e.carrier ? api('PATCH /w/:slug/carriers/:id', { params: { ...params, id: e.carrier.id }, body: { ...body, defaultProductId: form.defaultProductId || null } })
         : api('POST /w/:slug/carriers', { params, body });
     }
     const body = { name: form.name.trim(), aliases };
@@ -170,7 +170,7 @@ const gridSummary = (p: Product) => {
           <ul>
             <li v-for="p in c.products" :key="p.id">
               <div class="p">
-                <b>{{ p.name }}</b><small v-if="p.aliases.length">Discord: {{ p.aliases.join(', ') }}</small>
+                <b>{{ p.name }} <Badge v-if="c.defaultProductId === p.id" tone="neutral">{{ t('sales.default') }}</Badge></b><small v-if="p.aliases.length">Discord: {{ p.aliases.join(', ') }}</small>
                 <span v-if="p.grids.length" class="g">{{ gridSummary(p) }}<em>{{ t('sales.since', { date: day(p.grids[0]!.effectiveFrom) }) }}</em></span>
                 <Badge v-else tone="warning">{{ t('sales.noGrid') }}</Badge>
               </div>
@@ -200,6 +200,11 @@ const gridSummary = (p: Product) => {
       <Input v-model="form.name" :label="t('common.name')" />
       <Input v-model="form.aliases" :label="t('sales.aliases')" :hint="t('sales.aliasesHint')" />
       <Input v-if="edit?.kind === 'carrier'" v-model="form.advanceMonths" type="number" :label="t('sales.advanceMonths')" :hint="t('sales.advanceMonthsHint')" />
+      <template v-if="edit?.kind === 'carrier' && edit.carrier?.products.length">
+        <Dropdown v-model="form.defaultProductId" :label="t('sales.defaultProduct')"
+          :options="[{ value: '', label: t('sales.noDefaultProduct') }, ...edit.carrier.products.map((p) => ({ value: p.id, label: p.name }))]" />
+        <p class="hint-sm">{{ t('sales.defaultProductHint') }}</p>
+      </template>
       <template #footer>
         <Button variant="ghost" @click="edit = null">{{ t('common.cancel') }}</Button>
         <Button variant="primary" :disabled="!editValid" @click="saveEdit">{{ t('common.save') }}</Button>
@@ -254,6 +259,7 @@ tbody th { font-weight: 600; }
 
 .date { display: grid; gap: 6px; font-size: 13px; font-weight: 500; }
 .date input { min-height: 42px; }
+.hint-sm { margin: -8px 0 0; font-size: 12px; color: var(--color-muted); }
 .history { margin: 0; padding: 10px 14px; list-style: none; display: grid; gap: 4px; font-size: 13px; color: var(--color-muted); background: var(--color-canvas); }
 .history b { color: var(--color-ink); }
 

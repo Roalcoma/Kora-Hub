@@ -25,7 +25,10 @@ export type Product = {
   id: Id; carrierId: Id; name: string; aliases: string[]; archivedAt: IsoDate | null;
   grids: { effectiveFrom: Day; rows: GridRow[] }[];   // revisiones de la tabla, la más reciente primero
 };
-export type Carrier = { id: Id; name: string; aliases: string[]; advanceMonths: number; archivedAt: IsoDate | null; products: Product[] };
+export type Carrier = {
+  id: Id; name: string; aliases: string[]; advanceMonths: number; archivedAt: IsoDate | null; products: Product[];
+  defaultProductId: Id | null;            // el que se asume cuando el mensaje de Discord no dice el producto
+};
 
 /** Admin ve todos los miembros; el resto, solo su propio perfil */
 export type AgentProfile = {
@@ -72,16 +75,18 @@ export type DiscordFeed = {
 
 // ─── Entradas ───
 
-const Aliases = z.array(z.string().trim().min(1).max(40)).max(20).default([]);
+const AliasList = z.array(z.string().trim().min(1).max(40)).max(20);
+const Aliases = AliasList.default([]);   // solo al crear: en una edición, omitirlos no debe borrarlos
 
 export const CarrierBody = z.object({
   name: z.string().trim().min(1).max(80), aliases: Aliases, advanceMonths: z.number().int().min(0).max(12).default(9),
 });
 export const UpdateCarrierBody = z.object({
-  name: z.string().trim().min(1).max(80), aliases: Aliases, advanceMonths: z.number().int().min(0).max(12), archived: z.boolean(),
+  name: z.string().trim().min(1).max(80), aliases: AliasList, advanceMonths: z.number().int().min(0).max(12), archived: z.boolean(),
+  defaultProductId: Id.nullable(),
 }).partial();
 export const ProductBody = z.object({ name: z.string().trim().min(1).max(80), aliases: Aliases });
-export const UpdateProductBody = z.object({ name: z.string().trim().min(1).max(80), aliases: Aliases, archived: z.boolean() }).partial();
+export const UpdateProductBody = z.object({ name: z.string().trim().min(1).max(80), aliases: AliasList, archived: z.boolean() }).partial();
 
 export const UpdateAgentProfileBody = z.object({
   uplineUserId: Id.nullable(), discordUserId: z.string().regex(/^\d{5,25}$/).nullable(),

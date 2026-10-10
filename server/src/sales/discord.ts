@@ -25,7 +25,7 @@ const nyDay = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZ
 
 async function catalog(db: pg.PoolClient): Promise<CatalogCarrier[]> {
   return (await db.query(
-    `select c.id, c.name, c.aliases, coalesce(json_agg(json_build_object('id', p.id, 'name', p.name, 'aliases', p.aliases))
+    `select c.id, c.name, c.aliases, c.default_product_id as "defaultProductId", coalesce(json_agg(json_build_object('id', p.id, 'name', p.name, 'aliases', p.aliases))
        filter (where p.id is not null), '[]') as products
      from carriers c left join carrier_products p on p.carrier_id = c.id and p.archived_at is null
      where c.archived_at is null group by c.id`)).rows;
@@ -38,8 +38,8 @@ async function interpret(db: pg.PoolClient, cat: CatalogCarrier[], content: stri
     `select p.user_id from agent_profiles p join workspace_members m on m.workspace_id = p.workspace_id and m.user_id = p.user_id and m.is_active
      where p.discord_user_id = $1`, [discordUserId])).rows[0]?.user_id as string | undefined;
   const problems: Problem[] = [...parsed.problems, ...(agent ? [] : ['agent' as const])];
-  const { problems: _, ...fields } = parsed;
-  return { fields: { ...fields, agentUserId: agent }, problems };
+  const { problems: _, ignore, ...fields } = parsed;
+  return { fields: { ...fields, agentUserId: agent }, problems, ignore };
 }
 
 async function createSale(db: pg.PoolClient, f: Awaited<ReturnType<typeof interpret>>['fields'], messageId: string) {
@@ -53,7 +53,8 @@ async function createSale(db: pg.PoolClient, f: Awaited<ReturnType<typeof interp
 /** Procesa un mensaje del canal dentro del workspace (RLS). Idempotente por id de mensaje. */
 export async function ingestMessage(db: pg.PoolClient, m: DiscordMessage, cat?: CatalogCarrier[]) {
   if (m.author.bot || ![0, 19].includes(m.type) || !looksLikeSale(m.content)) return 'ignored';
-  const { fields, problems } = await interpret(db, cat ?? await catalog(db), m.content, m.author.id, m.timestamp);
+  const { fields, problems, ignore } = await interpret(db, cat ?? await catalog(db), m.content, m.author.id, m.timestamp);
+  if (ignore) return 'ignored';   // compañía o producto que la agencia no maneja
   if (!problems.length) return (await createSale(db, fields, m.id)) ? 'sale' : 'duplicate';
   await db.query(
     `insert into sale_inbox (workspace_id, discord_message_id, discord_user_id, author_name, content, posted_at, parsed, problems)
@@ -69,7 +70,11 @@ export async function retryInbox(db: pg.PoolClient, discordUserId?: string): Pro
     `select * from sale_inbox where resolved_at is null and ($1::text is null or discord_user_id = $1) for update`, [discordUserId ?? null])).rows;
   let created = 0;
   for (const it of items) {
-    const { fields, problems } = await interpret(db, cat, it.content, it.discord_user_id, it.posted_at.toISOString());
+    const { fields, problems, ignore } = await interpret(db, cat, it.content, it.discord_user_id, it.posted_at.toISOString());
+    if (ignore) {
+      await db.query('update sale_inbox set resolved_at = now(), resolved_by = app_user() where id = $1', [it.id]);
+      continue;
+    }
     const saleId = problems.length ? undefined : await createSale(db, fields, it.discord_message_id);
     if (saleId) {
       created++;

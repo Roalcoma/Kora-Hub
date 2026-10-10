@@ -63,6 +63,7 @@ before(async () => {
 after(async () => {
   server.close();
   const ws = (await adminPool.query('select id from workspaces where slug = any($1)', [[slugA, slugB]])).rows.map((r) => r.id);
+  await adminPool.query('update carriers set default_product_id = null where workspace_id = any($1)', [ws]);
   for (const t of ['sale_inbox', 'commission_installments', 'sales', 'agent_levels', 'comp_grid', 'agent_profiles', 'carrier_products', 'carriers',
     'discord_feeds', 'messages', 'channel_members', 'channels', 'audit_log', 'member_departments', 'member_lines', 'invitations',
     'departments', 'business_lines', 'workspace_members', 'jobs']) {
@@ -114,6 +115,11 @@ test('compañías y productos: solo Admin los crea; los alias se guardan sin ace
   const g = await owner('PUT', A(`/products/${iulId}/grid`), { effectiveFrom: '2024-08-19', rows: INSTANT_DECISION });
   assert.deepEqual(g.body.products[0].grids, [{ effectiveFrom: '2024-08-19', rows: [...INSTANT_DECISION].reverse() }]);
   assert.equal((await ana('GET', A('/carriers'))).body.length, 1);   // todos los miembros los ven para filtrar
+  // Producto por defecto: editar solo eso no borra los alias (pasó el 2026-10-10)
+  const d = await owner('PATCH', A(`/carriers/${carrierId}`), { defaultProductId: iulId });
+  assert.deepEqual([d.body.defaultProductId, d.body.aliases], [iulId, ['americo']]);
+  const pr = await owner('PATCH', A(`/products/${iulId}`), { name: 'IUL' });
+  assert.deepEqual(pr.body.products[0].aliases, ['iul']);
 });
 
 test('perfil de agente: dueño de agencia, Discord y nivel de contrato con vigencia', async () => {
@@ -243,23 +249,53 @@ test('aislamiento: la agencia B no ve ni toca las ventas de la A', async () => {
 
 // ═══ Discord ═══
 
+// Catálogo de VFS: sin producto = el IUL de cada compañía; FEX se acepta (comisión por definir)
 const CATALOG = [
-  { id: 'AM', name: 'Americo', aliases: ['americo'], products: [{ id: 'ID', name: 'Instant Decision', aliases: ['iul'] }] },
-  { id: 'NLG', name: 'National Life Group', aliases: ['nlg'], products: [{ id: 'FLEX', name: 'Flex Life IUL', aliases: ['iul'] }] },
-  { id: 'MOO', name: 'Mutual of Omaha', aliases: ['moo', 'mutual of omaha'], products: [{ id: 'IULE', name: 'IULE', aliases: ['iul'] }] },
+  { id: 'AM', name: 'Americo', aliases: ['americo'], defaultProductId: 'ID',
+    products: [{ id: 'ID', name: 'Instant Decision', aliases: ['iul'] }, { id: 'AFEX', name: 'FEX', aliases: [] }] },
+  { id: 'NLG', name: 'National Life Group', aliases: ['nlg', 'national'], defaultProductId: 'FLEX',
+    products: [{ id: 'FLEX', name: 'Flex Life IUL', aliases: ['iul', 'flex'] }] },
+  { id: 'MOO', name: 'Mutual of Omaha', aliases: ['moo', 'mutual of omaha'], defaultProductId: 'IULE',
+    products: [{ id: 'IULE', name: 'IULE', aliases: ['iul'] }, { id: 'MFEX', name: 'FEX', aliases: [] }] },
 ];
+const read = (content: string, postedOn = '2026-10-09') => parseSale(content, postedOn, CATALOG);
 
 test('lector: los mensajes reales del #ventas de VFS', () => {
-  assert.deepEqual(parseSale('$1200  NLG IUL Upon issue NY (Danielle Cardenas)', '2026-10-08', CATALOG), {
-    problems: [], clientName: 'Danielle Cardenas', amount: 1200, expectedIssueDate: '2026-10-08', carrierId: 'NLG', productId: 'FLEX', clientState: 'NY' });
-  assert.deepEqual(parseSale('$1199.88 Americo IUL 10/23 OK (Jose Gonzalez Valdez)', '2026-10-08', CATALOG), {
-    problems: [], clientName: 'Jose Gonzalez Valdez', amount: 1199.88, expectedIssueDate: '2026-10-23', carrierId: 'AM', productId: 'ID', clientState: 'OK' });
-  // FEX no es un producto de la agencia: entiende el resto y marca el producto
-  assert.deepEqual(parseSale('$1800 FEX AMÉRICO UPPON ISSUE(Norma Salgado)', '2026-10-09', CATALOG), {
-    problems: ['product'], clientName: 'Norma Salgado', amount: 1800, expectedIssueDate: '2026-10-09', carrierId: 'AM' });
-  assert.equal(parseSale('$960 MOO IUL Upon Issue CA (Vilma)', '2026-10-09', CATALOG).productId, 'IULE');
-  // Fecha sin año ya pasada hace meses = la del año siguiente; sin compañía ni paréntesis
-  assert.deepEqual(parseSale('$2,400 IUL 1/05', '2026-12-20', CATALOG), { problems: ['client', 'carrier'], amount: 2400, expectedIssueDate: '2027-01-05' });
+  assert.deepEqual(read('$1200  NLG IUL Upon issue NY (Danielle Cardenas)', '2026-10-08'), {
+    problems: [], clientName: 'Danielle Cardenas', amount: 1200, expectedIssueDate: '2026-10-08', clientState: 'NY', carrierId: 'NLG', productId: 'FLEX' });
+  assert.deepEqual(read('$1199.88 Americo IUL 10/23 OK (Jose Gonzalez Valdez)', '2026-10-08'), {
+    problems: [], clientName: 'Jose Gonzalez Valdez', amount: 1199.88, expectedIssueDate: '2026-10-23', clientState: 'OK', carrierId: 'AM', productId: 'ID' });
+  assert.equal(read('$1800 FEX AMÉRICO UPPON ISSUE(Norma Salgado)').productId, 'AFEX');
+  assert.equal(read('$960 MOO IUL Upon Issue CA (Vilma)').productId, 'IULE');
+  assert.equal(read('$2101.56 MOO FEX Upon Issue FL (Pedro Aviles)').productId, 'MFEX');
+});
+
+test('lector: sin producto es el IUL; NLG FLEX y "National Flex Life" también', () => {
+  assert.equal(read('$3600 NLG UPPON ISSUE OH (Marisela Martinez)').productId, 'FLEX');
+  assert.equal(read('$1800 AMERICO UPPON ISSUE TX(Jesse Acosta)').productId, 'ID');
+  assert.equal(read('$2400 NLG FLEX 09/18 PA (Guillermo Gonzalez)', '2026-09-10').expectedIssueDate, '2026-09-18');
+  const nf = read('$1800  National Flex Life NC (Álvaro)');
+  assert.deepEqual([nf.productId, nf.clientState, nf.expectedIssueDate, nf.clientName], ['FLEX', 'NC', '2026-10-09', 'Álvaro']);
+  const nyc = read('$2400  NLG UPPON ISSUE 🗽NY(Raul Ventura)');
+  assert.deepEqual([nyc.productId, nyc.clientState], ['FLEX', 'NY']);
+});
+
+test('lector: compañías y productos que la agencia no maneja se ignoran', () => {
+  assert.equal(read('$2400 AMAM IUL Upon Issue TX (Margarita Barrientos Prado)').ignore, 'carrier');
+  assert.equal(read('$1200 F&G IUL JUVENILE UPPON ISSUE MD(Joel David Coronado)').ignore, 'carrier');
+  assert.equal(read('$3000 NLG RAPID UPPON ISSUE CA(Lester Vallejos)').ignore, 'product');
+  assert.equal(read('$3000 NLG Rapid Upon Issue Issue NJ (Carlos Sillagana)').ignore, 'product');
+  assert.equal(read('$1200 NLG JUVENILE DE(Randy Rojas)').ignore, 'product');
+});
+
+test('lector: fechas con guion, "ISUUE", sin fecha y fechas del año siguiente', () => {
+  assert.equal(read('$1200 AMERICO IUL 09-01 FL (Francys Cruz)', '2026-08-25').expectedIssueDate, '2026-09-01');
+  assert.deepEqual(read('$1800 AMERICO IUL UPON ISUUE NJ (MARIA PINO)'), {
+    problems: [], clientName: 'MARIA PINO', amount: 1800, expectedIssueDate: '2026-10-09', clientState: 'NJ', carrierId: 'AM', productId: 'ID' });
+  const fex = read('$1200 AMERICO FEX DE(Humberto Rojas)');
+  assert.deepEqual([fex.productId, fex.clientState, fex.expectedIssueDate, fex.problems], ['AFEX', 'DE', '2026-10-09', []]);
+  assert.equal(read('$2,400 NLG 1/05 (Ana)', '2026-12-20').expectedIssueDate, '2027-01-05');
+  assert.deepEqual(read('$2,400 NLG upon issue').problems, ['client']);
 });
 
 test('canal de Discord: ventas completas, bandeja, enlazar autor y sin duplicados', async () => {
@@ -275,6 +311,8 @@ test('canal de Discord: ventas completas, bandeja, enlazar autor y sin duplicado
     msg(4, '2026-10-09T18:00:00Z', vero, '¡Felicidades equipo!'),
     msg(5, '2026-10-10T01:44:00Z', nani, '$960 MOO IUL Upon Issue CA (Vilma)'),
     msg(6, '2026-10-10T02:00:00Z', ['444444444444444444', 'Bot'], '$5 prueba', true),
+    msg(7, '2026-10-10T03:00:00Z', vero, '$2400 AMAM IUL Upon Issue TX (Flor Secundino)'),
+    msg(8, '2026-10-10T04:00:00Z', vero, '$500 NLG IUL Upon issue'),
   ];
   let auth = '';
   const fake = createServer((req, res) => {
@@ -298,8 +336,9 @@ test('canal de Discord: ventas completas, bandeja, enlazar autor y sin duplicado
     assert.deepEqual(first.map((s: any) => [s.agentUserId, s.clientName, s.amount, s.expectedIssueDate, s.clientState, s.status]),
       [[anaId, 'Danielle Cardenas', 1200, '2026-10-08', 'NY', 'pending']]);   // 8:22 pm del 8 en Nueva York
     const inbox = (await owner('GET', A('/sales-inbox'))).body;
+    // FEX (sin producto FEX en esta agencia) y AMAM se ignoran; el mensaje sin cliente espera en la bandeja
     assert.deepEqual(inbox.map((i: any) => [i.authorName, i.problems]).sort(), [
-      ['Maria V Salas', ['product', 'agent']], ['Nanishka M Reyes Padua', ['agent']], ['Nanishka M Reyes Padua', ['agent']]].sort());
+      ['Maria V Salas', ['client', 'agent']], ['Nanishka M Reyes Padua', ['agent']], ['Nanishka M Reyes Padua', ['agent']]].sort());
 
     // Enlazar a Nanishka (aquí Omar) convierte sus dos mensajes en ventas
     const link = await owner('POST', A(`/sales-inbox/${inbox.find((i: any) => i.discordUserId === nani[0]).id}/link`), { userId: omarId });
@@ -307,7 +346,7 @@ test('canal de Discord: ventas completas, bandeja, enlazar autor y sin duplicado
     assert.equal((await owner('GET', A('/agents'))).body.find((a: any) => a.userId === omarId).discordUserId, nani[0]);
     const vero1 = (await owner('GET', A('/sales-inbox'))).body;
     assert.equal(vero1.length, 1);
-    assert.equal(vero1[0].parsed.amount, 1800);
+    assert.equal(vero1[0].parsed.amount, 500);
 
     // Releer el canal desde el mismo día no duplica nada
     await owner('PUT', A('/discord-feed'), { channelId: '999999999999999999', importSince: '2026-10-08' });

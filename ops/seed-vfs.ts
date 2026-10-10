@@ -36,7 +36,7 @@ const grid = (rates: number[]) => LEVELS.map((level, i) => ({ level, rate: rates
 const CARRIERS = [
   { name: 'Americo', aliases: ['Americo'], product: 'Instant Decision', productAliases: ['IUL'],
     rates: [130, 125, 120, 115, 110, 105, 100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50] },
-  { name: 'National Life Group', aliases: ['NLG'], product: 'Flex Life IUL', productAliases: ['IUL', 'Flex Life'],
+  { name: 'National Life Group', aliases: ['NLG', 'National'], product: 'Flex Life IUL', productAliases: ['IUL', 'Flex Life', 'Flex'],
     rates: [110, 110, 105, 100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 40] },
   { name: 'Mutual of Omaha', aliases: ['MOO', 'Mutual of Omaha'], product: 'IULE', productAliases: ['IUL', 'IULE'],
     rates: [130, 130, 125, 120, 115, 110, 105, 100, 95, 90, 85, 80, 75, 70, 65, 60, 55] },
@@ -72,11 +72,14 @@ async function main() {
     const carrier = (await call(office, 'POST', w('/carriers'), { name: c.name, aliases: c.aliases, advanceMonths: 9 })).data;
     const p = (await call(office, 'POST', w(`/carriers/${carrier.id}/products`), { name: c.product, aliases: c.productAliases })).data.products[0];
     await call(office, 'PUT', w(`/products/${p.id}/grid`), { effectiveFrom: '2024-08-19', rows: grid(c.rates) });
+    // Sin producto en el mensaje = el IUL. FEX se acepta; su comisión se define después (sin tabla no se puede marcar ISSUED)
+    await call(office, 'PATCH', w(`/carriers/${carrier.id}`), { defaultProductId: p.id });
+    if (c.name !== 'National Life Group') await call(office, 'POST', w(`/carriers/${carrier.id}/products`), { name: 'FEX', aliases: ['FEX'] });
     product[c.name] = p.id;
   }
   console.log('compañías y tablas listas');
 
-  // Ventas del #ventas de Discord (8-9 oct 2026). La de FEX de Veronica queda fuera: FEX no está entre los productos.
+  // Ventas del #ventas de Discord (8-9 oct 2026), a mano. Si después se conecta el canal real, borrar estas para no duplicarlas.
   const sales = [
     { agent: 'Cesar David Diaz Alvarado', carrier: 'National Life Group', amount: 1200, client: 'Danielle Cardenas', state: 'NY', date: '2026-10-08', issued: '2026-10-08' },
     { agent: 'Nanishka Marie Reyes Padua', carrier: 'Americo', amount: 1199.88, client: 'Jose Gonzalez Valdez', state: 'OK', date: '2026-10-23', issued: null },

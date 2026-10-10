@@ -275,6 +275,7 @@ export default {
     discordConnect: 'Connect channel', discordReconnect: 'Save and re-read', discordDisconnect: 'Disconnect', discordConnected: 'Channel connected',
     discordNoBot: 'The bot token is missing on the server (DISCORD_BOT_TOKEN). Discord is not read without it.',
     discordError: 'Last read failed: {error}', discordLastRead: 'Last read: {date}', discordWaiting: 'Connected; the first read happens within a minute.',
+    defaultProduct: "Product when the message doesn't say", noDefaultProduct: 'None: goes to the inbox', default: 'Default', defaultProductHint: 'E.g. "$3600 NLG UPPON ISSUE OH (…)" is recorded with this product. A message naming a product that is not set up is ignored.', 
     gridHint: 'For each contract level, the commission % of the product.', gridNewRevision: 'It will be saved as a new revision; the one from {date} still applies to earlier dates.',
     discordPlaceholder: 'Numeric ID', gridSummary: '{n} levels · from {lo} to {hi}', addLevel: 'Add level', removeRow: 'Remove row',
   },
