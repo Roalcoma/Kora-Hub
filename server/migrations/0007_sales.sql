@@ -1,5 +1,6 @@
 -- 0007 · Ventas y comisiones por agente (docs/plan-comisiones.md).
--- Compañías y productos configurables, % por agente y producto con vigencia, override de un nivel (dueño de agencia)
+-- Compañías y productos configurables. El % sale del nivel de contrato del agente (FFL) cruzado con la tabla de
+-- comisiones de cada producto, ambos con vigencia. Override de un nivel (dueño de agencia)
 -- y cuotas: adelanto al ISSUE y resto a los 12 meses. Los chargebacks son cuotas negativas.
 
 -- Módulo activo por agencia: las de seguros lo traen encendido
@@ -45,17 +46,26 @@ create table agent_profiles (
 );
 create index on agent_profiles (workspace_id, upline_user_id);
 
--- % del agente en un producto desde una fecha. El vigente al ISSUE es el más reciente <= fecha de ISSUE.
-create table commission_rates (
+-- Nivel de contrato del agente desde una fecha (un ascenso = fila nueva). El vigente al ISSUE es el más reciente <= ISSUE.
+create table agent_levels (
   workspace_id   uuid not null,
   user_id        uuid not null,
-  product_id     uuid not null,
   effective_from date not null,
-  rate           numeric(6,3) not null check (rate >= 0 and rate <= 300),
+  level          integer not null check (level between 0 and 300),
   set_by         uuid not null,
   set_at         timestamptz not null default now(),
-  primary key (workspace_id, user_id, product_id, effective_from),
-  foreign key (workspace_id, user_id) references workspace_members(workspace_id, user_id),
+  primary key (workspace_id, user_id, effective_from),
+  foreign key (workspace_id, user_id) references workspace_members(workspace_id, user_id)
+);
+
+-- Tabla de comisiones de cada producto: nivel → %. Una revisión de la tabla es un juego nuevo con otra fecha.
+create table comp_grid (
+  workspace_id   uuid not null,
+  product_id     uuid not null,
+  effective_from date not null,
+  level          integer not null check (level between 0 and 300),
+  rate           numeric(6,3) not null check (rate >= 0 and rate <= 300),
+  primary key (workspace_id, product_id, effective_from, level),
   foreign key (workspace_id, product_id) references carrier_products(workspace_id, id)
 );
 
@@ -93,6 +103,7 @@ create table commission_installments (
   beneficiary_user_id uuid not null,
   kind                text not null check (kind in ('direct', 'override')),
   part                text not null check (part in ('advance', 'remainder', 'chargeback')),
+  level               integer,                     -- nivel del beneficiario al ISSUE
   rate                numeric(6,3) not null,       -- directa: % del agente; override: diferencia con el agente
   amount              numeric(12,2) not null,      -- negativo en chargeback
   due_date            date not null,
@@ -139,12 +150,12 @@ create table sale_inbox (
 do $$
 declare t text;
 begin
-  foreach t in array array['carriers', 'carrier_products', 'agent_profiles', 'commission_rates', 'sales',
+  foreach t in array array['carriers', 'carrier_products', 'agent_profiles', 'agent_levels', 'comp_grid', 'sales',
                            'commission_installments', 'discord_feeds', 'sale_inbox'] loop
     execute format('alter table %I enable row level security', t);
     execute format('create policy tenant on %I using (workspace_id = app_ws()) with check (workspace_id = app_ws())', t);
     execute format('grant select, insert, update, delete on %I to agencia_app', t);
   end loop;
 end $$;
--- El historial de % no se borra: un cambio es una fila nueva (misma fecha = corrección de esa fila)
-revoke delete on commission_rates from agencia_app;
+-- El historial de niveles no se borra: un ascenso es una fila nueva (misma fecha = corrección de esa fila)
+revoke delete on agent_levels from agencia_app;

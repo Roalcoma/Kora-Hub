@@ -1,4 +1,4 @@
-// Ventas y comisiones por HTTP: cálculo 75/25 con override de un nivel, % congelado al ISSUE, chargebacks,
+// Ventas y comisiones por HTTP: % por nivel FFL × tabla del producto, 75/25 con override de un nivel, % congelado al ISSUE, chargebacks,
 // visibilidad (agente / dueño de agencia / admin) y aislamiento: la agencia B no ve ni toca nada de la A.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,6 +32,10 @@ type Client = ReturnType<typeof client>;
 
 const owner = client(), ana = client(), carlos = client(), omar = client(), outsider = client();
 let anaId = '', carlosId = '', omarId = '', carrierId = '', iulId = '', saleId = '';
+// Columnas de la guía IUL de FFL (revisión 08/19/2024) para los niveles de VFS
+const INSTANT_DECISION = [{ level: 80, rate: 65 }, { level: 85, rate: 70 }, { level: 100, rate: 85 }, { level: 105, rate: 90 }];
+const FLEX_LIFE = [{ level: 80, rate: 50 }, { level: 85, rate: 55 }, { level: 100, rate: 70 }, { level: 105, rate: 75 }];
+const IULE = [{ level: 80, rate: 70 }, { level: 85, rate: 75 }, { level: 100, rate: 90 }, { level: 105, rate: 95 }];
 const A = (p: string) => `/w/${slugA}${p}`;
 
 before(async () => {
@@ -57,7 +61,7 @@ before(async () => {
 after(async () => {
   server.close();
   const ws = (await adminPool.query('select id from workspaces where slug = any($1)', [[slugA, slugB]])).rows.map((r) => r.id);
-  for (const t of ['sale_inbox', 'commission_installments', 'sales', 'commission_rates', 'agent_profiles', 'carrier_products', 'carriers',
+  for (const t of ['sale_inbox', 'commission_installments', 'sales', 'agent_levels', 'comp_grid', 'agent_profiles', 'carrier_products', 'carriers',
     'discord_feeds', 'messages', 'channel_members', 'channels', 'audit_log', 'member_departments', 'member_lines', 'invitations',
     'departments', 'business_lines', 'workspace_members', 'jobs']) {
     await adminPool.query(`delete from ${t} where workspace_id = any($1)`, [ws]);
@@ -104,18 +108,21 @@ test('compañías y productos: solo Admin los crea; los alias se guardan sin ace
   carrierId = c.body.id;
   const p = await owner('POST', A(`/carriers/${carrierId}/products`), { name: 'IUL', aliases: ['iul'] });
   iulId = p.body.products[0].id;
+  assert.equal((await ana('PUT', A(`/products/${iulId}/grid`), { effectiveFrom: '2024-08-19', rows: INSTANT_DECISION })).status, 403);
+  const g = await owner('PUT', A(`/products/${iulId}/grid`), { effectiveFrom: '2024-08-19', rows: INSTANT_DECISION });
+  assert.deepEqual(g.body.products[0].grids, [{ effectiveFrom: '2024-08-19', rows: [...INSTANT_DECISION].reverse() }]);
   assert.equal((await ana('GET', A('/carriers'))).body.length, 1);   // todos los miembros los ven para filtrar
 });
 
-test('perfil de agente: dueño de agencia, Discord y % con vigencia', async () => {
+test('perfil de agente: dueño de agencia, Discord y nivel de contrato con vigencia', async () => {
   assert.equal((await ana('PATCH', A(`/agents/${anaId}`), { uplineUserId: anaId })).status, 403);
   assert.equal((await owner('PATCH', A(`/agents/${anaId}`), { uplineUserId: anaId })).status, 400);
   const p = await owner('PATCH', A(`/agents/${anaId}`), { uplineUserId: carlosId, discordUserId: '123456789012' });
   assert.equal(p.body.uplineUserId, carlosId);
-  await owner('POST', A(`/agents/${anaId}/rates`), { productId: iulId, rate: 70, effectiveFrom: '2026-01-01' });
-  await owner('POST', A(`/agents/${anaId}/rates`), { productId: iulId, rate: 80, effectiveFrom: '2027-01-01' });
-  const r = await owner('POST', A(`/agents/${carlosId}/rates`), { productId: iulId, rate: 90, effectiveFrom: '2026-01-01' });
-  assert.deepEqual(r.body.rates, [{ productId: iulId, rate: 90, effectiveFrom: '2026-01-01' }]);
+  await owner('POST', A(`/agents/${anaId}/levels`), { level: 80, effectiveFrom: '2026-01-01' });
+  await owner('POST', A(`/agents/${anaId}/levels`), { level: 85, effectiveFrom: '2027-01-01' });   // ascenso futuro
+  const r = await owner('POST', A(`/agents/${carlosId}/levels`), { level: 105, effectiveFrom: '2026-01-01' });
+  assert.deepEqual(r.body.levels, [{ level: 105, effectiveFrom: '2026-01-01' }]);
   // Cada uno ve solo su perfil; el Admin ve a todos
   assert.deepEqual((await ana('GET', A('/agents'))).body.map((a: any) => a.userId), [anaId]);
   assert.ok((await owner('GET', A('/agents'))).body.length >= 4);
@@ -134,25 +141,31 @@ test('solo Admin registra ventas; quedan pendientes de ISSUE', async () => {
   saleId = s.body.id;
 });
 
-test('sin % del agente no se puede marcar ISSUED', async () => {
+test('sin nivel del agente no se puede marcar ISSUED', async () => {
   const s = await owner('POST', A('/sales'), { agentUserId: omarId, productId: iulId, amount: 500, clientName: 'Vilma', expectedIssueDate: '2026-10-09' });
   const r = await owner('POST', A(`/sales/${s.body.id}/issue`), { issuedAt: '2026-10-15' });
   assert.equal(r.status, 409);
-  assert.equal(r.body.code, 'missing_rate');
+  assert.equal(r.body.code, 'missing_level');
   assert.match(r.body.error, /Omar/);
+  // Nivel que la tabla no tiene
+  await owner('POST', A(`/agents/${omarId}/levels`), { level: 90, effectiveFrom: '2026-01-01' });
+  const r2 = await owner('POST', A(`/sales/${s.body.id}/issue`), { issuedAt: '2026-10-15' });
+  assert.equal(r2.body.code, 'missing_rate');
+  assert.match(r2.body.error, /nivel 90/);
   const d = await owner('POST', A(`/sales/${s.body.id}/decline`));
   assert.equal(d.body.status, 'declined');
 });
 
-test('ISSUE genera las cuotas con el % vigente a esa fecha', async () => {
+test('ISSUE genera las cuotas con el nivel y la tabla vigentes a esa fecha', async () => {
   assert.equal((await ana('POST', A(`/sales/${saleId}/issue`), { issuedAt: '2026-10-15' })).status, 403);
   const r = await owner('POST', A(`/sales/${saleId}/issue`), { issuedAt: '2026-10-15' });
   assert.equal(r.body.status, 'issued');
   assert.equal(r.body.issuedAt, '2026-10-15');
   const c = (await owner('GET', A('/commissions'))).body;
-  assert.deepEqual(c.items.map((i: any) => [i.beneficiaryUserId, i.kind, i.part, i.rate, i.amount, i.dueDate]).sort(), [
-    [anaId, 'direct', 'advance', 70, 630, '2026-10-15'], [anaId, 'direct', 'remainder', 70, 210, '2027-10-15'],
-    [carlosId, 'override', 'advance', 20, 180, '2026-10-15'], [carlosId, 'override', 'remainder', 20, 60, '2027-10-15'],
+  // Ana nivel 80 → 65 %; Carlos nivel 105 → 90 %, override 25 %
+  assert.deepEqual(c.items.map((i: any) => [i.beneficiaryUserId, i.kind, i.part, i.level, i.rate, i.amount, i.dueDate]).sort(), [
+    [anaId, 'direct', 'advance', 80, 65, 585, '2026-10-15'], [anaId, 'direct', 'remainder', 80, 65, 195, '2027-10-15'],
+    [carlosId, 'override', 'advance', 105, 25, 225, '2026-10-15'], [carlosId, 'override', 'remainder', 105, 25, 75, '2027-10-15'],
   ].sort());
   assert.equal(c.totals.pending, 1080);
   // Ya no se edita ni se vuelve a hacer ISSUE
@@ -179,7 +192,32 @@ test('cancelar con chargeback: anula lo no pagado y descuenta % de lo pagado', a
   const items = (await owner('GET', A('/commissions'))).body.items;
   assert.deepEqual(items.filter((i: any) => i.part === 'remainder').map((i: any) => i.status), ['void', 'void']);
   assert.deepEqual(items.filter((i: any) => i.part === 'chargeback').map((i: any) => [i.beneficiaryUserId, i.amount]).sort(),
-    [[anaId, -315], [carlosId, -90]].sort());
+    [[anaId, -292.5], [carlosId, -112.5]].sort());
+});
+
+test('ventas reales del Discord de VFS (8-9 oct 2026) con la guía FFL', async () => {
+  // Cesar (80) y Nanishka (85) bajo Lendry (105): aquí Ana, Omar y Carlos hacen esos papeles
+  const nlg = (await owner('POST', A('/carriers'), { name: 'National Life Group', aliases: ['NLG'] })).body;
+  const flex = (await owner('POST', A(`/carriers/${nlg.id}/products`), { name: 'Flex Life IUL', aliases: ['IUL'] })).body.products[0].id;
+  await owner('PUT', A(`/products/${flex}/grid`), { effectiveFrom: '2024-08-19', rows: FLEX_LIFE });
+  const moo = (await owner('POST', A('/carriers'), { name: 'Mutual of Omaha', aliases: ['MOO'] })).body;
+  const iule = (await owner('POST', A(`/carriers/${moo.id}/products`), { name: 'IULE', aliases: ['IUL'] })).body.products[0].id;
+  await owner('PUT', A(`/products/${iule}/grid`), { effectiveFrom: '2024-08-19', rows: IULE });
+  await owner('PATCH', A(`/agents/${omarId}`), { uplineUserId: carlosId });
+  await owner('POST', A(`/agents/${omarId}/levels`), { level: 85, effectiveFrom: '2026-01-01' });
+
+  const sell = async (agentUserId: string, productId: string, amount: number, clientName: string) => {
+    const s = await owner('POST', A('/sales'), { agentUserId, productId, amount, clientName, expectedIssueDate: '2026-10-08' });
+    await owner('POST', A(`/sales/${s.body.id}/issue`), { issuedAt: '2026-10-08' });
+    const items = (await owner('GET', A('/commissions'))).body.items.filter((i: any) => i.saleId === s.body.id);
+    return items.map((i: any) => [i.kind, i.part, i.amount]).sort();
+  };
+  assert.deepEqual(await sell(anaId, flex, 1200, 'Danielle Cardenas'), [
+    ['direct', 'advance', 450], ['direct', 'remainder', 150], ['override', 'advance', 225], ['override', 'remainder', 75]].sort());
+  assert.deepEqual(await sell(omarId, iulId, 1199.88, 'Jose Gonzalez Valdez'), [
+    ['direct', 'advance', 629.94], ['direct', 'remainder', 209.98], ['override', 'advance', 179.99], ['override', 'remainder', 59.99]].sort());
+  assert.deepEqual(await sell(omarId, iule, 960, 'Vilma'), [
+    ['direct', 'advance', 540], ['direct', 'remainder', 180], ['override', 'advance', 144], ['override', 'remainder', 48]].sort());
 });
 
 test('CSV de ventas con nombres legibles', async () => {

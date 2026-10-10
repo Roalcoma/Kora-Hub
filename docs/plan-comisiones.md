@@ -13,7 +13,7 @@ Decisiones tomadas el 2026-10-10:
 | Monto | El monto del mensaje es el **monto ISSUE**: la prima anual de la póliza. Base de toda comisión |
 | Pago | **75 %** (9 meses adelantados) en la fecha de ISSUE · **25 %** restante a los **12 meses** del ISSUE |
 | Override | **Un solo nivel**: el dueño de agencia cobra (su % − % del agente) × monto, con el mismo reparto 75/25 |
-| Porcentajes | Por agente, por compañía y por producto dentro de la compañía, con fecha de vigencia |
+| Porcentajes | **Nivel de contrato FFL** del agente (80, 85, 100, 105…) × **tabla de comisiones** del producto (guía IUL de FFL); ambos con fecha de vigencia (ajuste del 2026-10-10) |
 | Visibilidad | Agente: lo suyo · Dueño de agencia: lo suyo y lo de sus agentes directos · Owner/admin: todo, y son los únicos que cargan porcentajes y ventas a mano |
 
 ---
@@ -62,15 +62,16 @@ Registrada ──(admin confirma que la compañía la aprobó / el cliente pagó
 - Al marcar ISSUED se generan las cuotas de comisión, **congelando el porcentaje vigente** ese día: cambiar un % más
   tarde no altera comisiones ya generadas.
 
-**Ejemplo** · venta de $1,200 de Ana (70 % en NLG IUL), dueña de agencia Carlos (90 % en NLG IUL), ISSUE el 15/10/2026:
+**Ejemplo** · venta de $1,200 de Ana (70 % en NLG IUL), dueña de agencia Carlos (90 % en NLG IUL), ISSUE el 15/10/2026
+(los % salen del nivel de cada uno en la tabla del producto):
 
 | Quién | Tipo | Base | Total | 15/10/2026 (75 %) | 15/10/2027 (25 %) |
 |---|---|---|---|---|---|
 | Ana | Directa | 70 % × 1,200 | 840 | 630 | 210 |
 | Carlos | Override | (90 − 70) % × 1,200 | 240 | 180 | 60 |
 
-Si el % del dueño es **menor o igual** al del agente, el override es 0 y la venta se marca con un aviso. Si al agente le
-falta el % de esa compañía/producto, la venta no se puede pasar a ISSUED hasta cargarlo (aviso claro, no error mudo).
+Si el % del dueño es **menor o igual** al del agente, el override es 0 y la venta se marca con un aviso. Si al agente (o al dueño)
+le falta el nivel, o la tabla del producto no tiene ese nivel, la venta no pasa a ISSUED hasta cargarlo (aviso claro).
 
 Cada cuota tiene estado **Por cobrar → Pagada** (un admin la marca, con fecha). Así VFS ve qué le deben a cada agente
 este mes y el año que viene.
@@ -84,7 +85,8 @@ Todas con `workspace_id`, RLS `tenant`, grant a `agencia_app` y FK compuestas, c
 | `carriers` | Compañías: nombre, alias para el lector, archivada |
 | `carrier_products` | Productos de cada compañía (IUL, FEX…) con sus alias |
 | `agent_profiles` | Por miembro: **dueño de agencia directo** (`upline_user_id`, un nivel), **ID de Discord** del agente |
-| `commission_rates` | % por agente × compañía × producto, `effective_from`; el vigente es el más reciente ≤ fecha de ISSUE |
+| `agent_levels` | Nivel de contrato del agente desde una fecha (un ascenso = fila nueva) |
+| `comp_grid` | Tabla de cada producto: nivel → %, por revisión (`effective_from`) |
 | `sales` | Agente, compañía, producto, monto ISSUE, cliente, estado (US), fecha esperada, fecha ISSUE real, estado de la venta, origen (`discord`/`manual`), ID del mensaje de Discord (único: no se duplica) |
 | `sale_inbox` | Mensajes de Discord que el lector no pudo completar, con el texto original y lo que sí entendió |
 | `commission_installments` | Cuotas generadas: beneficiario, tipo (`direct`/`override`), % congelado, monto, fecha de pago, estado y fecha de pagado |
@@ -102,8 +104,8 @@ Nueva sección **Ventas** en el sidebar (solo si el módulo está activo):
    las suyas; el dueño de agencia ve además los overrides y las ventas de sus agentes.
 4. **Bandeja de Discord**: mensajes sin completar, con el texto original al lado del formulario prellenado.
 
-En **Ajustes → Comisiones** (owner/admin): compañías, productos y alias · porcentajes por agente (tabla agente ×
-compañía/producto) · dueño de agencia de cada agente · enlace del usuario de Discord con cada miembro · estado de la
+En **Ajustes → Comisiones** (owner/admin): compañías, productos, alias y la tabla nivel → % de cada producto · nivel de
+contrato de cada agente · dueño de agencia de cada agente · enlace del usuario de Discord con cada miembro · estado de la
 conexión con Discord y última lectura.
 
 Exportación CSV de ventas y de comisiones del período, para que la oficina cuadre con las compañías.
@@ -130,3 +132,12 @@ Sí existen. Al **cancelar** una venta ya ISSUED, el admin indica qué porcentaj
   pagó, que se descuenta en el siguiente pago (se marca pagada igual que las demás).
 
 Cada agente que vende tendrá su cuenta en Kora (confirmado). Pendiente solo crear el bot de Discord en el paso C.
+
+## 7. VFS (datos para la prueba y la puesta en marcha)
+
+- Productos: **Americo Instant Decision**, **NLG Flex Life IUL** y **MOO IULE** (alias `IUL` en cada compañía); tablas
+  de la guía IUL de FFL revisada el 08/19/2024.
+- Dueña de agencia: **Lendry Labrador** (nivel 105); los otros 17 agentes, todos bajo ella. Niveles: 80 la mayoría,
+  85 Nanishka y Yelitza, 100 Miguel Angel y Veronica.
+- En Discord, "Maria V Salas" es Veronica V Salas Castillo.
+- Las 3 ventas del 8-9 oct con producto válido quedaron como prueba automática (`server/test/sales.test.ts`).

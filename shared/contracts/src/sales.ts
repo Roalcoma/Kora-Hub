@@ -19,14 +19,18 @@ export type InstallmentStatus = (typeof INSTALLMENT_STATUS)[number];
 
 // ─── Entidades ───
 
-export type Product = { id: Id; carrierId: Id; name: string; aliases: string[]; archivedAt: IsoDate | null };
+/** Fila de la tabla de comisiones de un producto: con el nivel `level`, el agente cobra `rate` % */
+export type GridRow = { level: number; rate: number };
+export type Product = {
+  id: Id; carrierId: Id; name: string; aliases: string[]; archivedAt: IsoDate | null;
+  grids: { effectiveFrom: Day; rows: GridRow[] }[];   // revisiones de la tabla, la más reciente primero
+};
 export type Carrier = { id: Id; name: string; aliases: string[]; advanceMonths: number; archivedAt: IsoDate | null; products: Product[] };
 
-export type CommissionRate = { productId: Id; rate: number; effectiveFrom: Day };
 /** Admin ve todos los miembros; el resto, solo su propio perfil */
 export type AgentProfile = {
   userId: Id; uplineUserId: Id | null; discordUserId: string | null;
-  rates: CommissionRate[];        // historial completo, del más reciente al más antiguo por producto
+  levels: { level: number; effectiveFrom: Day }[];   // nivel de contrato (FFL); historial, el más reciente primero
 };
 
 export type Sale = {
@@ -42,7 +46,7 @@ export type SalesList = {
 
 export type Installment = {
   id: Id; saleId: Id; beneficiaryUserId: Id; kind: 'direct' | 'override'; part: 'advance' | 'remainder' | 'chargeback';
-  rate: number; amount: number; dueDate: Day; status: InstallmentStatus; paidAt: Day | null;
+  level: number | null; rate: number; amount: number; dueDate: Day; status: InstallmentStatus; paidAt: Day | null;
   sale: Pick<Sale, 'agentUserId' | 'carrierId' | 'productId' | 'clientName' | 'amount' | 'issuedAt' | 'status'>;
 };
 export type CommissionsList = {
@@ -73,7 +77,14 @@ export const UpdateProductBody = z.object({ name: z.string().trim().min(1).max(8
 export const UpdateAgentProfileBody = z.object({
   uplineUserId: Id.nullable(), discordUserId: z.string().regex(/^\d{5,25}$/).nullable(),
 }).partial();
-export const RateBody = z.object({ productId: Id, rate: z.number().min(0).max(300), effectiveFrom: Day });
+const Level = z.number().int().min(0).max(300);
+export const LevelBody = z.object({ level: Level, effectiveFrom: Day });
+/** Revisión de la tabla de un producto: reemplaza la de esa fecha */
+export const GridBody = z.object({
+  effectiveFrom: Day,
+  rows: z.array(z.object({ level: Level, rate: z.number().min(0).max(300) })).min(1).max(100)
+    .refine((r) => new Set(r.map((x) => x.level)).size === r.length, 'Nivel repetido'),
+});
 
 export const SaleBody = z.object({
   agentUserId: Id, productId: Id, amount: z.number().positive().max(10_000_000),

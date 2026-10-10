@@ -1,10 +1,11 @@
 // /w/:slug — ventas y comisiones por agente (docs/plan-comisiones.md). Solo con settings.sales_module.
 // Visibilidad: Admin ve todo; un dueño de agencia ve lo suyo y lo de sus agentes directos; el resto, solo lo suyo.
-// Al marcar ISSUED se congelan % y montos en commission_installments: cambiar un % después no mueve lo generado.
+// El % sale del nivel de contrato del agente (FFL) cruzado con la tabla del producto, ambos vigentes a la fecha de ISSUE.
+// Al marcar ISSUED se congelan nivel, % y montos en commission_installments: un ascenso después no mueve lo generado.
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import type pg from 'pg';
 import {
-  Id, CarrierBody, UpdateCarrierBody, ProductBody, UpdateProductBody, UpdateAgentProfileBody, RateBody,
+  Id, CarrierBody, UpdateCarrierBody, ProductBody, UpdateProductBody, GridBody, UpdateAgentProfileBody, LevelBody,
   SaleBody, UpdateSaleBody, IssueSaleBody, CancelSaleBody, SalesQuery, CommissionsQuery, PayInstallmentsBody,
   type Carrier, type AgentProfile, type Sale, type SalesList, type Installment, type CommissionsList, type InboxItem,
 } from '@agencia-hub/contracts';
@@ -34,7 +35,11 @@ const aliases = (list: string[]) => [...new Set(list.map(normalize).filter(Boole
 async function listCarriers(db: pg.PoolClient, id?: string): Promise<Carrier[]> {
   const { rows } = await db.query(
     `select c.*, coalesce(json_agg(json_build_object('id', p.id, 'carrierId', p.carrier_id, 'name', p.name, 'aliases', p.aliases,
-       'archivedAt', p.archived_at) order by p.name) filter (where p.id is not null), '[]') as products
+       'archivedAt', p.archived_at, 'grids', coalesce((
+         select json_agg(json_build_object('effectiveFrom', g.ef, 'rows', g.rows) order by g.ef desc)
+         from (select ${day('effective_from')} as ef, json_agg(json_build_object('level', level, 'rate', rate::float) order by level desc) as rows
+               from comp_grid where product_id = p.id group by effective_from) g), '[]'))
+       order by p.name) filter (where p.id is not null), '[]') as products
      from carriers c left join carrier_products p on p.carrier_id = c.id
      where $1::uuid is null or c.id = $1 group by c.id order by c.name`, [id ?? null]);
   return rows.map((r) => ({
@@ -103,20 +108,35 @@ salesRouter.patch('/products/:id', async (req, res) => {
   }));
 });
 
-// ─── Agentes: dueño de agencia, Discord y porcentajes ───
+salesRouter.put('/products/:id/grid', async (req, res) => {
+  requireRole(req, 'admin');
+  const id = Id.parse(req.params.id);
+  const body = parse(GridBody, req.body);
+  res.json(await tx(req, async (db) => {
+    const p = (await db.query('select carrier_id from carrier_products where id = $1', [id])).rows[0];
+    if (!p) throw new HttpError(404, 'product_not_found', 'Producto no encontrado');
+    await db.query('delete from comp_grid where product_id = $1 and effective_from = $2', [id, body.effectiveFrom]);
+    await db.query(
+      `insert into comp_grid (workspace_id, product_id, effective_from, level, rate)
+       select app_ws(), $1, $2, x.level, x.rate from json_to_recordset($3) as x(level int, rate numeric)`,
+      [id, body.effectiveFrom, JSON.stringify(body.rows)]);
+    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'product.grid_set', targetType: 'product', targetId: id, meta: body });
+    return oneCarrier(db, p.carrier_id);
+  }));
+});
+
+// ─── Agentes: dueño de agencia, Discord y nivel de contrato ───
 
 async function listAgents(db: pg.PoolClient, userId: string | null): Promise<AgentProfile[]> {
   const { rows } = await db.query(
     `select m.user_id, p.upline_user_id, p.discord_user_id,
-       coalesce((select json_agg(json_build_object('productId', r.product_id, 'rate', r.rate, 'effectiveFrom', ${day('r.effective_from')})
-                 order by r.product_id, r.effective_from desc)
-                 from commission_rates r where r.user_id = m.user_id), '[]') as rates
+       coalesce((select json_agg(json_build_object('level', l.level, 'effectiveFrom', ${day('l.effective_from')}) order by l.effective_from desc)
+                 from agent_levels l where l.user_id = m.user_id), '[]') as levels
      from workspace_members m left join agent_profiles p on p.workspace_id = m.workspace_id and p.user_id = m.user_id
      where m.workspace_id = app_ws() and m.role <> 'guest' and ($1::uuid is null or m.user_id = $1)
      order by m.joined_at`, [userId]);
   return rows.map((r) => ({
-    userId: r.user_id, uplineUserId: r.upline_user_id, discordUserId: r.discord_user_id,
-    rates: r.rates.map((x: any) => ({ ...x, rate: Number(x.rate) })),
+    userId: r.user_id, uplineUserId: r.upline_user_id, discordUserId: r.discord_user_id, levels: r.levels,
   }));
 }
 const oneAgent = async (db: pg.PoolClient, userId: string) => {
@@ -147,18 +167,17 @@ salesRouter.patch('/agents/:userId', async (req, res) => {
   }));
 });
 
-salesRouter.post('/agents/:userId/rates', async (req, res) => {
+salesRouter.post('/agents/:userId/levels', async (req, res) => {
   requireRole(req, 'admin');
   const userId = Id.parse(req.params.userId);
-  const body = parse(RateBody, req.body);
+  const body = parse(LevelBody, req.body);
   res.json(await tx(req, async (db) => {
     await oneAgent(db, userId);
     await db.query(
-      `insert into commission_rates (workspace_id, user_id, product_id, effective_from, rate, set_by)
-       values (app_ws(), $1, $2, $3, $4, app_user())
-       on conflict (workspace_id, user_id, product_id, effective_from) do update set rate = excluded.rate, set_by = excluded.set_by, set_at = now()`,
-      [userId, body.productId, body.effectiveFrom, body.rate]);
-    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'agent.rate_set', targetType: 'user', targetId: userId, meta: body });
+      `insert into agent_levels (workspace_id, user_id, effective_from, level, set_by) values (app_ws(), $1, $2, $3, app_user())
+       on conflict (workspace_id, user_id, effective_from) do update set level = excluded.level, set_by = excluded.set_by, set_at = now()`,
+      [userId, body.effectiveFrom, body.level]);
+    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'agent.level_set', targetType: 'user', targetId: userId, meta: body });
     return oneAgent(db, userId);
   }));
 });
@@ -256,12 +275,18 @@ salesRouter.patch('/sales/:id', async (req, res) => {
   }));
 });
 
-/** % vigente del agente en el producto a la fecha de ISSUE (el más reciente con vigencia <= fecha) */
-async function rateAt(db: pg.PoolClient, userId: string, productId: string, date: string): Promise<number | null> {
+/** Nivel del agente y su % en el producto a la fecha de ISSUE (nivel y tabla: los más recientes con vigencia <= fecha) */
+async function rateAt(db: pg.PoolClient, userId: string, productId: string, date: string) {
+  const who = (await db.query('select name from users where id = $1', [userId])).rows[0]?.name ?? '';
+  const lvl = (await db.query(
+    'select level from agent_levels where user_id = $1 and effective_from <= $2 order by effective_from desc limit 1', [userId, date])).rows[0];
+  if (!lvl) throw new HttpError(409, 'missing_level', `${who} no tiene nivel de contrato a esa fecha`);
   const { rows } = await db.query(
-    `select rate from commission_rates where user_id = $1 and product_id = $2 and effective_from <= $3
-     order by effective_from desc limit 1`, [userId, productId, date]);
-  return rows[0] ? Number(rows[0].rate) : null;
+    `select g.rate, p.name from carrier_products p left join comp_grid g on g.product_id = p.id and g.level = $2
+       and g.effective_from = (select max(effective_from) from comp_grid where product_id = p.id and effective_from <= $3)
+     where p.id = $1`, [productId, lvl.level, date]);
+  if (rows[0]?.rate == null) throw new HttpError(409, 'missing_rate', `La tabla de ${rows[0]?.name ?? 'este producto'} no tiene el nivel ${lvl.level} de ${who} a esa fecha`);
+  return { userId, level: lvl.level as number, rate: Number(rows[0].rate) };
 }
 
 salesRouter.post('/sales/:id/issue', async (req, res) => {
@@ -271,22 +296,15 @@ salesRouter.post('/sales/:id/issue', async (req, res) => {
   res.json(await tx(req, async (db) => {
     const sale = await oneSale(db, id, true);
     if (sale.status !== 'pending') throw new HttpError(409, 'sale_not_pending', 'Esta venta ya no está pendiente de ISSUE');
-    const who = async (uid: string) => (await db.query('select name from users where id = $1', [uid])).rows[0]?.name ?? '';
-
-    const agentRate = await rateAt(db, sale.agentUserId, sale.productId, issuedAt);
-    if (agentRate == null) throw new HttpError(409, 'missing_rate', `${await who(sale.agentUserId)} no tiene porcentaje para este producto a esa fecha`);
-    let upline: { userId: string; rate: number } | null = null;
-    if (sale.uplineUserId) {
-      const r = await rateAt(db, sale.uplineUserId, sale.productId, issuedAt);
-      if (r == null) throw new HttpError(409, 'missing_rate', `${await who(sale.uplineUserId)} (dueño de agencia) no tiene porcentaje para este producto a esa fecha`);
-      upline = { userId: sale.uplineUserId, rate: r };
-    }
+    const agent = await rateAt(db, sale.agentUserId, sale.productId, issuedAt);
+    const upline = sale.uplineUserId ? await rateAt(db, sale.uplineUserId, sale.productId, issuedAt) : null;
+    const levels = new Map([[agent.userId, agent.level], ...(upline ? [[upline.userId, upline.level] as const] : [])]);
     const { advance_months } = (await db.query('select advance_months from carriers where id = $1', [sale.carrierId])).rows[0];
-    for (const i of installments(toCents(sale.amount), advance_months, commissionShares({ userId: sale.agentUserId, rate: agentRate }, upline))) {
+    for (const i of installments(toCents(sale.amount), advance_months, commissionShares(agent, upline))) {
       await db.query(
-        `insert into commission_installments (workspace_id, sale_id, beneficiary_user_id, kind, part, rate, amount, due_date)
-         values (app_ws(), $1, $2, $3, $4, $5, $6, $7::date + make_interval(months => $8))`,
-        [id, i.beneficiaryUserId, i.kind, i.part, i.rate, i.amountCents / 100, issuedAt, i.monthsAfterIssue]);
+        `insert into commission_installments (workspace_id, sale_id, beneficiary_user_id, kind, part, level, rate, amount, due_date)
+         values (app_ws(), $1, $2, $3, $4, $5, $6, $7, $8::date + make_interval(months => $9))`,
+        [id, i.beneficiaryUserId, i.kind, i.part, levels.get(i.beneficiaryUserId), i.rate, i.amountCents / 100, issuedAt, i.monthsAfterIssue]);
     }
     await db.query("update sales set status = 'issued', issued_at = $2, updated_at = now() where id = $1", [id, issuedAt]);
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'sale.issued', targetType: 'sale', targetId: id, meta: { issuedAt } });
@@ -316,15 +334,15 @@ salesRouter.post('/sales/:id/cancel', async (req, res) => {
     // Lo no pagado se anula; sobre lo ya pagado la compañía descuenta el % indicado
     await db.query("update commission_installments set status = 'void' where sale_id = $1 and status = 'pending'", [id]);
     const paid = (await db.query(
-      `select beneficiary_user_id, kind, max(rate) as rate, sum(amount) as amount from commission_installments
+      `select beneficiary_user_id, kind, max(level) as level, max(rate) as rate, sum(amount) as amount from commission_installments
        where sale_id = $1 and status = 'paid' and part <> 'chargeback' group by beneficiary_user_id, kind`, [id])).rows;
     for (const p of paid) {
       const cents = chargebackCents(toCents(p.amount), chargebackPercent);
       if (cents >= 0) continue;
       await db.query(
-        `insert into commission_installments (workspace_id, sale_id, beneficiary_user_id, kind, part, rate, amount, due_date)
-         values (app_ws(), $1, $2, $3, 'chargeback', $4, $5, ${TODAY})`,
-        [id, p.beneficiary_user_id, p.kind, p.rate, cents / 100]);
+        `insert into commission_installments (workspace_id, sale_id, beneficiary_user_id, kind, part, level, rate, amount, due_date)
+         values (app_ws(), $1, $2, $3, 'chargeback', $4, $5, $6, ${TODAY})`,
+        [id, p.beneficiary_user_id, p.kind, p.level, p.rate, cents / 100]);
     }
     await db.query("update sales set status = 'cancelled', updated_at = now() where id = $1", [id]);
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'sale.cancelled', targetType: 'sale', targetId: id, meta: { chargebackPercent } });
@@ -349,7 +367,7 @@ async function queryInstallments(req: Request, q: ReturnType<typeof CommissionsQ
     [q.from ?? null, q.to ?? null, q.beneficiaryUserId ?? null, q.status ?? null],
   )).rows.map((r) => ({
     id: r.id, saleId: r.sale_id, beneficiaryUserId: r.beneficiary_user_id, kind: r.kind, part: r.part,
-    rate: Number(r.rate), amount: Number(r.amount), dueDate: r.due, status: r.status, paidAt: r.paid,
+    level: r.level, rate: Number(r.rate), amount: Number(r.amount), dueDate: r.due, status: r.status, paidAt: r.paid,
     sale: { agentUserId: r.agent_user_id, carrierId: r.carrier_id, productId: r.product_id, clientName: r.client_name,
       amount: Number(r.sale_amount), issuedAt: r.issued, status: r.sale_status },
   })));
@@ -367,9 +385,9 @@ salesRouter.get('/commissions.csv', async (req, res) => {
   const names = await nameMaps(req);
   const PART = { advance: 'Adelanto', remainder: 'Resto 12 meses', chargeback: 'Chargeback' };
   sendCsv(res, 'comisiones.csv', [
-    ['Beneficiario', 'Tipo', 'Cuota', 'Agente', 'Cliente', 'Compañía', 'Producto', 'Monto venta', '%', 'Comisión', 'Fecha de pago', 'Estado', 'Pagada el'],
+    ['Beneficiario', 'Tipo', 'Cuota', 'Agente', 'Cliente', 'Compañía', 'Producto', 'Monto venta', 'Nivel', '%', 'Comisión', 'Fecha de pago', 'Estado', 'Pagada el'],
     ...items.map((i) => [names.get(i.beneficiaryUserId), i.kind === 'direct' ? 'Directa' : 'Override', PART[i.part], names.get(i.sale.agentUserId),
-      i.sale.clientName, names.get(i.sale.carrierId), names.get(i.sale.productId), i.sale.amount.toFixed(2), i.rate, i.amount.toFixed(2),
+      i.sale.clientName, names.get(i.sale.carrierId), names.get(i.sale.productId), i.sale.amount.toFixed(2), i.level ?? '', i.rate, i.amount.toFixed(2),
       i.dueDate, i.status, i.paidAt ?? '']),
   ]);
 });
