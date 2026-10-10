@@ -1,4 +1,4 @@
-import type { ErrorRequestHandler } from 'express';
+import type { ErrorRequestHandler, Response } from 'express';
 import { z } from 'zod';
 import { alert } from '../ops/alert.ts';
 
@@ -11,6 +11,16 @@ export class HttpError extends Error {
     this.status = status;
     this.code = code;
   }
+}
+
+/** CSV para Excel: BOM, comillas siempre y prefijo ' en textos que empiezan con = + - @ (no se ejecutan como fórmula) */
+export function sendCsv(res: Response, filename: string, lines: unknown[][]) {
+  const cell = (v: unknown) => {
+    const s = v == null ? '' : String(v);
+    return `"${(/^[=+\-@\t\r]/.test(s) ? `'${s}` : s).replace(/"/g, '""')}"`;
+  };
+  res.set({ 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="${filename}"` });
+  res.send('\ufeff' + lines.map((l) => l.map(cell).join(',')).join('\r\n'));
 }
 
 export const parse = <S extends z.ZodType>(schema: S, data: unknown): z.output<S> => schema.parse(data);

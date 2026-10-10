@@ -7,7 +7,7 @@ import {
   Id, GoalBody, UpdateGoalBody, GoalsQuery, ReportsQuery, SubmitReportBody, DashboardQuery,
   type Goal, type WeeklyReport, type GoalsDashboard,
 } from '@agencia-hub/contracts';
-import { HttpError, parse } from '../platform/http.ts';
+import { HttpError, parse, sendCsv } from '../platform/http.ts';
 import { tx, canManageDept, isAdmin, requireRole, membersOnly } from '../platform/workspace.ts';
 import { audit } from '../platform/model.ts';
 
@@ -159,11 +159,6 @@ goalsRouter.get('/goals/dashboard.csv', async (req, res) => {
     ...(await db.query('select id, name from departments')).rows,
     ...(await db.query('select id, name from business_lines')).rows,
   ].map((r) => [r.id, r.name])));
-  // Comillas siempre; los textos que empiezan con = + - @ se prefijan con ' para que Excel no los ejecute
-  const cell = (v: unknown) => {
-    const s = v == null ? '' : String(v);
-    return `"${(/^[=+\-@\t\r]/.test(s) ? `'${s}` : s).replace(/"/g, '""')}"`;
-  };
   const lines = [['Departamento', 'Línea', 'Meta', 'Unidad', 'Semana', 'Objetivo', 'Logrado', 'Cumplimiento %']];
   for (const r of d.rows) {
     for (const s of r.series) {
@@ -171,6 +166,5 @@ goalsRouter.get('/goals/dashboard.csv', async (req, res) => {
         String(s.target), s.actual == null ? '' : String(s.actual), s.actual == null ? '' : String(Math.round((s.actual / s.target) * 100))]);
     }
   }
-  res.set({ 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="metas.csv"' });
-  res.send('﻿' + lines.map((l) => l.map(cell).join(',')).join('\r\n'));
+  sendCsv(res, 'metas.csv', lines);
 });
