@@ -19,6 +19,7 @@ import { errorText } from '@/platform/errors.ts';
 import { useSales } from './store.ts';
 import { fmtDay, today } from './format.ts';
 import GridModal from './GridModal.vue';
+import DiscordCard from './DiscordCard.vue';
 
 const { t, locale } = useI18n();
 const s = useSession();
@@ -154,8 +155,9 @@ const gridSummary = (p: Product) => {
         </div>
       </section>
 
-      <!-- Compañías y productos -->
+      <!-- Compañías y productos; arriba, la conexión con Discord -->
       <section class="carriers">
+        <DiscordCard />
         <header class="head row"><h2><Building2 :size="20" />{{ t('sales.carriers') }}</h2>
           <Button size="sm" variant="primary" @click="openCarrier(null)"><Plus :size="15" />{{ t('sales.newCarrier') }}</Button></header>
         <EmptyState v-if="!ref_.carriers.length" :icon="Building2" :title="t('sales.noCarriers')" :text="t('sales.noCarriersText')" />

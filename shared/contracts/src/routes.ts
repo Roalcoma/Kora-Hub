@@ -137,6 +137,11 @@ export type Routes = {
   'POST /w/:slug/commissions/pay': R<In<typeof S.PayInstallmentsBody>, NoContent>;           // admin
   'GET /w/:slug/sales-inbox': R<never, S.InboxItem[]>;                                       // admin
   'POST /w/:slug/sales-inbox/:id/dismiss': R<never, NoContent>;                              // admin
+  'POST /w/:slug/sales-inbox/:id/link': R<In<typeof S.LinkInboxAuthorBody>, { created: number }>;  // admin: enlaza al autor y reintenta sus mensajes
+  'POST /w/:slug/sales-inbox/retry': R<never, { created: number }>;                           // admin: tras agregar alias o productos
+  'GET /w/:slug/discord-feed': R<never, S.DiscordFeed>;                                       // admin
+  'PUT /w/:slug/discord-feed': R<In<typeof S.DiscordFeedBody>, S.DiscordFeed>;               // admin
+  'DELETE /w/:slug/discord-feed': R<never, NoContent>;                                        // admin
 
   // ── Webhooks y superadmin (fuera de workspace) ──
   'POST /webhooks/stripe': R<unknown, NoContent>;                                             // firma verificada

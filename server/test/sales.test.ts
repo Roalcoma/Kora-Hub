@@ -8,6 +8,8 @@ import type { AddressInfo } from 'node:net';
 import { app } from '../src/index.ts';
 import { adminPool, appPool } from '../src/db.ts';
 import { commissionShares, installments } from '../src/sales/commissions.ts';
+import { pollDiscord } from '../src/sales/discord.ts';
+import { parseSale } from '../src/sales/parse.ts';
 
 let server: Server;
 let base = '';
@@ -237,4 +239,90 @@ test('aislamiento: la agencia B no ve ni toca las ventas de la A', async () => {
   const me = (await outsider('GET', B(''))).body.me.userId;
   assert.equal((await outsider('POST', B('/sales'), { agentUserId: me, productId: iulId, amount: 1, clientName: 'x', expectedIssueDate: '2026-10-01' })).status, 400);
   assert.equal((await outsider('GET', A('/sales'))).status, 404);
+});
+
+// ═══ Discord ═══
+
+const CATALOG = [
+  { id: 'AM', name: 'Americo', aliases: ['americo'], products: [{ id: 'ID', name: 'Instant Decision', aliases: ['iul'] }] },
+  { id: 'NLG', name: 'National Life Group', aliases: ['nlg'], products: [{ id: 'FLEX', name: 'Flex Life IUL', aliases: ['iul'] }] },
+  { id: 'MOO', name: 'Mutual of Omaha', aliases: ['moo', 'mutual of omaha'], products: [{ id: 'IULE', name: 'IULE', aliases: ['iul'] }] },
+];
+
+test('lector: los mensajes reales del #ventas de VFS', () => {
+  assert.deepEqual(parseSale('$1200  NLG IUL Upon issue NY (Danielle Cardenas)', '2026-10-08', CATALOG), {
+    problems: [], clientName: 'Danielle Cardenas', amount: 1200, expectedIssueDate: '2026-10-08', carrierId: 'NLG', productId: 'FLEX', clientState: 'NY' });
+  assert.deepEqual(parseSale('$1199.88 Americo IUL 10/23 OK (Jose Gonzalez Valdez)', '2026-10-08', CATALOG), {
+    problems: [], clientName: 'Jose Gonzalez Valdez', amount: 1199.88, expectedIssueDate: '2026-10-23', carrierId: 'AM', productId: 'ID', clientState: 'OK' });
+  // FEX no es un producto de la agencia: entiende el resto y marca el producto
+  assert.deepEqual(parseSale('$1800 FEX AMÉRICO UPPON ISSUE(Norma Salgado)', '2026-10-09', CATALOG), {
+    problems: ['product'], clientName: 'Norma Salgado', amount: 1800, expectedIssueDate: '2026-10-09', carrierId: 'AM' });
+  assert.equal(parseSale('$960 MOO IUL Upon Issue CA (Vilma)', '2026-10-09', CATALOG).productId, 'IULE');
+  // Fecha sin año ya pasada hace meses = la del año siguiente; sin compañía ni paréntesis
+  assert.deepEqual(parseSale('$2,400 IUL 1/05', '2026-12-20', CATALOG), { problems: ['client', 'carrier'], amount: 2400, expectedIssueDate: '2027-01-05' });
+});
+
+test('canal de Discord: ventas completas, bandeja, enlazar autor y sin duplicados', async () => {
+  const flake = (iso: string, n: number) => (((BigInt(Date.parse(iso)) - 1420070400000n) << 22n) + BigInt(n)).toString();
+  const msg = (n: number, iso: string, author: [string, string], content: string, bot = false) =>
+    ({ id: flake(iso, n), type: 0, content, timestamp: iso, author: { id: author[0], username: author[1], global_name: author[1], bot } });
+  const cesar = ['123456789012', 'Cesar'] as [string, string], nani = ['222222222222222222', 'Nanishka M Reyes Padua'] as [string, string];
+  const vero = ['333333333333333333', 'Maria V Salas'] as [string, string];
+  const messages = [
+    msg(1, '2026-10-09T00:22:00Z', cesar, '$1200  NLG IUL Upon issue NY (Danielle Cardenas)'),
+    msg(2, '2026-10-09T00:34:00Z', nani, '$1199.88 Americo IUL 10/23 OK (Jose Gonzalez Valdez)'),
+    msg(3, '2026-10-09T15:26:00Z', vero, '$1800 FEX AMÉRICO UPPON ISSUE(Norma Salgado)'),
+    msg(4, '2026-10-09T18:00:00Z', vero, '¡Felicidades equipo!'),
+    msg(5, '2026-10-10T01:44:00Z', nani, '$960 MOO IUL Upon Issue CA (Vilma)'),
+    msg(6, '2026-10-10T02:00:00Z', ['444444444444444444', 'Bot'], '$5 prueba', true),
+  ];
+  let auth = '';
+  const fake = createServer((req, res) => {
+    auth = req.headers.authorization ?? '';
+    const after = BigInt(new URL(req.url!, 'http://x').searchParams.get('after')!);
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify(messages.filter((m) => BigInt(m.id) > after).reverse()));   // Discord: del más nuevo al más viejo
+  });
+  await new Promise<void>((r) => fake.listen(0, r));
+  process.env.DISCORD_API_URL = `http://localhost:${(fake.address() as AddressInfo).port}`;
+  process.env.DISCORD_BOT_TOKEN = 'token-de-prueba';
+  try {
+    assert.equal((await ana('GET', A('/discord-feed'))).status, 403);
+    const f = await owner('PUT', A('/discord-feed'), { channelId: '999999999999999999', importSince: '2026-10-08' });
+    assert.equal(f.body.botConfigured, true);
+    await pollDiscord();
+    assert.equal(auth, 'Bot token-de-prueba');
+
+    const fromDiscord = async () => (await owner('GET', A('/sales'))).body.items.filter((s: any) => s.source === 'discord');
+    const first = await fromDiscord();
+    assert.deepEqual(first.map((s: any) => [s.agentUserId, s.clientName, s.amount, s.expectedIssueDate, s.clientState, s.status]),
+      [[anaId, 'Danielle Cardenas', 1200, '2026-10-08', 'NY', 'pending']]);   // 8:22 pm del 8 en Nueva York
+    const inbox = (await owner('GET', A('/sales-inbox'))).body;
+    assert.deepEqual(inbox.map((i: any) => [i.authorName, i.problems]).sort(), [
+      ['Maria V Salas', ['product', 'agent']], ['Nanishka M Reyes Padua', ['agent']], ['Nanishka M Reyes Padua', ['agent']]].sort());
+
+    // Enlazar a Nanishka (aquí Omar) convierte sus dos mensajes en ventas
+    const link = await owner('POST', A(`/sales-inbox/${inbox.find((i: any) => i.discordUserId === nani[0]).id}/link`), { userId: omarId });
+    assert.deepEqual(link.body, { created: 2 });
+    assert.equal((await owner('GET', A('/agents'))).body.find((a: any) => a.userId === omarId).discordUserId, nani[0]);
+    const vero1 = (await owner('GET', A('/sales-inbox'))).body;
+    assert.equal(vero1.length, 1);
+    assert.equal(vero1[0].parsed.amount, 1800);
+
+    // Releer el canal desde el mismo día no duplica nada
+    await owner('PUT', A('/discord-feed'), { channelId: '999999999999999999', importSince: '2026-10-08' });
+    await pollDiscord();
+    assert.equal((await fromDiscord()).length, 3);
+    const state = (await owner('GET', A('/discord-feed'))).body;
+    assert.equal(state.lastError, null);
+    assert.equal(state.pendingInbox, 1);
+
+    // Descartar; la agencia B no toca la bandeja de la A
+    assert.equal((await outsider('POST', `/w/${slugB}/sales-inbox/${vero1[0].id}/link`, { userId: omarId })).status, 404);
+    assert.equal((await owner('POST', A(`/sales-inbox/${vero1[0].id}/dismiss`))).status, 204);
+    assert.equal((await owner('GET', A('/sales-inbox'))).body.length, 0);
+  } finally {
+    delete process.env.DISCORD_BOT_TOKEN;
+    fake.close();
+  }
 });

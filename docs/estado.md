@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-_Lo mantiene el orquestador. Última actualización: 2026-10-07 (Ola 4)._
+_Lo mantiene el orquestador. Última actualización: 2026-10-10 (módulo de ventas y comisiones)._
 
 **Regla de diseño vigente:** profundidad con sombras y composición asimétrica en toda pantalla (CLAUDE.md, regla 6).
 
@@ -113,3 +113,22 @@ con sus tres productos).
 - `/admin` filtra en el cliente; usar `?q=&status=` cuando haya muchas agencias.
 - Las pruebas comparten la BD de desarrollo: una corrida fallida deja agencias `fact-*`/`test-*` sueltas. Conviene una BD de pruebas aparte.
 - Fuera de la ola: exportación de datos y baja con borrado (Ola 5), segunda agencia desde el riel, landing.
+
+## Ventas y comisiones (VFS) — en compuerta (plan: [plan-comisiones.md](plan-comisiones.md))
+
+Pedido de VFS el 2026-10-10; producción espera a este módulo. Rama `feat/comisiones`.
+
+- **A · Datos, cálculo y API** — hecho. Migración 0007, contrato `shared/contracts/src/sales.ts`, `server/src/sales/`.
+  % = nivel de contrato FFL del agente × tabla del producto (ambos con vigencia); override de un nivel (dueño de
+  agencia); 75 % al ISSUE y 25 % a los 12 meses; chargebacks como cuotas negativas. Verificado con las ventas reales.
+- **B · Pantallas** — hecho. `web/src/sales/`: Ventas, Comisiones, Bandeja de Discord y Configuración.
+  Agencia de prueba local: `node ops/seed-vfs.ts` (oficina@vfs.test, lendry.labrador@vfs.test, cesar.david@vfs.test;
+  clave `demo-local-12345`).
+- **C · Lector de Discord** — hecho y probado contra un Discord simulado con los mensajes reales. Falta crear el
+  bot real de VFS y poner `DISCORD_BOT_TOKEN` (guía en plan-comisiones.md §8).
+
+### Pendientes del módulo
+- Crear el bot de Discord de VFS, conectar el canal `#ventas` y enlazar a cada agente (desde la bandeja: "¿Quién es…?").
+- Revisión de Rodrigo en local antes de desplegar.
+- No incluido a propósito: descontar automáticamente el chargeback del siguiente pago (se marca pagado como las demás
+  cuotas), overrides de más de un nivel, FEX y otros productos (se agregan desde Configuración cuando VFS los use).

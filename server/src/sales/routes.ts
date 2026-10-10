@@ -6,17 +6,18 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import type pg from 'pg';
 import {
   Id, CarrierBody, UpdateCarrierBody, ProductBody, UpdateProductBody, GridBody, UpdateAgentProfileBody, LevelBody,
-  SaleBody, UpdateSaleBody, IssueSaleBody, CancelSaleBody, SalesQuery, CommissionsQuery, PayInstallmentsBody,
-  type Carrier, type AgentProfile, type Sale, type SalesList, type Installment, type CommissionsList, type InboxItem,
+  SaleBody, UpdateSaleBody, IssueSaleBody, CancelSaleBody, SalesQuery, CommissionsQuery, PayInstallmentsBody, DiscordFeedBody, LinkInboxAuthorBody,
+  type Carrier, type AgentProfile, type Sale, type SalesList, type Installment, type CommissionsList, type InboxItem, type DiscordFeed,
 } from '@agencia-hub/contracts';
 import { HttpError, parse, sendCsv } from '../platform/http.ts';
 import { tx, isAdmin, requireRole, membersOnly } from '../platform/workspace.ts';
 import { audit } from '../platform/model.ts';
 import { commissionShares, installments, chargebackCents, toCents } from './commissions.ts';
+import { discordConfigured, retryInbox, snowflakeAt } from './discord.ts';
 
 export const salesRouter = Router({ mergeParams: true });
 
-const PATHS = ['/carriers', '/products', '/agents', '/sales', '/sales.csv', '/commissions', '/commissions.csv', '/sales-inbox'];
+const PATHS = ['/carriers', '/products', '/agents', '/sales', '/sales.csv', '/commissions', '/commissions.csv', '/sales-inbox', '/discord-feed'];
 salesRouter.use(PATHS, membersOnly, async (req: Request, _res: Response, next: NextFunction) => {
   const on = await tx(req, async (db) => (await db.query("select settings->>'sales_module' = 'true' as on from workspaces where id = app_ws()")).rows[0]?.on);
   if (!on) throw new HttpError(404, 'module_disabled', 'El módulo de ventas no está activo en esta agencia');
@@ -163,6 +164,8 @@ salesRouter.patch('/agents/:userId', async (req, res) => {
          discord_user_id = case when $4 then excluded.discord_user_id else agent_profiles.discord_user_id end`,
       [userId, body.uplineUserId !== undefined, body.uplineUserId ?? null, body.discordUserId !== undefined, body.discordUserId ?? null]);
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'agent.profile_changed', targetType: 'user', targetId: userId, meta: body });
+    // Sus mensajes que esperaban en la bandeja por no estar enlazado se vuelven ventas
+    if (body.discordUserId) await retryInbox(db, body.discordUserId);
     return oneAgent(db, userId);
   }));
 });
@@ -421,6 +424,66 @@ salesRouter.post('/sales-inbox/:id/dismiss', async (req, res) => {
   await tx(req, async (db) => {
     const { rowCount } = await db.query('update sale_inbox set resolved_at = now(), resolved_by = app_user() where id = $1 and resolved_at is null', [id]);
     if (!rowCount) throw new HttpError(404, 'inbox_not_found', 'Ese mensaje ya se resolvió o no existe');
+  });
+  res.status(204).end();
+});
+
+salesRouter.post('/sales-inbox/retry', async (req, res) => {
+  requireRole(req, 'admin');
+  res.json({ created: await tx(req, (db) => retryInbox(db)) });
+});
+
+salesRouter.post('/sales-inbox/:id/link', async (req, res) => {
+  requireRole(req, 'admin');
+  const id = Id.parse(req.params.id);
+  const { userId } = parse(LinkInboxAuthorBody, req.body);
+  res.json(await tx(req, async (db) => {
+    const it = (await db.query('select discord_user_id from sale_inbox where id = $1', [id])).rows[0];
+    if (!it) throw new HttpError(404, 'inbox_not_found', 'Ese mensaje no existe');
+    // Un usuario de Discord es de un solo miembro: si estaba en otro perfil, se mueve
+    await db.query('update agent_profiles set discord_user_id = null where discord_user_id = $1 and user_id <> $2', [it.discord_user_id, userId]);
+    await db.query(
+      `insert into agent_profiles (workspace_id, user_id, discord_user_id) values (app_ws(), $1, $2)
+       on conflict (workspace_id, user_id) do update set discord_user_id = excluded.discord_user_id`, [userId, it.discord_user_id]);
+    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'agent.profile_changed', targetType: 'user', targetId: userId,
+      meta: { discordUserId: it.discord_user_id } });
+    return { created: await retryInbox(db, it.discord_user_id) };
+  }));
+});
+
+// ─── Canal de Discord ───
+
+async function feedState(db: pg.PoolClient): Promise<DiscordFeed> {
+  const f = (await db.query('select * from discord_feeds where workspace_id = app_ws()')).rows[0];
+  const { n } = (await db.query('select count(*)::int as n from sale_inbox where resolved_at is null')).rows[0];
+  return { botConfigured: discordConfigured(), channelId: f?.channel_id ?? null, lastPolledAt: f?.last_polled_at?.toISOString() ?? null,
+    lastError: f?.last_error ?? null, pendingInbox: n };
+}
+
+salesRouter.get('/discord-feed', async (req, res) => {
+  requireRole(req, 'admin');
+  res.json(await tx(req, feedState));
+});
+
+salesRouter.put('/discord-feed', async (req, res) => {
+  requireRole(req, 'admin');
+  const body = parse(DiscordFeedBody, req.body);
+  res.json(await tx(req, async (db) => {
+    // Leer desde ese día: los mensajes ya procesados no se duplican (id de mensaje único)
+    await db.query(
+      `insert into discord_feeds (workspace_id, channel_id, last_message_id) values (app_ws(), $1, $2)
+       on conflict (workspace_id) do update set channel_id = excluded.channel_id, last_message_id = excluded.last_message_id, last_error = null`,
+      [body.channelId, snowflakeAt(body.importSince)]);
+    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'discord.connected', meta: body });
+    return feedState(db);
+  }));
+});
+
+salesRouter.delete('/discord-feed', async (req, res) => {
+  requireRole(req, 'admin');
+  await tx(req, async (db) => {
+    await db.query('delete from discord_feeds where workspace_id = app_ws()');
+    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'discord.disconnected' });
   });
   res.status(204).end();
 });

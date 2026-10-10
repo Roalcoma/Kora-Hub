@@ -141,3 +141,15 @@ Cada agente que vende tendrá su cuenta en Kora (confirmado). Pendiente solo cre
   85 Nanishka y Yelitza, 100 Miguel Angel y Veronica.
 - En Discord, "Maria V Salas" es Veronica V Salas Castillo.
 - Las 3 ventas del 8-9 oct con producto válido quedaron como prueba automática (`server/test/sales.test.ts`).
+
+## 8. Crear el bot de Discord (una sola vez)
+
+1. En https://discord.com/developers/applications → **New Application** ("Kora ventas").
+2. **Bot** → **Reset Token** → copiar el token a `DISCORD_BOT_TOKEN` en el `.env` del servidor (nunca al repo).
+   En la misma página, activar **Message Content Intent**.
+3. **OAuth2 → URL Generator**: scope `bot`, permisos **View Channels** y **Read Message History**. Abrir la URL y
+   agregar el bot al servidor de VFS.
+4. En Discord: Ajustes de usuario → Avanzado → **Modo desarrollador**. Clic derecho en `#ventas` → **Copiar ID del canal**.
+5. En Kora: Ventas → Configuración → *Canal de ventas de Discord*: pegar el ID y elegir desde qué día leer.
+6. Los mensajes de agentes sin enlazar esperan en la **Bandeja de Discord**: "¿Quién es…?" enlaza al autor y sus
+   ventas se crean solas.

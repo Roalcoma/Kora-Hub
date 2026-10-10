@@ -54,11 +54,20 @@ export type CommissionsList = {
   totals: { pending: number; paid: number };   // anuladas no suman
 };
 
+/** Qué le faltó a un mensaje de Discord: monto, compañía, producto, fecha, cliente o agente sin enlazar */
+export const INBOX_PROBLEMS = ['amount', 'carrier', 'product', 'date', 'client', 'agent'] as const;
+export type InboxProblem = (typeof INBOX_PROBLEMS)[number];
 /** Mensaje de Discord que el lector no pudo completar */
 export type InboxItem = {
   id: Id; discordUserId: string; authorName: string; content: string; postedAt: IsoDate;
   parsed: Partial<Pick<Sale, 'agentUserId' | 'carrierId' | 'productId' | 'amount' | 'clientName' | 'clientState' | 'expectedIssueDate'>>;
-  problems: string[];
+  problems: InboxProblem[];
+};
+
+/** Canal de ventas de Discord conectado a la agencia */
+export type DiscordFeed = {
+  botConfigured: boolean;                 // el servidor tiene DISCORD_BOT_TOKEN
+  channelId: string | null; lastPolledAt: IsoDate | null; lastError: string | null; pendingInbox: number;
 };
 
 // ─── Entradas ───
@@ -107,4 +116,8 @@ export const CommissionsQuery = z.object({
   from: Day.optional(), to: Day.optional(),            // por fecha de pago
   beneficiaryUserId: Id.optional(), status: z.enum(INSTALLMENT_STATUS).optional(),
 });
+const Snowflake = z.string().regex(/^\d{15,25}$/, 'ID de Discord inválido');
+export const DiscordFeedBody = z.object({ channelId: Snowflake, importSince: Day });   // lee el canal desde ese día
+export const LinkInboxAuthorBody = z.object({ userId: Id });                         // el autor de Discord es este miembro
+
 export const PayInstallmentsBody = z.object({ ids: z.array(Id).min(1).max(500), paidAt: Day.nullable() });   // null = deshacer

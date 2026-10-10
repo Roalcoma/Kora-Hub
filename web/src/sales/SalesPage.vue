@@ -9,22 +9,32 @@ import Skeleton from '@/design/Skeleton.vue';
 import { toast } from '@/design/toast.ts';
 import { useSession } from '@/stores/session.ts';
 import { errorText } from '@/platform/errors.ts';
+import { api } from '@/api.ts';
 import { useSales } from './store.ts';
 import SalesTab from './SalesTab.vue';
 import CommissionsTab from './CommissionsTab.vue';
 import SetupTab from './SetupTab.vue';
+import InboxTab from './InboxTab.vue';
 
-type Tab = 'sales' | 'commissions' | 'setup';
+type Tab = 'sales' | 'commissions' | 'inbox' | 'setup';
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const s = useSession();
 const sales = useSales();
 
+/** Mensajes de Discord por revisar (solo Admin) */
+const inboxCount = ref(0);
+const countInbox = async () => {
+  if (s.isAdmin) inboxCount.value = (await api('GET /w/:slug/discord-feed', { params: { slug: s.workspace!.slug } })).pendingInbox;
+};
 const tabs = computed(() => [
   { value: 'sales' as const, label: t('sales.tabs.sales') },
   { value: 'commissions' as const, label: t('sales.tabs.commissions') },
-  ...(s.isAdmin ? [{ value: 'setup' as const, label: t('sales.tabs.setup') }] : []),
+  ...(s.isAdmin ? [
+    { value: 'inbox' as const, label: t('sales.tabs.inbox'), count: inboxCount.value || undefined },
+    { value: 'setup' as const, label: t('sales.tabs.setup') },
+  ] : []),
 ]);
 const tab = computed<Tab>({
   get: () => (tabs.value.some((x) => x.value === route.params.tab) ? route.params.tab as Tab : 'sales'),
@@ -34,7 +44,7 @@ const tab = computed<Tab>({
 const ready = ref(false);
 onMounted(async () => {
   try {
-    await sales.load(true);
+    await Promise.all([sales.load(true), countInbox()]);
     ready.value = true;
   } catch (e) { toast(errorText(e), 'error'); }
 });
@@ -50,6 +60,7 @@ onMounted(async () => {
     <div v-if="!ready" class="grid gap-3 p-7"><Skeleton v-for="n in 4" :key="n" height="52px" /></div>
     <SalesTab v-else-if="tab === 'sales'" />
     <CommissionsTab v-else-if="tab === 'commissions'" />
+    <InboxTab v-else-if="tab === 'inbox'" @changed="countInbox" />
     <SetupTab v-else />
   </div>
 </template>
