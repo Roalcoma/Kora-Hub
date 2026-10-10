@@ -9,6 +9,8 @@ import Dropdown from '@/design/Dropdown.vue';
 import Button from '@/design/Button.vue';
 import Badge from '@/design/Badge.vue';
 import EmptyState from '@/design/EmptyState.vue';
+import Pagination from '@/design/Pagination.vue';
+import { usePaged } from '@/design/paged.ts';
 import Skeleton from '@/design/Skeleton.vue';
 import { toast } from '@/design/toast.ts';
 import { api } from '@/api.ts';
@@ -53,6 +55,8 @@ async function load() {
 watch(query, load, { immediate: true });
 
 const rows = computed(() => (items.value ?? []).filter((i) => !who.value || i.beneficiaryUserId === who.value));
+const { page, size, rows: pageRows, total } = usePaged(rows);
+const pagerLabels = computed(() => ({ prev: t('common.pager.prev'), next: t('common.pager.next'), perPage: t('common.pager.perPage'), of: t('common.pager.of') }));
 const whoOptions = computed(() => [{ value: '', label: t('sales.everyone') },
   ...[...new Set((items.value ?? []).map((i) => i.beneficiaryUserId))].map((id) => ({ value: id, label: ref_.memberName(id) }))
     .sort((a, b) => a.label.localeCompare(b.label))]);
@@ -144,14 +148,14 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th v-if="s.isAdmin" scope="col"><input type="checkbox" :checked="allOn" :aria-label="t('sales.selectAll')" @change="toggleAll"></th>
+            <th v-if="s.isAdmin" scope="col"><input type="checkbox" :checked="allOn" :aria-label="t('sales.selectAll', { n: payable.length })" :title="t('sales.selectAll', { n: payable.length })" @change="toggleAll"></th>
             <th scope="col">{{ t('sales.dueDate') }}</th><th scope="col">{{ t('sales.beneficiary') }}</th><th scope="col">{{ t('sales.concept') }}</th>
             <th scope="col">{{ t('sales.client') }}</th><th scope="col">{{ t('sales.product') }}</th>
             <th scope="col" class="num">{{ t('sales.saleAmount') }}</th><th scope="col" class="num">{{ t('sales.levelRate') }}</th>
             <th scope="col" class="num">{{ t('sales.commission') }}</th><th scope="col">{{ t('sales.statusLabel') }}</th>
           </tr></thead>
           <tbody>
-            <tr v-for="i in rows" :key="i.id" :class="{ off: i.status === 'void' }">
+            <tr v-for="i in pageRows" :key="i.id" :class="{ off: i.status === 'void' }">
               <td v-if="s.isAdmin"><input v-if="i.status !== 'void'" type="checkbox" :checked="selected.has(i.id)" :aria-label="i.sale.clientName" @change="toggle(i.id)"></td>
               <td class="nowrap">{{ day(i.dueDate) }}</td>
               <td>{{ ref_.memberName(i.beneficiaryUserId) }}</td>
@@ -169,12 +173,13 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
           </tbody>
         </table>
       </div>
+      <Pagination v-model="page" v-model:size="size" :total="total" :labels="pagerLabels" />
     </template>
   </div>
 </template>
 
 <style scoped>
-.body { flex: 1; overflow: auto; display: grid; gap: 18px; align-content: start; padding: 18px 32px 40px 28px; }
+.body { flex: 1; overflow: auto; display: grid; grid-auto-rows: max-content; gap: 18px; align-content: start; padding: 18px 32px 40px 28px; }
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
 .filters :deep(.dd) { width: 210px; }
 .exp { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; margin-left: auto; padding: 0 12px; font-size: 14px; font-weight: 500; color: var(--color-ink); text-decoration: none; background: var(--color-surface); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-sm); transition: box-shadow var(--duration), transform var(--duration); }

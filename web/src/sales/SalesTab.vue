@@ -11,6 +11,8 @@ import Badge from '@/design/Badge.vue';
 import Modal from '@/design/Modal.vue';
 import Input from '@/design/Input.vue';
 import EmptyState from '@/design/EmptyState.vue';
+import Pagination from '@/design/Pagination.vue';
+import { usePaged } from '@/design/paged.ts';
 import Skeleton from '@/design/Skeleton.vue';
 import { toast } from '@/design/toast.ts';
 import { api } from '@/api.ts';
@@ -62,6 +64,8 @@ const rows = computed(() => {
   return base.filter((x) => (!f.agent || x.agentUserId === f.agent) && (!f.carrier || x.carrierId === f.carrier)
     && (!f.status || f.status === 'overdue' || x.status === f.status));
 });
+const { page, size, rows: pageRows, total } = usePaged(rows);
+const pagerLabels = computed(() => ({ prev: t('common.pager.prev'), next: t('common.pager.next'), perPage: t('common.pager.perPage'), of: t('common.pager.of') }));
 const sum = (list: Sale[]) => list.reduce((n, x) => n + Math.round(x.amount * 100), 0) / 100;
 const totals = computed(() => ({
   count: rows.value.length, amount: sum(rows.value),
@@ -165,7 +169,7 @@ const cancel = () => act(() => api('POST /w/:slug/sales/:id/cancel', { params: {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="x in rows" :key="x.id" :class="{ off: x.status === 'declined' || x.status === 'cancelled' }">
+          <tr v-for="x in pageRows" :key="x.id" :class="{ off: x.status === 'declined' || x.status === 'cancelled' }">
             <td class="nowrap">{{ day(x.expectedIssueDate) }}<small v-if="x.issuedAt">ISSUE {{ day(x.issuedAt) }}</small></td>
             <td><b>{{ x.clientName }}</b><small v-if="x.clientState">{{ x.clientState }}</small></td>
             <td>{{ ref_.memberName(x.agentUserId) }}<small v-if="x.uplineUserId">{{ t('sales.under', { name: ref_.memberName(x.uplineUserId) }) }}</small></td>
@@ -189,6 +193,7 @@ const cancel = () => act(() => api('POST /w/:slug/sales/:id/cancel', { params: {
         </tbody>
       </table>
     </div>
+    <Pagination v-if="items && rows.length" v-model="page" v-model:size="size" :total="total" :labels="pagerLabels" />
 
     <SaleModal v-model="modal" :sale="editing" @saved="load" />
 
@@ -222,7 +227,7 @@ const cancel = () => act(() => api('POST /w/:slug/sales/:id/cancel', { params: {
 </template>
 
 <style scoped>
-.body { flex: 1; overflow: auto; display: grid; gap: 18px; align-content: start; padding: 18px 32px 40px 28px; }
+.body { flex: 1; overflow: auto; display: grid; grid-auto-rows: max-content; gap: 18px; align-content: start; padding: 18px 32px 40px 28px; }
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
 .filters :deep(.dd) { width: 200px; }
 .acts { display: flex; gap: 8px; margin-left: auto; }

@@ -4,6 +4,7 @@ export default {
   common: {
     save: 'Save', cancel: 'Cancel', continue: 'Continue', back: 'Back', close: 'Close', copy: 'Copy',
     copied: 'Copied', saved: 'Changes saved', add: 'Add', later: "I'll do it later", loading: 'Loading…',
+    pager: { prev: 'Previous page', next: 'Next page', perPage: 'per page', of: 'of' },
     error: 'Something went wrong. Please try again.', email: 'Email', password: 'Password', name: 'Name',
   },
   category: { singular: 'Category', plural: 'Categories' },
@@ -253,7 +254,7 @@ export default {
     beneficiary: 'Beneficiary', concept: 'Concept', dueDate: 'Payment date', saleAmount: 'Sale', levelRate: 'Level · %', commission: 'Commission',
     commissionTotal: 'Commissions in period', toCollect: 'Unpaid', soldBy: 'sold by {name}',
     noCommissions: 'No commissions in this period', noCommissionsText: 'Commissions show up when a sale is issued.',
-    selected: '{n} installment selected | {n} installments selected', selectAll: 'Select all', paidOn: 'Paid on',
+    selected: '{n} installment selected | {n} installments selected', selectAll: 'Select all {n} in this filter (every page)', paidOn: 'Paid on',
     markPaid: 'Mark as paid', markUnpaid: 'Undo payment', paidOk: 'Installments marked as paid', unpaidOk: 'Payment undone',
     setupIntro: "Each commission % comes from the agent's contract level crossed with the product grid. The agency owner earns the difference between their % and the agent's (override).",
     agentsHint: 'Contract level, agency owner and Discord user for each one', level: 'Level', upline: 'Agency owner',

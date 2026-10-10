@@ -9,6 +9,8 @@ import Button from '@/design/Button.vue';
 import Badge from '@/design/Badge.vue';
 import Dropdown from '@/design/Dropdown.vue';
 import EmptyState from '@/design/EmptyState.vue';
+import Pagination from '@/design/Pagination.vue';
+import { usePaged } from '@/design/paged.ts';
 import Skeleton from '@/design/Skeleton.vue';
 import { toast } from '@/design/toast.ts';
 import { api } from '@/api.ts';
@@ -31,6 +33,8 @@ async function load() {
 }
 onMounted(load);
 
+const { page, size, rows: pageItems, total } = usePaged(computed(() => items.value ?? []));
+const pagerLabels = computed(() => ({ prev: t('common.pager.prev'), next: t('common.pager.next'), perPage: t('common.pager.perPage'), of: t('common.pager.of') }));
 const busy = ref(false);
 async function run(fn: () => Promise<unknown>, ok?: (r: any) => string) {
   busy.value = true;
@@ -65,7 +69,7 @@ const understood = (it: InboxItem) => [
     </div>
     <div v-if="!items" class="grid gap-3"><Skeleton v-for="n in 3" :key="n" height="90px" /></div>
     <EmptyState v-else-if="!items.length" :icon="Inbox" :title="t('sales.inboxEmpty')" :text="t('sales.inboxEmptyText')" />
-    <article v-for="it in items" v-else :key="it.id" class="msg">
+    <article v-for="it in pageItems" v-else :key="it.id" class="msg">
       <header>
         <b>{{ it.authorName }}</b><small>{{ d(it.postedAt, 'long') }}</small>
         <span class="probs"><Badge v-for="p in it.problems" :key="p" tone="warning">{{ t(`sales.problems.${p}`) }}</Badge></span>
@@ -84,12 +88,13 @@ const understood = (it: InboxItem) => [
         </span>
       </footer>
     </article>
+    <Pagination v-if="items?.length" v-model="page" v-model:size="size" :total="total" :labels="pagerLabels" />
     <SaleModal v-model="modal" :inbox="completing" @saved="load" />
   </div>
 </template>
 
 <style scoped>
-.body { flex: 1; overflow: auto; display: grid; gap: 14px; align-content: start; padding: 18px 32px 40px 28px; }
+.body { flex: 1; overflow: auto; display: grid; grid-auto-rows: max-content; gap: 14px; align-content: start; padding: 18px 32px 40px 28px; }
 .head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .intro { margin: 0; max-width: 680px; color: var(--color-muted); line-height: 1.5; }
 .msg { display: grid; gap: 10px; padding: 16px 20px; background: var(--color-surface); border-left: 4px solid var(--color-cat-purple); box-shadow: var(--shadow-md); }

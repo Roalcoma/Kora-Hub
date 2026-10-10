@@ -2,6 +2,7 @@ export default {
   common: {
     save: 'Guardar', cancel: 'Cancelar', continue: 'Continuar', back: 'Volver', close: 'Cerrar', copy: 'Copiar',
     copied: 'Copiado', saved: 'Cambios guardados', add: 'Agregar', later: 'Lo haré después', loading: 'Cargando…',
+    pager: { prev: 'Página anterior', next: 'Página siguiente', perPage: 'por página', of: 'de' },
     error: 'Algo salió mal. Inténtalo de nuevo.', email: 'Email', password: 'Contraseña', name: 'Nombre',
   },
   /** Nombre por defecto de las categorías cuando la agencia no eligió uno propio */
@@ -252,7 +253,7 @@ export default {
     beneficiary: 'Beneficiario', concept: 'Concepto', dueDate: 'Fecha de pago', saleAmount: 'Venta', levelRate: 'Nivel · %', commission: 'Comisión',
     commissionTotal: 'Comisiones del periodo', toCollect: 'Por cobrar', soldBy: 'vendió {name}',
     noCommissions: 'No hay comisiones en este periodo', noCommissionsText: 'Las comisiones aparecen cuando una venta pasa a ISSUED.',
-    selected: '{n} cuota seleccionada | {n} cuotas seleccionadas', selectAll: 'Seleccionar todas', paidOn: 'Pagadas el',
+    selected: '{n} cuota seleccionada | {n} cuotas seleccionadas', selectAll: 'Seleccionar las {n} del filtro (todas las páginas)', paidOn: 'Pagadas el',
     markPaid: 'Marcar pagadas', markUnpaid: 'Deshacer pago', paidOk: 'Cuotas marcadas como pagadas', unpaidOk: 'Pago deshecho',
     setupIntro: 'El % de cada comisión sale del nivel de contrato del agente cruzado con la tabla del producto. El dueño de agencia cobra la diferencia entre su % y el del agente (override).',
     agentsHint: 'Nivel de contrato, dueño de agencia y usuario de Discord de cada uno', level: 'Nivel', upline: 'Dueño de agencia',

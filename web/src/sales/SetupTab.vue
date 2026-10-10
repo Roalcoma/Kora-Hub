@@ -216,7 +216,7 @@ const gridSummary = (p: Product) => {
 </template>
 
 <style scoped>
-.body { flex: 1; overflow: auto; display: grid; gap: 18px; align-content: start; padding: 18px 32px 40px 28px; }
+.body { flex: 1; overflow: auto; display: grid; grid-auto-rows: max-content; gap: 18px; align-content: start; padding: 18px 32px 40px 28px; }
 .intro { margin: 0; max-width: 720px; color: var(--color-muted); line-height: 1.5; }
 .split { display: grid; grid-template-columns: 1.7fr 1fr; gap: 20px; align-items: start; }
 .card { display: grid; gap: 12px; padding: 18px 20px; background: var(--color-surface); box-shadow: var(--shadow-md); }
