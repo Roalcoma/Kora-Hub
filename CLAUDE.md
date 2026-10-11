@@ -68,9 +68,9 @@ Cada agente (`.claude/agents/`) escribe **solo** en su zona. Para tocar otra zon
 | backend-plataforma | `server/src/platform/`, `server/src/index.ts` |
 | backend-chat | `server/src/chat/`, `server/src/realtime/` |
 | backend-notificaciones | `server/src/notifications/`, `server/src/files/`, `server/src/jobs/` |
-| backend-modulos | `server/src/docs/`, `server/src/tasks/`, `server/src/goals/` |
+| backend-modulos | `server/src/docs/`, `server/src/tasks/`, `server/src/goals/`, `server/src/sales/` |
 | frontend-chat | `web/src/chat/`, `web/public/` |
-| frontend-modulos | `web/src/platform/`, `web/src/docs/`, `web/src/tasks/`, `web/src/goals/`, `landing/` |
+| frontend-modulos | `web/src/platform/`, `web/src/docs/`, `web/src/tasks/`, `web/src/goals/`, `web/src/sales/`, `landing/` |
 | qa | `server/test/`, `web/e2e/`, `docs/qa/` |
 | seguridad | solo lectura; reportes en `docs/seguridad/` |
 | devops | `ops/`, `Dockerfile`, `.github/workflows/`, `.env.example`, `package.json` raíz |

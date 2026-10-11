@@ -61,13 +61,11 @@ async function main() {
     const r = await call(null, 'POST', '/invitations/accept', { token: inv.url.split('/invite/')[1], newAccount: { name, password: PASS, locale: 'es' } });
     ids[name] = r.data.user.id;
   }
-  for (const [name, level] of [OWNER, ...AGENTS]) {
-    await call(office, 'POST', w(`/agents/${ids[name]}/levels`), { level, effectiveFrom: '2026-01-01' });
-    if (name !== OWNER[0]) await call(office, 'PATCH', w(`/agents/${ids[name]}`), { uplineUserId: ids[OWNER[0]] });
-  }
+  for (const [name] of AGENTS) await call(office, 'PATCH', w(`/agents/${ids[name]}`), { uplineUserId: ids[OWNER[0]] });
   console.log(`equipo listo: ${AGENTS.length} agentes bajo ${OWNER[0]}`);
 
   const product: Record<string, string> = {};
+  const carrierId: Record<string, string> = {};
   for (const c of CARRIERS) {
     const carrier = (await call(office, 'POST', w('/carriers'), { name: c.name, aliases: c.aliases, advanceMonths: 9 })).data;
     const p = (await call(office, 'POST', w(`/carriers/${carrier.id}/products`), { name: c.product, aliases: c.productAliases })).data.products[0];
@@ -76,8 +74,14 @@ async function main() {
     await call(office, 'PATCH', w(`/carriers/${carrier.id}`), { defaultProductId: p.id });
     if (c.name !== 'National Life Group') await call(office, 'POST', w(`/carriers/${carrier.id}/products`), { name: 'FEX', aliases: ['FEX'] });
     product[c.name] = p.id;
+    carrierId[c.name] = carrier.id;
   }
   console.log('compañías y tablas listas');
+
+  // Nivel de contrato por compañía (ADR 0006): el mismo nivel en las 3
+  for (const [name, level] of [OWNER, ...AGENTS]) {
+    await call(office, 'POST', w(`/agents/${ids[name]}/levels`), { carrierIds: Object.values(carrierId), level, effectiveFrom: '2026-01-01' });
+  }
 
   // Ventas del #ventas de Discord (8-9 oct 2026), a mano. Si después se conecta el canal real, borrar estas para no duplicarlas.
   const sales = [

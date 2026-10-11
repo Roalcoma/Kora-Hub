@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// Comisiones: cuotas por fecha de pago (adelanto al ISSUE, resto a los 12 meses, chargebacks), resumen por
-// beneficiario y, para el Admin, marcar pagadas en lote.
+// Comisiones: cuotas por fecha de pago (adelanto al ISSUE, resto a los 12 meses, chargebacks), filtros por compañía,
+// agente vendedor y beneficiario, resumen por beneficiario y, para el Admin, marcar pagadas en lote.
 import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Download, Wallet, CircleCheck, Undo2, ArrowRight, ArrowLeft } from 'lucide-vue-next';
@@ -17,7 +17,8 @@ import { api } from '@/api.ts';
 import { useSession } from '@/stores/session.ts';
 import { errorText } from '@/platform/errors.ts';
 import { useSales } from './store.ts';
-import { usd, fmtDay, today, addMonths, monthStart, monthEnd } from './format.ts';
+import { usd, fmtDay, today, addMonths, monthStart, monthEnd, customRange, type DateFilterValue } from './format.ts';
+import DateFilter from './DateFilter.vue';
 
 const { t, locale } = useI18n();
 const s = useSession();
@@ -26,21 +27,28 @@ const slug = () => s.workspace!.slug;
 const money = (n: number) => usd(n, locale.value);
 const day = (x: string) => fmtDay(x, locale.value);
 
-type Period = 'month' | 'nextMonth' | 'next12' | 'past' | 'all';
-const period = ref<Period>('month');
+const date = ref<DateFilterValue>({ period: 'month', from: '', to: '' });
+const ALL: DateFilterValue = { period: 'all', from: '', to: '' };
 const who = ref('');
+const carrier = ref('');
+const seller = ref('');
 const status = ref<InstallmentStatus | ''>('');
 const periodOptions = computed(() => (['month', 'nextMonth', 'next12', 'past', 'all'] as const).map((v) => ({ value: v, label: t(`sales.duePeriods.${v}`) })));
 const statusOptions = computed(() => [{ value: '' as const, label: t('sales.allStatuses') },
   ...(['pending', 'paid', 'void'] as const).map((v) => ({ value: v, label: t(`sales.installment.${v}`) }))]);
+const carrierOptions = computed(() => [{ value: '', label: t('sales.allCarriers') }, ...ref_.carriers.map((c) => ({ value: c.id, label: c.name }))]);
+const sellerOptions = computed(() => [{ value: '', label: t('sales.allSellers') },
+  ...ref_.sellers.map((m) => ({ value: m.userId, label: m.name })).sort((a, b) => a.label.localeCompare(b.label))]);
+/** Compañía y agente vendedor van al servidor; el beneficiario se filtra aquí (el salto entre cuotas lo usa) */
 const query = computed(() => {
-  const now = today();
-  const r = period.value === 'month' ? { from: monthStart(now), to: monthEnd(now) }
-    : period.value === 'nextMonth' ? { from: addMonths(monthStart(now), 1), to: monthEnd(addMonths(monthStart(now), 1)) }
-    : period.value === 'next12' ? { from: now, to: addMonths(now, 12) }
-    : period.value === 'past' ? { from: undefined, to: now }
-    : { from: undefined, to: undefined };
-  return { ...r, status: status.value || undefined };
+  const now = today(), p = date.value.period;
+  const r = customRange(date.value)
+    ?? (p === 'month' ? { from: monthStart(now), to: monthEnd(now) }
+    : p === 'nextMonth' ? { from: addMonths(monthStart(now), 1), to: monthEnd(addMonths(monthStart(now), 1)) }
+    : p === 'next12' ? { from: now, to: addMonths(now, 12) }
+    : p === 'past' ? { from: undefined, to: now }
+    : { from: undefined, to: undefined });
+  return { ...r, status: status.value || undefined, carrierId: carrier.value || undefined, agentUserId: seller.value || undefined };
 });
 
 const items = ref<Installment[] | null>(null);
@@ -77,14 +85,14 @@ function jump(i: Installment) {
   if (rows.value.some((r) => r.id === focusId.value)) return reveal();
   who.value = i.beneficiaryUserId;
   status.value = '';
-  if (period.value === 'all' && !query.value.status) reveal();
-  else period.value = 'all';
+  if (date.value.period === 'all' && !query.value.status) reveal();
+  else date.value = { ...ALL };
 }
 
 const rows = computed(() => (items.value ?? []).filter((i) => !who.value || i.beneficiaryUserId === who.value));
 const { page, size, rows: pageRows, total } = usePaged(rows);
 const pagerLabels = computed(() => ({ prev: t('common.pager.prev'), next: t('common.pager.next'), perPage: t('common.pager.perPage'), of: t('common.pager.of') }));
-const whoOptions = computed(() => [{ value: '', label: t('sales.everyone') },
+const whoOptions = computed(() => [{ value: '', label: t('sales.allBeneficiaries') },
   ...[...new Set((items.value ?? []).map((i) => i.beneficiaryUserId))].map((id) => ({ value: id, label: ref_.memberName(id) }))
     .sort((a, b) => a.label.localeCompare(b.label))]);
 
@@ -131,7 +139,9 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
 <template>
   <div class="body">
     <div class="filters">
-      <Dropdown v-model="period" :options="periodOptions" :aria-label="t('sales.period')" />
+      <DateFilter v-model="date" :presets="periodOptions" :label="t('sales.dueDate')" />
+      <Dropdown v-model="carrier" :options="carrierOptions" :aria-label="t('sales.carrier')" />
+      <Dropdown v-model="seller" :options="sellerOptions" searchable :search-placeholder="t('sales.searchAgent')" :aria-label="t('sales.seller')" />
       <Dropdown v-model="who" :options="whoOptions" searchable :search-placeholder="t('sales.searchAgent')" :aria-label="t('sales.beneficiary')" />
       <Dropdown v-model="status" :options="statusOptions" :aria-label="t('sales.statusLabel')" />
       <a :href="csvUrl" download class="exp"><Download :size="16" />CSV</a>
@@ -215,6 +225,8 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
 .body { flex: 1; overflow: auto; display: grid; grid-auto-rows: max-content; gap: 18px; align-content: start; padding: 18px 32px 40px 28px; }
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
 .filters :deep(.dd) { width: 210px; }
+/* Nombres largos (agentes) se recortan con … en vez de desbordar el desplegable */
+.filters :deep(.trigger) { min-width: 0; }
 .exp { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; margin-left: auto; padding: 0 12px; font-size: 14px; font-weight: 500; color: var(--color-ink); text-decoration: none; background: var(--color-surface); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-sm); transition: box-shadow var(--duration), transform var(--duration); }
 .exp:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
 

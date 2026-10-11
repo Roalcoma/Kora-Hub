@@ -20,3 +20,14 @@ export function addMonths(day: string, n: number) {
 export const monthStart = (day: string) => `${day.slice(0, 7)}-01`;
 /** Último día del mes de esa fecha (día 0 del mes siguiente) */
 export const monthEnd = (day: string) => new Date(Date.UTC(+day.slice(0, 4), +day.slice(5, 7), 0)).toISOString().slice(0, 10);
+
+/** Filtro de fecha de Ventas y Comisiones: `period` es un atajo de la pestaña o uno de los propios (hoy, un día, rango) */
+export type DateFilterValue = { period: string; from: string; to: string };
+export const CUSTOM_PERIODS = ['today', 'day', 'range'] as const;
+type Range = { from: string | undefined; to: string | undefined };
+/** Rango de los periodos propios del filtro; null si es un atajo (lo resuelve cada pestaña) */
+export function customRange(v: DateFilterValue): Range | null {
+  if (v.period === 'today') return { from: today(), to: today() };
+  if (v.period === 'day' || v.period === 'range') return { from: v.from || undefined, to: v.to || undefined };
+  return null;
+}

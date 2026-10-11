@@ -127,10 +127,10 @@ test('perfil de agente: dueño de agencia, Discord y nivel de contrato con vigen
   assert.equal((await owner('PATCH', A(`/agents/${anaId}`), { uplineUserId: anaId })).status, 400);
   const p = await owner('PATCH', A(`/agents/${anaId}`), { uplineUserId: carlosId, discordUserId: '123456789012' });
   assert.equal(p.body.uplineUserId, carlosId);
-  await owner('POST', A(`/agents/${anaId}/levels`), { level: 80, effectiveFrom: '2026-01-01' });
-  await owner('POST', A(`/agents/${anaId}/levels`), { level: 85, effectiveFrom: '2027-01-01' });   // ascenso futuro
-  const r = await owner('POST', A(`/agents/${carlosId}/levels`), { level: 105, effectiveFrom: '2026-01-01' });
-  assert.deepEqual(r.body.levels, [{ level: 105, effectiveFrom: '2026-01-01' }]);
+  await owner('POST', A(`/agents/${anaId}/levels`), { carrierIds: [carrierId], level: 80, effectiveFrom: '2026-01-01' });
+  await owner('POST', A(`/agents/${anaId}/levels`), { carrierIds: [carrierId], level: 85, effectiveFrom: '2027-01-01' });   // ascenso futuro
+  const r = await owner('POST', A(`/agents/${carlosId}/levels`), { carrierIds: [carrierId], level: 105, effectiveFrom: '2026-01-01' });
+  assert.deepEqual(r.body.levels, [{ carrierId, level: 105, effectiveFrom: '2026-01-01' }]);
   // Cada uno ve solo su perfil; el Admin ve a todos
   assert.deepEqual((await ana('GET', A('/agents'))).body.map((a: any) => a.userId), [anaId]);
   assert.ok((await owner('GET', A('/agents'))).body.length >= 4);
@@ -156,7 +156,7 @@ test('sin nivel del agente no se puede marcar ISSUED', async () => {
   assert.equal(r.body.code, 'missing_level');
   assert.match(r.body.error, /Omar/);
   // Nivel que la tabla no tiene
-  await owner('POST', A(`/agents/${omarId}/levels`), { level: 90, effectiveFrom: '2026-01-01' });
+  await owner('POST', A(`/agents/${omarId}/levels`), { carrierIds: [carrierId], level: 90, effectiveFrom: '2026-01-01' });
   const r2 = await owner('POST', A(`/sales/${s.body.id}/issue`), { issuedAt: '2026-10-15' });
   assert.equal(r2.body.code, 'missing_rate');
   assert.match(r2.body.error, /nivel 90/);
@@ -217,7 +217,9 @@ test('ventas reales del Discord de VFS (8-9 oct 2026) con la guía FFL', async (
   const iule = (await owner('POST', A(`/carriers/${moo.id}/products`), { name: 'IULE', aliases: ['IUL'] })).body.products[0].id;
   await owner('PUT', A(`/products/${iule}/grid`), { effectiveFrom: '2024-08-19', rows: IULE });
   await owner('PATCH', A(`/agents/${omarId}`), { uplineUserId: carlosId });
-  await owner('POST', A(`/agents/${omarId}/levels`), { level: 85, effectiveFrom: '2026-01-01' });
+  for (const [id, lvl] of [[anaId, 80], [omarId, 85], [carlosId, 105]] as const) {
+    await owner('POST', A(`/agents/${id}/levels`), { carrierIds: [carrierId, nlg.id, moo.id], level: lvl, effectiveFrom: '2026-01-01' });
+  }
 
   const sell = async (agentUserId: string, productId: string, amount: number, clientName: string) => {
     const s = await owner('POST', A('/sales'), { agentUserId, productId, amount, clientName, expectedIssueDate: '2026-10-08' });
@@ -237,6 +239,108 @@ test('CSV de ventas con nombres legibles', async () => {
   const r = await owner('GET', A('/sales.csv'));
   assert.match(r.headers.get('content-type')!, /text\/csv/);
   assert.match(r.body, /"Ana","Carlos","Americo","IUL","1200.00","Danielle Cardenas","NY"/);
+});
+
+// ═══ Nivel por compañía (ADR 0006) ═══
+
+test('nivel distinto por compañía: ISSUE y override usan el nivel de cada compañía', async () => {
+  const mk = async (name: string, rows: typeof INSTANT_DECISION) => {
+    const c = (await owner('POST', A('/carriers'), { name })).body;
+    const pid = (await owner('POST', A(`/carriers/${c.id}/products`), { name: 'Prod' })).body.products[0].id;
+    await owner('PUT', A(`/products/${pid}/grid`), { effectiveFrom: '2024-08-19', rows });
+    return { id: c.id as string, pid: pid as string };
+  };
+  const alfa = await mk('Alfa', INSTANT_DECISION), beta = await mk('Beta', FLEX_LIFE);
+  const lv = (id: string, carrierIds: string[], level: number) => owner('POST', A(`/agents/${id}/levels`), { carrierIds, level, effectiveFrom: '2026-01-01' });
+  await lv(anaId, [alfa.id], 80); await lv(anaId, [beta.id], 100);
+  await lv(carlosId, [alfa.id], 100); await lv(carlosId, [beta.id], 105);
+  // El perfil trae carrierId en cada nivel
+  const prof = (await owner('GET', A('/agents'))).body.find((a: any) => a.userId === anaId);
+  assert.ok(prof.levels.length >= 4);
+  assert.ok(prof.levels.every((l: any) => typeof l.carrierId === 'string'));
+  assert.deepEqual(prof.levels.filter((l: any) => l.carrierId === alfa.id), [{ carrierId: alfa.id, level: 80, effectiveFrom: '2026-01-01' }]);
+  assert.deepEqual(prof.levels.filter((l: any) => l.carrierId === beta.id), [{ carrierId: beta.id, level: 100, effectiveFrom: '2026-01-01' }]);
+
+  const sell = async (productId: string, clientName: string) => {
+    const s = await owner('POST', A('/sales'), { agentUserId: anaId, productId, amount: 1000, clientName, expectedIssueDate: '2026-10-08' });
+    assert.equal((await owner('POST', A(`/sales/${s.body.id}/issue`), { issuedAt: '2026-10-08' })).status, 200);
+    const items = (await owner('GET', A('/commissions'))).body.items.filter((i: any) => i.saleId === s.body.id);
+    return { id: s.body.id as string, rows: items.map((i: any) => [i.beneficiaryUserId, i.kind, i.part, i.level, i.rate, i.amount]).sort() };
+  };
+  // Alfa: Ana 80 → 65 % (650: 487.5 + 162.5); Carlos 100 → 85 %, override 20 % (200: 150 + 50)
+  const a = await sell(alfa.pid, 'Cliente Alfa');
+  assert.deepEqual(a.rows, [
+    [anaId, 'direct', 'advance', 80, 65, 487.5], [anaId, 'direct', 'remainder', 80, 65, 162.5],
+    [carlosId, 'override', 'advance', 100, 20, 150], [carlosId, 'override', 'remainder', 100, 20, 50]].sort());
+  // Beta: Ana 100 → 70 % (700: 525 + 175); Carlos 105 → 75 %, override 5 % (50: 37.5 + 12.5)
+  const b = await sell(beta.pid, 'Cliente Beta');
+  assert.deepEqual(b.rows, [
+    [anaId, 'direct', 'advance', 100, 70, 525], [anaId, 'direct', 'remainder', 100, 70, 175],
+    [carlosId, 'override', 'advance', 105, 5, 37.5], [carlosId, 'override', 'remainder', 105, 5, 12.5]].sort());
+
+  // Filtros por compañía y por agente vendedor (listado y CSV)
+  const ids = (r: any) => new Set(r.body.items.map((i: any) => i.saleId));
+  const byCarrier = await owner('GET', A(`/commissions?carrierId=${alfa.id}`));
+  assert.deepEqual([...ids(byCarrier)], [a.id]);
+  assert.equal(byCarrier.body.items.length, 4);
+  assert.ok(!ids(await owner('GET', A(`/commissions?carrierId=${beta.id}`))).has(a.id));
+  const byAgent = await owner('GET', A(`/commissions?agentUserId=${omarId}`));
+  assert.ok(byAgent.body.items.length > 0);
+  assert.ok(byAgent.body.items.every((i: any) => i.sale.agentUserId === omarId));
+  const both = await owner('GET', A(`/commissions?agentUserId=${anaId}&carrierId=${beta.id}`));
+  assert.deepEqual([...ids(both)], [b.id]);
+  const csv = await owner('GET', A(`/commissions.csv?carrierId=${alfa.id}`));
+  assert.match(csv.body, /Cliente Alfa/);
+  assert.doesNotMatch(csv.body, /Cliente Beta|Danielle|Vilma/);
+  const csvAgent = await owner('GET', A(`/commissions.csv?agentUserId=${omarId}`));
+  assert.match(csvAgent.body, /Vilma/);
+  assert.doesNotMatch(csvAgent.body, /Cliente Alfa|Cliente Beta/);
+
+  // Un agente sin permisos de admin no ve más al filtrar: su override sigue oculto y el agente ajeno da vacío
+  const mine = (await ana('GET', A('/commissions'))).body.items.length;
+  const anaFiltered = (await ana('GET', A(`/commissions?agentUserId=${anaId}`))).body.items;
+  assert.equal(anaFiltered.length, mine);
+  assert.ok(anaFiltered.every((i: any) => i.beneficiaryUserId === anaId));
+  assert.equal((await ana('GET', A(`/commissions?agentUserId=${omarId}`))).body.items.length, 0);
+  assert.equal((await ana('GET', A(`/commissions?carrierId=${alfa.id}`))).body.items.every((i: any) => i.beneficiaryUserId === anaId), true);
+  assert.doesNotMatch((await ana('GET', A(`/commissions.csv?agentUserId=${omarId}`))).body, /Vilma/);
+  assert.equal((await omar('GET', A(`/commissions?agentUserId=${anaId}`))).body.items.length, 0);
+});
+
+test('sin nivel en la compañía del producto: 409 missing_level con el nombre de la compañía', async () => {
+  const c = (await owner('POST', A('/carriers'), { name: 'Gamma Seguros' })).body;
+  const pid = (await owner('POST', A(`/carriers/${c.id}/products`), { name: 'Prod' })).body.products[0].id;
+  await owner('PUT', A(`/products/${pid}/grid`), { effectiveFrom: '2024-08-19', rows: INSTANT_DECISION });
+  // Ana tiene nivel en otras compañías, pero no en Gamma
+  const s = await owner('POST', A('/sales'), { agentUserId: anaId, productId: pid, amount: 500, clientName: 'Sin Nivel', expectedIssueDate: '2026-10-09' });
+  const r = await owner('POST', A(`/sales/${s.body.id}/issue`), { issuedAt: '2026-10-15' });
+  assert.equal(r.status, 409);
+  assert.equal(r.body.code, 'missing_level');
+  assert.match(r.body.error, /Gamma Seguros/);
+  assert.match(r.body.error, /Ana/);
+  // Con nivel del agente pero sin el del upline en Gamma: el error nombra al upline y la compañía
+  await owner('POST', A(`/agents/${anaId}/levels`), { carrierIds: [c.id], level: 80, effectiveFrom: '2026-01-01' });
+  const r2 = await owner('POST', A(`/sales/${s.body.id}/issue`), { issuedAt: '2026-10-15' });
+  assert.equal(r2.status, 409);
+  assert.equal(r2.body.code, 'missing_level');
+  assert.match(r2.body.error, /Carlos.*Gamma Seguros/);
+  await owner('POST', A(`/agents/${carlosId}/levels`), { carrierIds: [c.id], level: 105, effectiveFrom: '2026-01-01' });
+  assert.equal((await owner('POST', A(`/sales/${s.body.id}/issue`), { issuedAt: '2026-10-15' })).status, 200);
+});
+
+test('aislamiento: niveles con una compañía de otra agencia dan 404 carrier_not_found', async () => {
+  await outsider('PATCH', `/w/${slugB}`, { settings: { salesModule: true } });
+  const cb = (await outsider('POST', `/w/${slugB}/carriers`, { name: 'Compañía B' })).body;
+  const before = (await owner('GET', A('/agents'))).body.find((a: any) => a.userId === anaId).levels.length;
+  for (const carrierIds of [[cb.id], [carrierId, cb.id]]) {
+    const r = await owner('POST', A(`/agents/${anaId}/levels`), { carrierIds, level: 80, effectiveFrom: '2026-02-01' });
+    assert.equal(r.status, 404);
+    assert.equal(r.body.code, 'carrier_not_found');
+  }
+  // No se insertó nada (ni siquiera la compañía válida de la mezcla)
+  assert.equal((await owner('GET', A('/agents'))).body.find((a: any) => a.userId === anaId).levels.length, before);
+  assert.equal((await owner('POST', A(`/agents/${anaId}/levels`), { carrierIds: [], level: 80, effectiveFrom: '2026-02-01' })).status, 400);
+  assert.equal((await owner('POST', A(`/agents/${anaId}/levels`), { level: 80, effectiveFrom: '2026-02-01' })).status, 400);
 });
 
 test('aislamiento: la agencia B no ve ni toca las ventas de la A', async () => {

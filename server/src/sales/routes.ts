@@ -135,7 +135,7 @@ salesRouter.put('/products/:id/grid', async (req, res) => {
 async function listAgents(db: pg.PoolClient, userId: string | null): Promise<AgentProfile[]> {
   const { rows } = await db.query(
     `select m.user_id, p.upline_user_id, p.discord_user_id,
-       coalesce((select json_agg(json_build_object('level', l.level, 'effectiveFrom', ${day('l.effective_from')}) order by l.effective_from desc)
+       coalesce((select json_agg(json_build_object('carrierId', l.carrier_id, 'level', l.level, 'effectiveFrom', ${day('l.effective_from')}) order by l.effective_from desc)
                  from agent_levels l where l.user_id = m.user_id), '[]') as levels
      from workspace_members m left join agent_profiles p on p.workspace_id = m.workspace_id and p.user_id = m.user_id
      where m.workspace_id = app_ws() and m.role <> 'guest' and ($1::uuid is null or m.user_id = $1)
@@ -180,10 +180,13 @@ salesRouter.post('/agents/:userId/levels', async (req, res) => {
   const body = parse(LevelBody, req.body);
   res.json(await tx(req, async (db) => {
     await oneAgent(db, userId);
+    const found = (await db.query('select count(*)::int as n from carriers where id = any($1::uuid[])', [body.carrierIds])).rows[0].n;
+    if (found !== body.carrierIds.length) throw new HttpError(404, 'carrier_not_found', 'Alguna compañía no existe en esta agencia');
     await db.query(
-      `insert into agent_levels (workspace_id, user_id, effective_from, level, set_by) values (app_ws(), $1, $2, $3, app_user())
-       on conflict (workspace_id, user_id, effective_from) do update set level = excluded.level, set_by = excluded.set_by, set_at = now()`,
-      [userId, body.effectiveFrom, body.level]);
+      `insert into agent_levels (workspace_id, user_id, carrier_id, effective_from, level, set_by)
+       select app_ws(), $1, c, $2, $3, app_user() from unnest($4::uuid[]) as c
+       on conflict (workspace_id, user_id, carrier_id, effective_from) do update set level = excluded.level, set_by = excluded.set_by, set_at = now()`,
+      [userId, body.effectiveFrom, body.level, body.carrierIds]);
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'agent.level_set', targetType: 'user', targetId: userId, meta: body });
     return oneAgent(db, userId);
   }));
@@ -285,9 +288,15 @@ salesRouter.patch('/sales/:id', async (req, res) => {
 /** Nivel del agente y su % en el producto a la fecha de ISSUE (nivel y tabla: los más recientes con vigencia <= fecha) */
 async function rateAt(db: pg.PoolClient, userId: string, productId: string, date: string) {
   const who = (await db.query('select name from users where id = $1', [userId])).rows[0]?.name ?? '';
+  // El nivel es por compañía: se busca en la del producto
   const lvl = (await db.query(
-    'select level from agent_levels where user_id = $1 and effective_from <= $2 order by effective_from desc limit 1', [userId, date])).rows[0];
-  if (!lvl) throw new HttpError(409, 'missing_level', `${who} no tiene nivel de contrato a esa fecha`);
+    `select l.level, c.name as carrier from agent_levels l join carriers c on c.id = l.carrier_id
+     where l.user_id = $1 and l.effective_from <= $2 and l.carrier_id = (select carrier_id from carrier_products where id = $3)
+     order by l.effective_from desc limit 1`, [userId, date, productId])).rows[0];
+  if (!lvl) {
+    const carrier = (await db.query('select c.name from carriers c join carrier_products p on p.carrier_id = c.id where p.id = $1', [productId])).rows[0]?.name ?? 'esta compañía';
+    throw new HttpError(409, 'missing_level', `${who} no tiene nivel de contrato en ${carrier} a esa fecha`);
+  }
   const { rows } = await db.query(
     `select g.rate, p.name from carrier_products p left join comp_grid g on g.product_id = p.id and g.level = $2
        and g.effective_from = (select max(effective_from) from comp_grid where product_id = p.id and effective_from <= $3)
@@ -376,8 +385,9 @@ async function queryInstallments(req: Request, q: ReturnType<typeof CommissionsQ
      where ${visible}
        and ($1::date is null or i.due_date >= $1) and ($2::date is null or i.due_date <= $2)
        and ($3::uuid is null or i.beneficiary_user_id = $3) and ($4::text is null or i.status = $4)
+       and ($5::uuid is null or p.carrier_id = $5) and ($6::uuid is null or s.agent_user_id = $6)
      order by i.due_date, s.client_name, i.kind limit 5000`,
-    [q.from ?? null, q.to ?? null, q.beneficiaryUserId ?? null, q.status ?? null],
+    [q.from ?? null, q.to ?? null, q.beneficiaryUserId ?? null, q.status ?? null, q.carrierId ?? null, q.agentUserId ?? null],
   )).rows.map((r) => ({
     id: r.id, saleId: r.sale_id, beneficiaryUserId: r.beneficiary_user_id, kind: r.kind, part: r.part,
     level: r.level, rate: Number(r.rate), amount: Number(r.amount), dueDate: r.due, status: r.status, paidAt: r.paid,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Configuración del módulo (Admin): agentes (nivel de contrato, dueño de agencia, usuario de Discord) y
+// Configuración del módulo (Admin): agentes (nivel de contrato por compañía, dueño de agencia, usuario de Discord) y
 // compañías con sus productos, alias para el lector de Discord y tabla nivel → %.
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -61,17 +61,32 @@ const agents = computed(() => [...ref_.sellers].sort((a, b) => {
 }));
 const teamSize = (id: string) => ref_.agents.filter((x) => x.uplineUserId === id).length;
 
+// Nivel de contrato por compañía (ADR 0006): una columna por compañía activa; el modal aplica el mismo nivel a
+// las compañías marcadas (un ascenso general sigue siendo una sola acción).
+const activeCarriers = computed(() => ref_.carriers.filter((c) => !c.archivedAt));
 const levelFor = ref<string | null>(null);
-const levelForm = reactive({ level: '', effectiveFrom: '' });
+const levelForm = reactive({ carrierIds: [] as string[], level: '', effectiveFrom: '' });
 const levelOpen = computed({ get: () => !!levelFor.value, set: (v) => { if (!v) levelFor.value = null; } });
-function openLevel(userId: string) {
+function openLevel(userId: string, carrierId: string) {
   levelFor.value = userId;
-  levelForm.level = String(ref_.currentLevel(userId)?.level ?? '');
+  levelForm.carrierIds = [carrierId];
+  levelForm.level = String(ref_.currentLevel(userId, carrierId)?.level ?? '');
   levelForm.effectiveFrom = today().slice(0, 8) + '01';   // los ascensos rigen desde el 1° del mes
 }
+const allCarriersOn = computed(() => activeCarriers.value.every((c) => levelForm.carrierIds.includes(c.id)));
+const toggleAllCarriers = () => { levelForm.carrierIds = allCarriersOn.value ? [] : activeCarriers.value.map((c) => c.id); };
+const toggleCarrier = (id: string) => {
+  levelForm.carrierIds = levelForm.carrierIds.includes(id) ? levelForm.carrierIds.filter((x) => x !== id) : [...levelForm.carrierIds, id];
+};
+const levelValid = computed(() => levelForm.carrierIds.length > 0 && levelForm.level !== '' && Number(levelForm.level) >= 0 && !!levelForm.effectiveFrom);
+/** Historial del agente agrupado por compañía (archivadas incluidas si tienen niveles) */
+const levelHistory = computed(() => {
+  const levels = levelFor.value ? ref_.agent(levelFor.value)?.levels ?? [] : [];
+  return ref_.carriers.map((c) => ({ carrier: c, levels: levels.filter((l) => l.carrierId === c.id) })).filter((g) => g.levels.length);
+});
 const saveLevel = async () => {
   if (await guard(() => api('POST /w/:slug/agents/:userId/levels', { params: { slug: slug(), userId: levelFor.value! },
-    body: { level: Number(levelForm.level), effectiveFrom: levelForm.effectiveFrom } }))) levelFor.value = null;
+    body: { carrierIds: levelForm.carrierIds, level: Number(levelForm.level), effectiveFrom: levelForm.effectiveFrom } }))) levelFor.value = null;
 };
 
 // ─── Compañías y productos ───
@@ -124,21 +139,26 @@ const gridSummary = (p: Product) => {
         <header class="head"><h2><Users :size="20" />{{ t('sales.agents') }}</h2><small>{{ t('sales.agentsHint') }}</small></header>
         <div class="table-wrap">
           <table>
-            <thead><tr>
-              <th scope="col">{{ t('sales.agent') }}</th><th scope="col">{{ t('sales.level') }}</th>
-              <th scope="col">{{ t('sales.upline') }}</th><th scope="col">{{ t('sales.discordId') }}</th>
-            </tr></thead>
+            <thead>
+              <tr>
+                <th scope="col" :rowspan="activeCarriers.length ? 2 : 1">{{ t('sales.agent') }}</th>
+                <th v-if="activeCarriers.length" scope="colgroup" :colspan="activeCarriers.length" class="grp">{{ t('sales.levelByCarrier') }}</th>
+                <th scope="col" :rowspan="activeCarriers.length ? 2 : 1">{{ t('sales.upline') }}</th>
+                <th scope="col" :rowspan="activeCarriers.length ? 2 : 1">{{ t('sales.discordId') }}</th>
+              </tr>
+              <tr v-if="activeCarriers.length"><th v-for="c in activeCarriers" :key="c.id" scope="col" class="cr">{{ c.name }}</th></tr>
+            </thead>
             <tbody>
               <tr v-for="m in agents" :key="m.userId">
                 <th scope="row">
                   <span class="who"><Avatar :name="m.name" :size="30" /><span>{{ m.name }}
                     <Badge v-if="teamSize(m.userId)" tone="primary">{{ t('sales.ownerOf', { n: teamSize(m.userId) }, teamSize(m.userId)) }}</Badge></span></span>
                 </th>
-                <td>
-                  <button type="button" class="lvl" :class="{ none: !ref_.currentLevel(m.userId) }" @click="openLevel(m.userId)">
-                    <template v-if="ref_.currentLevel(m.userId)"><b>{{ ref_.currentLevel(m.userId)!.level }}</b><small>{{ t('sales.since', { date: day(ref_.currentLevel(m.userId)!.effectiveFrom) }) }}</small></template>
-                    <template v-else>{{ t('sales.setLevel') }}</template>
-                    <TrendingUp :size="15" />
+                <td v-for="c in activeCarriers" :key="c.id" class="lv">
+                  <button v-for="cur in [ref_.currentLevel(m.userId, c.id)]" :key="c.id" type="button" class="lvl" :class="{ none: !cur }"
+                    :aria-label="`${t('sales.levelTitle')} · ${m.name} · ${c.name}`" @click="openLevel(m.userId, c.id)">
+                    <template v-if="cur"><b>{{ cur.level }}</b><small>{{ day(cur.effectiveFrom) }}</small></template>
+                    <template v-else><TrendingUp :size="14" />{{ t('sales.assign') }}</template>
                   </button>
                 </td>
                 <td class="up">
@@ -183,15 +203,30 @@ const gridSummary = (p: Product) => {
       </section>
     </div>
 
-    <Modal v-model="levelOpen" :title="t('sales.levelTitle')" :subtitle="levelFor ? ref_.memberName(levelFor) : ''" width="420px">
+    <Modal v-model="levelOpen" :title="t('sales.levelTitle')" :subtitle="levelFor ? ref_.memberName(levelFor) : ''" width="480px">
+      <fieldset class="pick">
+        <legend>{{ t('sales.levelCarriers') }}</legend>
+        <div class="chips">
+          <label class="chip all" :class="{ on: allCarriersOn }"><input type="checkbox" :checked="allCarriersOn" @change="toggleAllCarriers">{{ t('sales.allCarriersShort') }}</label>
+          <label v-for="c in activeCarriers" :key="c.id" class="chip" :class="{ on: levelForm.carrierIds.includes(c.id) }">
+            <input type="checkbox" :checked="levelForm.carrierIds.includes(c.id)" @change="toggleCarrier(c.id)">{{ c.name }}
+            <small v-if="levelFor && ref_.currentLevel(levelFor, c.id)">{{ ref_.currentLevel(levelFor, c.id)!.level }}</small>
+          </label>
+        </div>
+        <p v-if="!levelForm.carrierIds.length" class="hint-sm warn">{{ t('sales.levelPickCarrier') }}</p>
+      </fieldset>
       <Input v-model="levelForm.level" type="number" :label="t('sales.level')" :hint="t('sales.levelHint')" />
       <label class="date">{{ t('sales.effectiveFrom') }}<input v-model="levelForm.effectiveFrom" type="date"></label>
-      <ul v-if="levelFor && ref_.agent(levelFor)?.levels.length" class="history">
-        <li v-for="l in ref_.agent(levelFor)!.levels" :key="l.effectiveFrom"><b>{{ l.level }}</b> {{ t('sales.since', { date: day(l.effectiveFrom) }) }}</li>
-      </ul>
+      <div v-if="levelHistory.length" class="history">
+        <span class="h-title">{{ t('sales.levelHistory') }}</span>
+        <section v-for="g in levelHistory" :key="g.carrier.id">
+          <b class="h-carrier">{{ g.carrier.name }}</b>
+          <ul><li v-for="l in g.levels" :key="l.effectiveFrom"><b>{{ l.level }}</b> {{ t('sales.since', { date: day(l.effectiveFrom) }) }}</li></ul>
+        </section>
+      </div>
       <template #footer>
         <Button variant="ghost" @click="levelFor = null">{{ t('common.cancel') }}</Button>
-        <Button variant="primary" :disabled="!(Number(levelForm.level) >= 0 && levelForm.level !== '' && levelForm.effectiveFrom)" @click="saveLevel">{{ t('common.save') }}</Button>
+        <Button variant="primary" :disabled="!levelValid" @click="saveLevel">{{ t('common.save') }}</Button>
       </template>
     </Modal>
 
@@ -218,7 +253,7 @@ const gridSummary = (p: Product) => {
 <style scoped>
 .body { flex: 1; overflow: auto; display: grid; grid-auto-rows: max-content; gap: 18px; align-content: start; padding: 18px 32px 40px 28px; }
 .intro { margin: 0; max-width: 720px; color: var(--color-muted); line-height: 1.5; }
-.split { display: grid; grid-template-columns: 1.7fr 1fr; gap: 20px; align-items: start; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 360px); gap: 20px; align-items: start; }
 .card { display: grid; gap: 12px; padding: 18px 20px; background: var(--color-surface); box-shadow: var(--shadow-md); }
 .card.accent { border-left: 4px solid var(--color-primary); }
 .head { display: grid; gap: 2px; }
@@ -234,13 +269,22 @@ th:first-child, td:first-child { padding-left: 20px; }
 tbody th { font-weight: 600; }
 .who { display: flex; align-items: center; gap: 10px; }
 .who > span { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.lv { padding-left: 4px; padding-right: 4px; }
+/* Celda de nivel compacta: número arriba, fecha desde la que rige debajo (caben varias compañías sin scroll) */
+.lv .lvl { display: inline-grid; justify-items: start; gap: 0; min-width: 84px; min-height: 42px; padding: 3px 10px; line-height: 1.2; }
+.lv .lvl small { font-size: 11px; }
+.lv .lvl.none { display: inline-flex; gap: 6px; }
+.grp { text-align: left; border-bottom: 0; }
+thead .cr { font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--color-ink); padding-left: 6px; padding-right: 6px; }
 .lvl { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; font: inherit; color: var(--color-ink); background: var(--color-canvas); border: 1px solid var(--color-line); cursor: pointer; white-space: nowrap; transition: box-shadow var(--duration), border-color var(--duration); }
 .lvl:hover { border-color: var(--color-ink); box-shadow: var(--shadow-sm); }
 .lvl b { font-size: 16px; font-variant-numeric: tabular-nums; }
 .lvl small { font-size: 12px; color: var(--color-muted); }
+.lvl.none { font-size: 13px; }
 .lvl.none { color: var(--color-warning); background: var(--color-warning-light); border-color: transparent; font-weight: 600; }
-.up { min-width: 200px; }
-.dc { width: 150px; min-height: 36px; padding: 0 10px; font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--color-ink); background: var(--color-surface); border: 1px solid var(--color-line-strong); outline: none; }
+.up { width: 170px; min-width: 150px; max-width: 170px; }
+.up :deep(.trigger) { min-width: 0; }
+.dc { width: 130px; min-height: 36px; padding: 0 10px; font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--color-ink); background: var(--color-surface); border: 1px solid var(--color-line-strong); outline: none; }
 .dc:focus { border-color: var(--color-ink); box-shadow: 0 0 0 3px rgb(246 144 8 / .22); }
 
 .carriers { display: grid; gap: 14px; }
@@ -260,9 +304,23 @@ tbody th { font-weight: 600; }
 .date { display: grid; gap: 6px; font-size: 13px; font-weight: 500; }
 .date input { min-height: 42px; }
 .hint-sm { margin: -8px 0 0; font-size: 12px; color: var(--color-muted); }
-.history { margin: 0; padding: 10px 14px; list-style: none; display: grid; gap: 4px; font-size: 13px; color: var(--color-muted); background: var(--color-canvas); }
+.pick { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.pick legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 500; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 12px 0 10px; font-size: 14px; font-weight: 500; cursor: pointer;
+  background: var(--color-surface); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-sm); transition: border-color var(--duration), box-shadow var(--duration), background var(--duration); }
+.chip:hover { border-color: var(--color-ink); box-shadow: var(--shadow-md); }
+.chip.on { border-color: var(--color-ink); background: var(--color-canvas); }
+.chip.all { border-left: 3px solid var(--color-primary); }
+.chip small { padding: 1px 6px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--color-muted); background: var(--color-canvas-deep); }
+.hint-sm.warn { margin: 0; color: var(--color-warning); }
+.history { display: grid; gap: 10px; padding: 10px 14px 12px; font-size: 13px; color: var(--color-muted); background: var(--color-canvas); border-left: 3px solid var(--color-line-strong); }
+.h-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.history section { display: grid; gap: 2px; }
+.history ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
 .history b { color: var(--color-ink); }
+.h-carrier { font-size: 13px; }
 
-@media (max-width: 1200px) { .split { grid-template-columns: 1fr; } }
+@media (max-width: 1400px) { .split { grid-template-columns: 1fr; } }
 @media (max-width: 767px) { .body { padding: 14px 16px 32px; } }
 </style>

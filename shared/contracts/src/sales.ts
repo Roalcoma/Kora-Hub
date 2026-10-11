@@ -33,7 +33,8 @@ export type Carrier = {
 /** Admin ve todos los miembros; el resto, solo su propio perfil */
 export type AgentProfile = {
   userId: Id; uplineUserId: Id | null; discordUserId: string | null;
-  levels: { level: number; effectiveFrom: Day }[];   // nivel de contrato (FFL); historial, el más reciente primero
+  /** Nivel de contrato (FFL) por compañía; historial, el más reciente primero (ADR 0006) */
+  levels: { carrierId: Id; level: number; effectiveFrom: Day }[];
 };
 
 export type Sale = {
@@ -95,7 +96,11 @@ export const UpdateAgentProfileBody = z.object({
   uplineUserId: Id.nullable(), discordUserId: z.string().regex(/^\d{5,25}$/).nullable(),
 }).partial();
 const Level = z.number().int().min(0).max(300);
-export const LevelBody = z.object({ level: Level, effectiveFrom: Day });
+/** El mismo nivel aplicado a una o varias compañías desde esa fecha (misma fecha = corrige esa fila) */
+export const LevelBody = z.object({
+  carrierIds: z.array(Id).min(1).max(50).refine((ids) => new Set(ids).size === ids.length, 'Compañía repetida'),
+  level: Level, effectiveFrom: Day,
+});
 /** Revisión de la tabla de un producto: reemplaza la de esa fecha */
 export const GridBody = z.object({
   effectiveFrom: Day,
@@ -123,6 +128,8 @@ export const SalesQuery = z.object({
 export const CommissionsQuery = z.object({
   from: Day.optional(), to: Day.optional(),            // por fecha de pago
   beneficiaryUserId: Id.optional(), status: z.enum(INSTALLMENT_STATUS).optional(),
+  carrierId: Id.optional(),
+  agentUserId: Id.optional(),                           // agente que hizo la venta (distinto del beneficiario)
 });
 const Snowflake = z.string().regex(/^\d{15,25}$/, 'ID de Discord inválido');
 export const DiscordFeedBody = z.object({ channelId: Snowflake, importSince: Day });   // lee el canal desde ese día

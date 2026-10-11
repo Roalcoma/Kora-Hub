@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 import type { AgentProfile, Carrier, Member, Product } from '@agencia-hub/contracts';
 import { api } from '@/api.ts';
 import { useSession } from '@/stores/session.ts';
+import { today } from './format.ts';
 
 export const useSales = defineStore('sales', () => {
   const s = useSession();
@@ -32,10 +33,10 @@ export const useSales = defineStore('sales', () => {
     return p ? `${carrier(p.carrierId)?.name ?? ''} · ${p.name}` : '—';
   };
   const agent = (id: string) => agents.value.find((a) => a.userId === id);
-  /** Nivel vigente hoy (el historial viene del más reciente al más antiguo) */
-  const currentLevel = (id: string) => {
-    const today = new Date().toISOString().slice(0, 10);
-    return agent(id)?.levels.find((l) => l.effectiveFrom <= today) ?? null;
+  /** Nivel vigente hoy del agente con esa compañía (el historial viene del más reciente al más antiguo; ADR 0006) */
+  const currentLevel = (id: string, carrierId: string) => {
+    const now = today();
+    return agent(id)?.levels.find((l) => l.carrierId === carrierId && l.effectiveFrom <= now) ?? null;
   };
   /** Miembros activos que pueden vender (sin invitados), por nombre */
   const sellers = computed(() => members.value.filter((m) => m.isActive && m.role !== 'guest'));

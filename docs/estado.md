@@ -126,6 +126,10 @@ Pedido de VFS el 2026-10-10; producción espera a este módulo. Rama `feat/comis
   clave `demo-local-12345`).
 - **C · Lector de Discord** — hecho y probado contra un Discord simulado con los mensajes reales. Falta crear el
   bot real de VFS y poner `DISCORD_BOT_TOKEN` (guía en plan-comisiones.md §8).
+- **Ajustes 2026-10-11** (rama `feat/filtros-niveles`): el nivel de contrato va **por compañía** (migración 0009,
+  ADR 0006; los niveles previos se copiaron a todas las compañías); filtros de fecha con "Hoy", "Un día…" y "Rango…"
+  en Ventas y Comisiones; Comisiones filtra por compañía y por agente vendedor. Una compañía nueva no hereda
+  niveles: hay que asignarlos en Configuración antes de dar ISSUE a sus ventas.
 
 ### Pendientes del módulo
 - Crear el bot de Discord de VFS, conectar el canal `#ventas` y enlazar a cada agente (desde la bandeja: "¿Quién es…?").
