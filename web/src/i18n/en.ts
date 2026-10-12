@@ -42,7 +42,7 @@ export default {
   },
   nav: {
     trialDays: 'Trial · {n} day left | Trial · {n} days left', agencyMenu: 'agency menu',
-    profile: 'My profile', notifications: 'Notifications', account: 'My account', backoffice: 'Backoffice',
+    profile: 'My profile', notifications: 'Notifications', account: 'My account', backoffice: 'Backoffice', crm: 'Rocco CRM', crmHint: 'Opens Rocco CRM in a new tab',
     home: 'Home', messages: 'DMs', mentions: 'Mentions', tasks: 'Tasks', you: 'You', manuals: 'Manuals', goals: 'Goals', sales: 'Sales', finance: 'Finance',
     settings: 'Settings', search: 'Search', line: '{category}', allLines: 'All', addWorkspace: 'Add workspace',
     logout: 'Sign out', collapse: 'Collapse sidebar', expand: 'Show sidebar', agency: 'Agency', announcements: 'Announcements',
@@ -179,6 +179,7 @@ export default {
     reason: 'Reason', reasonHint: 'E.g.: the Owner asked for help setting up departments', reasonShort: 'Enter a reason of at least 5 characters.',
     impRules: 'It is audited. During the session you cannot change the password, 2FA or billing.',
     backToApp: 'Go to my agency',
+    colCrm: 'Rocco CRM', crmSwitch: 'Rocco CRM button · {name}', crmOn: '{name} now sees the Rocco CRM button.', crmOff: '{name} no longer sees the Rocco CRM button.',
   },
   plan: {
     trialEnds: 'The free trial ends today. | The free trial ends tomorrow. | The free trial ends in {n} days.',

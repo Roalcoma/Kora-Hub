@@ -114,6 +114,39 @@ test('suspender y reactivar una agencia, con auditoría', async () => {
   assert.equal((await superadmin('POST', `/admin/workspaces/${randomUUID()}/status`, { status: 'active' })).status, 404);
 });
 
+test('botón de Rocco CRM: apagado por defecto; solo el superadmin lo activa, por agencia y auditado', async () => {
+  const crm = async (c: typeof owner, slug: string) => (await c('GET', `/w/${slug}`)).body.crmUrl;
+  assert.equal(await crm(owner, slugA), null);
+  assert.equal(await crm(superadmin, slugS), null);
+
+  // El Owner de la agencia no puede encenderlo: ni por sus ajustes (se ignora) ni por la ruta del backoffice
+  assert.equal((await owner('PATCH', `/w/${slugA}`, { crmLink: true, settings: { crmLink: true, crm_link: true } })).status, 200);
+  const row = (await adminPool.query(`select crm_link, settings ? 'crm_link' or settings ? 'crmLink' as leaked from workspaces where id = $1`, [wsA])).rows[0];
+  assert.deepEqual(row, { crm_link: false, leaked: false });
+  assert.equal(await crm(owner, slugA), null);
+  const denied = await owner('PATCH', `/admin/workspaces/${wsA}`, { crmLink: true });
+  assert.equal(denied.status, 403);
+  assert.equal(denied.body.code, 'forbidden');
+
+  // El superadmin lo enciende en A: A ve la URL (https), B no se entera
+  assert.equal((await superadmin('PATCH', `/admin/workspaces/${wsA}`, { crmLink: true })).status, 204);
+  assert.equal(await crm(owner, slugA), 'https://rocco.arbolaureo.org/');
+  assert.equal(await crm(superadmin, slugS), null);
+  const log = await lastAudit('admin.crm_link');
+  assert.equal(log.workspace_id, wsA);
+  assert.deepEqual(log.meta, { from: false, to: true });
+  const list = (await superadmin('GET', '/admin/workspaces')).body as { slug: string; crmLink: boolean }[];
+  assert.equal(list.find((w) => w.slug === slugA)!.crmLink, true);
+  assert.equal(list.find((w) => w.slug === slugS)!.crmLink, false);
+
+  // Validación, 404 y apagado
+  assert.equal((await superadmin('PATCH', `/admin/workspaces/${wsA}`, { crmLink: 'si' })).status, 400);
+  assert.equal((await superadmin('PATCH', `/admin/workspaces/${randomUUID()}`, { crmLink: true })).status, 404);
+  assert.equal((await superadmin('PATCH', `/admin/workspaces/${wsA}`, { crmLink: false })).status, 204);
+  assert.equal(await crm(owner, slugA), null);
+  assert.deepEqual((await lastAudit('admin.crm_link')).meta, { from: true, to: false });
+});
+
 test('impersonar exige motivo y, si la agencia exige 2FA, que el superadmin lo tenga', async () => {
   assert.equal((await superadmin('POST', `/admin/workspaces/${wsA}/impersonate`, {})).status, 400);
   assert.equal((await superadmin('POST', `/admin/workspaces/${wsA}/impersonate`, { reason: 'x' })).status, 400);

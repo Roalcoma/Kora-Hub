@@ -22,7 +22,19 @@ export const toWorkspace = (r: any): Workspace => ({
     industry: r.settings.industry ?? 'other', categoryLabel: r.settings.category_label ?? null,
     salesModule: r.settings.sales_module ?? false, financeModule: r.settings.finance_module ?? false,
   },
+  crmUrl: r.crm_link ? crmUrl() : null,
 });
+
+/** URL del login de Rocco CRM (global). Solo https, o http en desarrollo; si no es válida, el botón no aparece. */
+export function crmUrl(): string | null {
+  const raw = process.env.CRM_URL || 'https://rocco.arbolaureo.org';
+  try {
+    const u = new URL(raw);
+    if (u.protocol === 'https:' || (u.protocol === 'http:' && process.env.NODE_ENV !== 'production')) return u.href;
+  } catch { /* se informa abajo */ }
+  console.error(JSON.stringify({ level: 'error', msg: 'CRM_URL inválida: debe ser https', value: raw }));
+  return null;
+}
 
 export const toDepartment = (r: any): Department => ({ id: r.id, name: r.name, position: r.position, archivedAt: r.archived_at?.toISOString() ?? null });
 export const toLine = (r: any): BusinessLine => ({ id: r.id, name: r.name, color: r.color, position: r.position, archivedAt: r.archived_at?.toISOString() ?? null });

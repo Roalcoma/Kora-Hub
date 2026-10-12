@@ -155,3 +155,9 @@ Pedido de VFS el 2026-10-11. Rama `feat/finanzas`. ADR 0007; revisión de seguri
 - El desglose de nómina (`detail`) llega en español aunque la UI esté en inglés.
 - No hay DELETE de cuentas bancarias, personas de nómina ni plantillas recurrentes (se desactivan/pausan).
 - Entradas por compañía en Banco se calculan en el cliente sobre máx. 2000 movimientos.
+
+## Botón de Rocco CRM (2026-10-12)
+
+Ítem "Rocco CRM" en la barra lateral que abre `CRM_URL` (por defecto `https://rocco.arbolaureo.org`) en otra pestaña.
+Solo el superadmin lo activa por agencia desde `/admin` (columna `workspaces.crm_link`, migración 0011, auditado como
+`admin.crm_link`); los admins de la agencia no pueden cambiarlo. Solo enlaza al login: cada app tiene su propia cuenta.

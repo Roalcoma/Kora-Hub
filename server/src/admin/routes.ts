@@ -2,7 +2,7 @@
 // y todo queda en audit_log. Una sesión impersonada no entra aquí, salvo para terminar la impersonación.
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
-import { Id, AdminStatusBody, ImpersonateBody, type AdminWorkspace, type AdminMetrics } from '@agencia-hub/contracts';
+import { Id, AdminStatusBody, AdminWorkspaceBody, ImpersonateBody, type AdminWorkspace, type AdminMetrics } from '@agencia-hub/contracts';
 import { adminPool, withAdmin } from '../db.ts';
 import { HttpError, parse } from '../platform/http.ts';
 import { requireAuth, setSessionCookie, IMPERSONATION_MINUTES } from '../platform/auth.ts';
@@ -55,7 +55,7 @@ adminRouter.get('/workspaces', async (req, res) => {
   await log(req, 'admin.workspaces_viewed', { meta: q });
   res.json(rows.map((r): AdminWorkspace => ({
     ...toWorkspace(r), members: r.members, storageBytes: Number(r.storage_bytes), mrrCents: r.mrr_cents,
-    createdAt: r.created_at.toISOString(), ownerEmail: r.owner_email,
+    createdAt: r.created_at.toISOString(), ownerEmail: r.owner_email, crmLink: r.crm_link,
   })));
 });
 
@@ -93,6 +93,21 @@ adminRouter.post('/workspaces/:id/status', async (req, res) => {
        where id = $1`, [id, status]);
     await audit(db, { workspaceId: id, actor: req.userId!, action: 'admin.workspace_status', targetType: 'workspace', targetId: id,
       meta: { from: w.status, to: status }, ip: req.ip });
+  });
+  res.status(204).end();
+});
+
+// Ajustes que solo decide la plataforma (hoy, el botón de Rocco CRM). El Admin de la agencia no llega aquí.
+adminRouter.patch('/workspaces/:id', async (req, res) => {
+  const id = Id.parse(req.params.id);
+  const body = parse(AdminWorkspaceBody, req.body);
+  await withAdmin(async (db) => {
+    const w = (await db.query('select crm_link from workspaces where id = $1 for update', [id])).rows[0];
+    if (!w) throw new HttpError(404, 'workspace_not_found', 'Espacio de trabajo no encontrado');
+    if (body.crmLink === undefined || body.crmLink === w.crm_link) return;
+    await db.query('update workspaces set crm_link = $2 where id = $1', [id, body.crmLink]);
+    await audit(db, { workspaceId: id, actor: req.userId!, action: 'admin.crm_link', targetType: 'workspace', targetId: id,
+      meta: { from: w.crm_link, to: body.crmLink }, ip: req.ip });
   });
   res.status(204).end();
 });

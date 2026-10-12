@@ -41,7 +41,7 @@ export default {
   },
   nav: {
     trialDays: 'Prueba · queda {n} día | Prueba · quedan {n} días', agencyMenu: 'menú de la agencia',
-    profile: 'Mi perfil', notifications: 'Notificaciones', account: 'Mi cuenta', backoffice: 'Backoffice',
+    profile: 'Mi perfil', notifications: 'Notificaciones', account: 'Mi cuenta', backoffice: 'Backoffice', crm: 'Rocco CRM', crmHint: 'Abre Rocco CRM en una pestaña nueva',
     home: 'Inicio', messages: 'Mensajes', mentions: 'Menciones', tasks: 'Tareas', you: 'Tú', manuals: 'Manuales', goals: 'Metas', sales: 'Ventas', finance: 'Finanzas',
     settings: 'Ajustes', search: 'Buscar', line: '{category}', allLines: 'Todo', addWorkspace: 'Agregar espacio de trabajo',
     logout: 'Cerrar sesión', collapse: 'Contraer barra lateral', expand: 'Mostrar barra lateral', agency: 'Agencia', announcements: 'Anuncios',
@@ -178,6 +178,7 @@ export default {
     reason: 'Motivo', reasonHint: 'Ej.: el Owner pidió ayuda para configurar los departamentos', reasonShort: 'Escribe un motivo de al menos 5 caracteres.',
     impRules: 'Queda en la auditoría. Durante la sesión no se puede cambiar la contraseña, el 2FA ni la facturación.',
     backToApp: 'Ir a mi agencia',
+    colCrm: 'Rocco CRM', crmSwitch: 'Botón de Rocco CRM · {name}', crmOn: '{name} ya ve el botón de Rocco CRM.', crmOff: '{name} ya no ve el botón de Rocco CRM.',
   },
   plan: {
     trialEnds: 'La prueba gratis termina hoy. | La prueba gratis termina mañana. | La prueba gratis termina en {n} días.',

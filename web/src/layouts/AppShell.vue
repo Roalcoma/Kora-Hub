@@ -4,7 +4,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen, ChevronsUpDown, BellRing, ShieldCheck, BadgeDollarSign, Landmark } from 'lucide-vue-next';
+import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen, ChevronsUpDown, BellRing, ShieldCheck, BadgeDollarSign, Landmark, ExternalLink } from 'lucide-vue-next';
 import { useSession } from '@/stores/session.ts';
 import { useChat } from '@/chat/store.ts';
 import { canUseFinance } from '@/finance/store.ts';
@@ -54,6 +54,9 @@ const agencyNav = computed(() => [
   ...(canUseFinance(s) ? [{ to: `${base.value}/finance`, icon: Landmark, label: t('nav.finance') }] : []),
   ...(s.isAdmin ? [{ to: `${base.value}/settings`, icon: Settings, label: t('nav.settings') }] : []),
 ]);
+
+// Acceso a Rocco CRM (otra app de Árbol Áureo): lo activa el superadmin por agencia; lo ven todos los miembros
+const crmUrl = computed(() => s.workspace!.crmUrl);
 
 const dmUnread = computed(() => chat.channels.filter((c) => (c.kind === 'dm' || c.kind === 'group_dm') && c.isMember).reduce((n, c) => n + c.unreadCount, 0));
 const mentionUnread = computed(() => chat.channels.filter((c) => c.isMember && c.kind !== 'dm' && c.kind !== 'group_dm').reduce((n, c) => n + c.mentionCount, 0));
@@ -147,6 +150,9 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
               <component :is="n.icon" :size="19" /><span v-if="n.badge" class="rail-badge">{{ n.badge }}</span>
             </RouterLink>
           </Tooltip>
+          <Tooltip v-if="crmUrl" :text="t('nav.crmHint')" side="right">
+            <a :href="crmUrl" target="_blank" rel="noopener noreferrer" class="rail-btn" :aria-label="t('nav.crmHint')"><ExternalLink :size="19" /></a>
+          </Tooltip>
         </div>
       </Transition>
       <Tooltip v-if="sidebarHidden" :text="s.user!.name" side="right" class="rail-me">
@@ -181,6 +187,9 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
         <RouterLink v-for="n in agencyNav" :key="n.to" :to="n.to" class="sb-item" :class="{ active: route.path.startsWith(n.to) }">
           <component :is="n.icon" :size="16" />{{ n.label }}
         </RouterLink>
+        <a v-if="crmUrl" :href="crmUrl" target="_blank" rel="noopener noreferrer" class="sb-item" :title="t('nav.crmHint')">
+          <ExternalLink :size="16" />{{ t('nav.crm') }}
+        </a>
       </div>
       <button type="button" class="sb-me" :aria-label="t('nav.account')" @click="openMe">
         <Avatar :name="s.user!.name" :size="36" presence="active" />

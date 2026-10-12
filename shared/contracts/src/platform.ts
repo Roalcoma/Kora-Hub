@@ -35,6 +35,7 @@ export type Workspace = {
     salesModule: boolean;                 // ventas y comisiones por agente
     financeModule: boolean;               // gastos, nómina y banco (solo Owner, Admin y Contable)
   };
+  crmUrl: string | null;                  // botón "Rocco CRM" en la barra lateral; lo activa solo el superadmin
 };
 
 export type Member = {
@@ -71,6 +72,7 @@ export type BillingInfo = {
 
 export type AdminWorkspace = Workspace & {
   members: number; storageBytes: number; mrrCents: number; createdAt: IsoDate; ownerEmail: string | null;
+  crmLink: boolean;                       // la agencia ve el botón de Rocco CRM
 };
 export type AdminMetrics = { mrrCents: number; activeWorkspaces: number; trials: number; signups30d: number; churn30d: number };
 
@@ -144,3 +146,5 @@ export const SimulateBillingBody = z.object({
 
 export const AdminStatusBody = z.object({ status: z.enum(['active', 'suspended']) });
 export const ImpersonateBody = z.object({ reason: z.string().trim().min(5).max(300) });
+/** Ajustes de la agencia que solo cambia el superadmin (no viajan en `settings`, que edita el Admin) */
+export const AdminWorkspaceBody = z.object({ crmLink: z.boolean() }).partial();

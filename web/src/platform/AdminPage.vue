@@ -83,6 +83,22 @@ async function applyStatus() {
   }
 }
 
+// ─── Botón de Rocco CRM: solo lo decide el superadmin (queda en audit_log) ───
+const crmBusy = ref<string | null>(null);
+async function toggleCrm(w: AdminWorkspace) {
+  crmBusy.value = w.id;
+  const on = !w.crmLink;
+  try {
+    await api('PATCH /admin/workspaces/:id', { params: { id: w.id }, body: { crmLink: on } });
+    w.crmLink = on;
+    toast(t(on ? 'admin.crmOn' : 'admin.crmOff', { name: w.name }), 'success');
+  } catch (e) {
+    toast(errorText(e), 'error');
+  } finally {
+    crmBusy.value = null;
+  }
+}
+
 // ─── Impersonar (motivo obligatorio; queda en audit_log) ───
 const impWs = ref<AdminWorkspace | null>(null);
 const impOpen = computed({ get: () => !!impWs.value, set: (v) => { if (!v) impWs.value = null; } });
@@ -166,7 +182,7 @@ const meItems = computed(() => [
               <tr>
                 <th>{{ t('admin.colAgency') }}</th><th>{{ t('settings.industry') }}</th><th>{{ t('settings.planName') }}</th>
                 <th>{{ t('settings.status') }}</th><th class="num">{{ t('admin.colMembers') }}</th><th class="num">{{ t('admin.colStorage') }}</th>
-                <th class="num">MRR</th><th>{{ t('admin.colCreated') }}</th><th>Owner</th><th><span class="sr-only">{{ t('admin.actions') }}</span></th>
+                <th class="num">MRR</th><th>{{ t('admin.colCreated') }}</th><th>Owner</th><th>{{ t('admin.colCrm') }}</th><th><span class="sr-only">{{ t('admin.actions') }}</span></th>
               </tr>
             </thead>
             <tbody>
@@ -180,6 +196,10 @@ const meItems = computed(() => [
                 <td class="num">{{ money(w.mrrCents) }}</td>
                 <td class="nowrap">{{ date(w.createdAt) }}</td>
                 <td class="owner">{{ w.ownerEmail ?? '—' }}</td>
+                <td>
+                  <button type="button" role="switch" class="sw" :aria-checked="w.crmLink" :aria-label="t('admin.crmSwitch', { name: w.name })"
+                    :title="t('admin.crmSwitch', { name: w.name })" :disabled="crmBusy === w.id" @click="toggleCrm(w)"><span /></button>
+                </td>
                 <td class="acts">
                   <Button size="sm" variant="ghost" @click="confirmWs = w">
                     <template v-if="w.status === 'suspended'"><PlayCircle :size="15" />{{ t('admin.reactivate') }}</template>
@@ -265,6 +285,12 @@ tbody tr:hover { background: var(--color-canvas); box-shadow: inset 4px 0 0 var(
 .name { display: grid; gap: 1px; min-width: 180px; }
 .name small { font-size: 12px; color: var(--color-muted); }
 .owner { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw { position: relative; display: block; width: 48px; height: 26px; padding: 0; background: var(--color-line-strong); border: 0; cursor: pointer; transition: background var(--duration); }
+.sw span { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: var(--color-surface); box-shadow: var(--shadow-sm); transition: transform var(--duration); }
+.sw[aria-checked="true"] { background: var(--color-ink); }
+.sw[aria-checked="true"] span { transform: translateX(22px); background: var(--color-primary); }
+.sw:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgb(246 144 8 / .35); }
+.sw:disabled { opacity: .6; cursor: wait; }
 .acts { white-space: nowrap; text-align: right; }
 .acts > * + * { margin-left: 6px; }
 

@@ -209,6 +209,7 @@ export type Routes = {
   'POST /webhooks/stripe': R<unknown, NoContent>;                                             // firma verificada
   'GET /admin/workspaces': R<never, P.AdminWorkspace[], { q?: string; status?: P.WorkspaceStatus }>;
   'POST /admin/workspaces/:id/status': R<In<typeof P.AdminStatusBody>, NoContent>;
+  'PATCH /admin/workspaces/:id': R<In<typeof P.AdminWorkspaceBody>, NoContent>;               // crmLink; audit_log
   'POST /admin/workspaces/:id/impersonate': R<In<typeof P.ImpersonateBody>, P.Session & { workspaceSlug: string }>;  // como el Owner; 30 min; audit_log
   'POST /admin/impersonation/end': R<never, P.Session>;                                       // vuelve a la sesión del superadmin
   'GET /admin/metrics': R<never, P.AdminMetrics>;
