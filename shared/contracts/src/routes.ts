@@ -203,6 +203,7 @@ export type Routes = {
   'POST /w/:slug/finance/bank/import/commit': R<In<typeof Fi.ImportCommitBody>, Fi.BankStatement>;
   'GET /w/:slug/finance/bank/statements': R<never, Fi.BankStatement[], In<typeof Fi.BankStatementsQuery>>;
   'DELETE /w/:slug/finance/bank/statements/:id': R<never, NoContent>;                        // deshace la importación completa
+  'GET /w/:slug/finance/summary': R<never, Fi.FinanceSummary, In<typeof Fi.FinanceSummaryQuery>>;     // flujo de caja del periodo + próximos pagos
 
   // ── Webhooks y superadmin (fuera de workspace) ──
   'POST /webhooks/stripe': R<unknown, NoContent>;                                             // firma verificada

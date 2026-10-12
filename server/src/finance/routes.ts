@@ -6,6 +6,7 @@ import { tx } from '../platform/workspace.ts';
 import { expensesRouter } from './expenses.ts';
 import { payrollRouter } from './payroll.ts';
 import { bankRouter } from './bank.ts';
+import { summaryRouter } from './summary.ts';
 
 export const financeRouter = Router({ mergeParams: true });
 
@@ -15,4 +16,4 @@ financeRouter.use('/finance', async (req: Request, _res: Response, next: NextFun
   if (!on) throw new HttpError(404, 'module_disabled', 'El módulo de finanzas no está activo en esta agencia');
   next();
 });
-financeRouter.use('/finance', expensesRouter, payrollRouter, bankRouter);
+financeRouter.use('/finance', expensesRouter, payrollRouter, bankRouter, summaryRouter);

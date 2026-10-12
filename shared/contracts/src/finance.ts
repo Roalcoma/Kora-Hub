@@ -341,3 +341,39 @@ export const ImportCommitBody = z.object({
   carriers: z.array(z.object({ line: z.number().int().min(1), carrierId: Id.nullable() })).max(5_000).optional(),   // correcciones a la sugerencia
 });
 export const BankStatementsQuery = z.object({ accountId: Id.optional() });
+
+// ═══════════════════════════ Resumen ═══════════════════════════
+
+/** Periodo del resumen; sin `from`/`to` = sin límite por ese lado (atajo "Todas") */
+export const FinanceSummaryQuery = z.object({ from: Day.optional(), to: Day.optional() })
+  .refine((q) => !q.from || !q.to || q.to >= q.from, { path: ['to'], message: 'El periodo termina antes de empezar' });
+
+/** Próximo pago (gasto pendiente aprobado o corrida aprobada sin pagar) */
+export type UpcomingPayment = {
+  kind: 'expense' | 'payroll'; id: Id; date: Day; label: string; detail: string; amount: number;
+  categoryId: Id | null;                  // solo gastos
+  overdue: boolean;                       // corrida aprobada cuya fecha de pago ya pasó
+};
+
+/**
+ * Flujo de caja del periodo según lo cargado en Kora (no contabilidad): entradas del banco − gastos pagados (por
+ * `paid_at`, monto pagado) − nómina pagada (`payroll_lines.paid_at`, neto; categoría virtual "Nómina").
+ * Próximos pagos, vencidos, por aprobar y la serie mensual no dependen del periodo (se miden desde hoy en Nueva York).
+ */
+export type FinanceSummary = {
+  period: { from: Day | null; to: Day | null };
+  today: Day;
+  bank: {
+    inflow: number; outflow: number;                                          // outflow en positivo
+    inflowByCarrier: { carrierId: Id | null; amount: number; count: number }[];   // null = sin compañía
+  };
+  expenses: { paid: number; count: number; byCategory: { categoryId: Id; amount: number; count: number }[] };
+  payroll: { paid: number; lines: number };
+  result: number;                                                             // inflow − expenses.paid − payroll.paid
+  /** Cuotas de comisión (no anuladas) con vencimiento en el periodo; null si el módulo de ventas está apagado */
+  commissions: { expected: number; paid: number; count: number; paidCount: number } | null;
+  upcoming: UpcomingPayment[];                                                // próximos 15 días (y corridas atrasadas)
+  overdue: { count: number; amount: number };                                 // gastos aprobados pendientes con vencimiento < hoy
+  pendingApprovals: number;                                                   // gastos por aprobar
+  monthly: { month: string; inflow: number; spent: number }[];                // YYYY-MM, últimos 6 meses; spent = gastos + nómina
+};

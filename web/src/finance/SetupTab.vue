@@ -93,7 +93,7 @@ const add = () => {
 .body { flex: 1; overflow: auto; display: grid; grid-auto-rows: max-content; gap: 20px; align-content: start; padding: 18px 32px 40px 28px; }
 /* Categorías pesan más que las cuentas del banco */
 .split { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr); gap: 20px; align-items: start; }
-.card { display: grid; gap: 14px; align-content: start; padding: 18px 20px; background: var(--color-surface); box-shadow: var(--shadow-md); }
+.card { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 14px; align-content: start; padding: 18px 20px; background: var(--color-surface); box-shadow: var(--shadow-md); }
 .card.accent { border-left: 4px solid var(--color-primary); }
 .head { display: grid; gap: 2px; }
 h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 19px; }
@@ -111,7 +111,7 @@ input { flex: 1; min-width: 0; min-height: 38px; padding: 0 10px; font: inherit;
 input:hover:not(:disabled) { border-color: var(--color-line); }
 input:focus { border-color: var(--color-ink); background: var(--color-surface); }
 .color { width: 150px; flex: none; }
-.color :deep(.trigger) { min-height: 36px; box-shadow: none; border-color: var(--color-line); }
+.color :deep(.trigger) { width: 100%; min-width: 0; min-height: 36px; box-shadow: none; border-color: var(--color-line); }
 .ico { width: 36px; height: 36px; display: grid; place-items: center; flex: none; color: var(--color-muted); background: none; border: 0; cursor: pointer; transition: background var(--duration), color var(--duration); }
 .ico:hover { color: var(--color-ink); background: var(--color-canvas-deep); }
 .add { display: flex; gap: 8px; }
@@ -126,5 +126,5 @@ input:focus { border-color: var(--color-ink); background: var(--color-surface); 
   .add input { flex-basis: 100%; }
   .add .color { flex: 1; }
 }
-@media (max-width: 420px) { .cats .color { width: 112px; } }
+@media (max-width: 420px) { .cats .color { width: 140px; } }
 </style>
