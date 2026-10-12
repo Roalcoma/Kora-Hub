@@ -15,7 +15,7 @@ import Modal from '@/design/Modal.vue';
 import Skeleton from '@/design/Skeleton.vue';
 import EmptyState from '@/design/EmptyState.vue';
 import { toast } from '@/design/toast.ts';
-import { api } from '@/api.ts';
+import { api, RequestError } from '@/api.ts';
 import { useSession } from '@/stores/session.ts';
 import { errorText } from '@/platform/errors.ts';
 import { useFinance } from './store.ts';
@@ -63,7 +63,23 @@ async function act(key: string, fn: () => Promise<PayrollRunDetail>, ok?: string
   } catch (e) { toast(errorText(e), 'error'); } finally { busy.value = null; }
 }
 const recalc = () => act('recalc', () => api('POST /w/:slug/finance/payroll/runs/:id/recalculate', p()), t('finance.payroll.run.recalculatedOk'));
-const approve = () => act('approve', () => api('POST /w/:slug/finance/payroll/runs/:id/approve', p()), t('finance.payroll.run.approvedOk'));
+/**
+ * Aprobar manda la versión que se está viendo. Si la corrida cambió (409 run_changed: otro ajuste, horas, componentes o
+ * comisiones nuevas), se recalcula y se muestra lo actual para revisarlo de nuevo antes de aprobar.
+ */
+async function approve() {
+  if (!run.value) return;
+  busy.value = 'approve';
+  try {
+    set(await api('POST /w/:slug/finance/payroll/runs/:id/approve', { ...p(), body: { version: run.value.version } }));
+    toast(t('finance.payroll.run.approvedOk'), 'success');
+  } catch (e) {
+    if (e instanceof RequestError && e.code === 'run_changed') {
+      try { set(await api('POST /w/:slug/finance/payroll/runs/:id/recalculate', p())); } catch { await load(); }
+      toast(t('finance.payroll.run.changed'), 'error');
+    } else toast(errorText(e), 'error');
+  } finally { busy.value = null; }
+}
 const reopen = () => act('reopen', () => api('POST /w/:slug/finance/payroll/runs/:id/reopen', p()), t('finance.payroll.run.reopenedOk'));
 const unpay = (lineIds?: string[]) => act(lineIds ? lineIds[0] : 'unpay', () => api('POST /w/:slug/finance/payroll/runs/:id/pay', { ...p(), body: { lineIds, paidAt: null } }), t('finance.payroll.run.unpaidOk'));
 const removeAdj = (adjustmentId: string) => act('adj', () => api('DELETE /w/:slug/finance/payroll/runs/:id/adjustments/:adjustmentId', { params: { slug: slug(), id: props.runId, adjustmentId } }));

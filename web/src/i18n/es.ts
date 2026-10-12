@@ -507,6 +507,7 @@ export default {
         expandAll: 'Ver todos los desgloses', collapseAll: 'Ocultar desgloses',
         recalculate: 'Recalcular', recalculatedOk: 'Recalculada con los datos actuales',
         approve: 'Aprobar', approvedOk: 'Corrida aprobada: queda congelada',
+        changed: 'La corrida cambió mientras la revisabas; revísala de nuevo',
         accountantNote: 'Déjala lista: la aprueba un Owner o Admin. Después podrás marcarla pagada.',
         reopen: 'Reabrir', reopenedOk: 'Corrida reabierta: vuelve a borrador',
         payAll: 'Pagar todas', pay: 'Pagar', payTitle: 'Pagar línea', payAllTitle: 'Pagar todas las pendientes', paidOk: 'Pago registrado',

@@ -198,8 +198,12 @@ test('aprobación: Owner crea aprobado, Contable crea por aprobar y no puede apr
 
 test('pagar, saltar, reabrir y borrar', async () => {
   const e = (await owner('POST', A('/expenses'), expense({ vendor: 'FPL', amount: 180 }))).body;
-  // El Contable paga uno aprobado con monto real distinto
-  const p = await conta('POST', A(`/expenses/${e.id}/pay`), { paidAt: '2026-10-05', paidAmount: 176.4, reference: 'CONF-1' });
+  // El Contable no paga un monto distinto del aprobado (F2); el Owner sí registra el monto real
+  const diff = await conta('POST', A(`/expenses/${e.id}/pay`), { paidAt: '2026-10-05', paidAmount: 176.4 });
+  assert.deepEqual([diff.status, diff.body.code], [409, 'paid_amount_differs']);
+  assert.equal((await conta('POST', A(`/expenses/${e.id}/pay`), { paidAt: '2026-10-05', paidAmount: 180 })).status, 200);
+  await owner('POST', A(`/expenses/${e.id}/reopen`));
+  const p = await owner('POST', A(`/expenses/${e.id}/pay`), { paidAt: '2026-10-05', paidAmount: 176.4, reference: 'CONF-1' });
   assert.equal(p.status, 200);
   assert.deepEqual([p.body.status, p.body.paidAmount, p.body.paidAt, p.body.reference], ['paid', 176.4, '2026-10-05', 'CONF-1']);
   assert.equal((await owner('POST', A(`/expenses/${e.id}/pay`), { paidAt: '2026-10-05' })).body.code, 'expense_not_pending');
@@ -236,8 +240,9 @@ test('vencidos y totales: saltados y rechazados no suman', async () => {
   assert.equal(l.items.length, 5);
   assert.equal(l.items.find((e: any) => e.id === late.id).overdue, true);
   assert.equal(l.items.find((e: any) => e.id === pendingApproval.id).overdue, false);   // sin aprobar no está "vencido"
-  assert.deepEqual(l.totals, { count: 3, amount: 310, paid: 190, pending: 110, overdue: 100, overdueCount: 1 });
-  assert.deepEqual(l.byCategory, [{ categoryId: rentA, amount: 300, paid: 190 }, { categoryId: otherA, amount: 10, paid: 0 }]);
+  // amount = monto real: lo pagado (190) si ya se pagó, si no el estimado (desde b09361b)
+  assert.deepEqual(l.totals, { count: 3, amount: 300, paid: 190, pending: 110, overdue: 100, overdueCount: 1 });
+  assert.deepEqual(l.byCategory, [{ categoryId: rentA, amount: 290, paid: 190 }, { categoryId: otherA, amount: 10, paid: 0 }]);
   const od = (await owner('GET', A(`/expenses?overdue=true&vendor=${encodeURIComponent(`Totales ${run}`)}`))).body;
   assert.deepEqual(od.items.map((e: any) => e.id), [late.id]);
   const ap = (await owner('GET', A(`/expenses?approvalStatus=pending&vendor=${encodeURIComponent(`Totales ${run}`)}`))).body;
@@ -272,6 +277,25 @@ test('comprobante: archivo de gastos válido; id inexistente, de otro contexto o
   assert.equal((await owner('POST', A(`/expenses/${ok.id}/pay`), { paidAt: '2026-10-01', fileId: randomUUID() })).body.code, 'invalid_file');
   const paid = await owner('POST', A(`/expenses/${ok.id}/pay`), { paidAt: '2026-10-01', fileId });
   assert.equal(paid.body.file.id, fileId);
+});
+
+test('F2: cualquier cambio material del Contable sobre un gasto aprobado lo deja por aprobar', async () => {
+  const fileId = await upload(conta, slugA, 'f2.pdf', 'application/pdf', '%PDF f2', 'expense');
+  const changes: object[] = [{ vendor: 'Servicios Pérez' }, { categoryId: otherA }, { dueDate: '2026-12-01' }, { payMethod: 'zelle' },
+    { concept: 'otro' }, { amount: 2501 }];
+  for (const ch of changes) {
+    const e = (await owner('POST', A('/expenses'), expense({ vendor: `F2 ${run}` }))).body;
+    const m = await conta('PATCH', A(`/expenses/${e.id}`), ch);
+    assert.deepEqual([m.status, m.body.approvalStatus, m.body.approvedBy], [200, 'pending', null], JSON.stringify(ch));
+    assert.equal((await conta('POST', A(`/expenses/${e.id}/pay`), { paidAt: '2026-10-01' })).body.code, 'not_approved');
+  }
+  // Notas, referencia, comprobante o el mismo valor no son materiales
+  const e = (await owner('POST', A('/expenses'), expense({ vendor: `F2 ${run}` }))).body;
+  for (const ch of [{ notes: 'x' }, { reference: 'R-1' }, { fileId }, { vendor: `F2 ${run}`, amount: 2500 }]) {
+    assert.equal((await conta('PATCH', A(`/expenses/${e.id}`), ch)).body.approvalStatus, 'approved', JSON.stringify(ch));
+  }
+  // El Owner cambia el proveedor y sigue aprobado
+  assert.equal((await owner('PATCH', A(`/expenses/${e.id}`), { vendor: 'Otro' })).body.approvalStatus, 'approved');
 });
 
 // ═══════════════════════════ 3. Recurrencias ═══════════════════════════
@@ -368,6 +392,51 @@ test('plantilla del Contable: no genera hasta aprobarse; aprobar genera y repeti
   assert.equal(m.body.approvalStatus, 'pending');
   await owner('POST', A(`/expense-schedules/${scheduleId}/approve`));
   assert.ok((await list()).every((e) => e.amount === 2700));
+});
+
+test('F2: cambio material del Contable en una plantilla aprobada → por aprobar, sin propagar ni generar hasta aprobar', async () => {
+  const base = { categoryId: rentA, vendor: `Software F2 ${run}`, amount: 49, payMethod: 'card', frequency: 'monthly', monthDay: 1, startsOn: today };
+  const changes: object[] = [{ frequency: 'daily', monthDay: null }, { interval: 2 }, { monthDay: 15 }, { startsOn: addDays(today, 1) },
+    { endsOn: addDays(today, 200) }, { vendor: 'Servicios Pérez' }, { categoryId: otherA }, { payMethod: 'zelle' }, { concept: 'x' }, { amount: 50 }];
+  for (const ch of changes) {
+    const s = (await owner('POST', A('/expense-schedules'), { ...base, vendor: `${base.vendor} ${JSON.stringify(ch)}` })).body;
+    const items = async () => (await owner('GET', A(`/expenses?scheduleId=${s.id}`))).body.items as any[];
+    const before = await items();
+    const m = await conta('PATCH', A(`/expense-schedules/${s.id}`), ch);
+    assert.deepEqual([m.status, m.body.approvalStatus], [200, 'pending'], `${JSON.stringify(ch)} ${JSON.stringify(m.body)}`);
+    const after = await items();
+    // Lo que queda es lo aprobado: ni proveedor ni monto nuevos, y no aparecen ocurrencias nuevas
+    assert.ok(after.every((e) => e.vendor === s.vendor && e.amount === 49 && e.categoryId === rentA && e.payMethod === 'card'), JSON.stringify(ch));
+    assert.ok(after.length <= before.length, JSON.stringify(ch));
+  }
+  // Diaria: tras aprobar sí genera con la regla nueva
+  const d = (await owner('POST', A('/expense-schedules'), { ...base, vendor: `Diaria F2 ${run}` })).body;
+  await conta('PATCH', A(`/expense-schedules/${d.id}`), { frequency: 'daily', monthDay: null, vendor: `Diaria F2b ${run}` });
+  await owner('POST', A(`/expense-schedules/${d.id}/approve`));
+  const gen = (await owner('GET', A(`/expenses?scheduleId=${d.id}`))).body.items as any[];
+  assert.ok(gen.length > 30 && gen.every((e) => e.vendor === `Diaria F2b ${run}`));
+  // Reanudar una pausada (pausada por el Owner): el Contable la deja por aprobar; pausar no lo es
+  const p = (await owner('POST', A('/expense-schedules'), { ...base, vendor: `Pausada F2 ${run}` })).body;
+  assert.equal((await conta('PATCH', A(`/expense-schedules/${p.id}`), { status: 'paused' })).body.approvalStatus, 'approved');
+  const res = await conta('PATCH', A(`/expense-schedules/${p.id}`), { status: 'active' });
+  assert.deepEqual([res.body.status, res.body.approvalStatus], ['active', 'pending']);
+  // El Owner aprueba la reanudación y luego cambia la regla: sigue aprobada
+  await owner('POST', A(`/expense-schedules/${p.id}/approve`));
+  assert.equal((await owner('PATCH', A(`/expense-schedules/${p.id}`), { interval: 3 })).body.approvalStatus, 'approved');
+});
+
+test('F5: startsOn de hace más de un año → 400; la generación se corta en 400 ocurrencias por pasada', async () => {
+  const base = { categoryId: otherA, vendor: `Diaria vieja ${run}`, amount: 1, payMethod: 'card', frequency: 'daily' };
+  const old = await owner('POST', A('/expense-schedules'), { ...base, startsOn: '1900-01-01' });
+  assert.deepEqual([old.status, old.body.code], [400, 'starts_too_early']);
+  const s = await owner('POST', A('/expense-schedules'), { ...base, startsOn: addDays(today, -366) });
+  assert.equal(s.status, 201, JSON.stringify(s.body));
+  const count = async () => (await owner('GET', A(`/expenses?scheduleId=${s.body.id}`))).body.items.length;
+  assert.equal(await count(), 400);   // 366 + 1 + 35 = 402 fechas: la primera pasada crea 400
+  assert.equal(await withWorkspace({ workspaceId: wsA, userId: null }, (db) => generateOccurrences(db, s.body.id)), 2);
+  assert.equal(await count(), 402);
+  assert.equal((await owner('PATCH', A(`/expense-schedules/${s.body.id}`), { startsOn: '2000-01-01' })).body.code, 'starts_too_early');
+  await owner('PATCH', A(`/expense-schedules/${s.body.id}`), { status: 'paused' });
 });
 
 test('plantilla del Owner nace aprobada y genera; diaria hábil sin fines de semana; rechazada no genera', async () => {
@@ -548,9 +617,20 @@ test('corrida: horas y ajustes se conservan al recalcular; solo Owner/Admin apru
   assert.deepEqual([L(r.body).hours, L(r.body).gross, L(r.body).net, L(r.body).adjustments.length], [10, 2300, 2020, 1]);
   assert.equal((await conta('POST', A(`/payroll/runs/${runId}/adjustments`), { personId: randomUUID(), kind: 'bonus', label: 'X', amount: 1 })).body.code, 'person_not_in_run');
 
-  const no = await conta('POST', A(`/payroll/runs/${runId}/approve`));
+  const no = await conta('POST', A(`/payroll/runs/${runId}/approve`), { version: r.body.version });
   assert.equal(no.status, 403);
-  const ok = await owner('POST', A(`/payroll/runs/${runId}/approve`));
+  // F4: el Owner revisa (v0); el Contable añade un bono mientras tanto → aprobar con v0 da 409 y no aprueba
+  const v0 = (await owner('GET', A(`/payroll/runs/${runId}`))).body.version;
+  assert.equal(v0, r.body.version);
+  const sneaky = await conta('POST', A(`/payroll/runs/${runId}/adjustments`), { personId: luisId, kind: 'bonus', label: 'Bono', amount: 8000 });
+  assert.notEqual(sneaky.body.version, v0);
+  const stale = await owner('POST', A(`/payroll/runs/${runId}/approve`), { version: v0 });
+  assert.deepEqual([stale.status, stale.body.code], [409, 'run_changed']);
+  assert.equal((await owner('GET', A(`/payroll/runs/${runId}`))).body.status, 'draft');
+  assert.equal((await owner('POST', A(`/payroll/runs/${runId}/approve`), {})).status, 400);   // sin versión
+  const sneakyId = L(sneaky.body).adjustments.find((x: any) => x.label === 'Bono').id;
+  r = await conta('DELETE', A(`/payroll/runs/${runId}/adjustments/${sneakyId}`));
+  const ok = await owner('POST', A(`/payroll/runs/${runId}/approve`), { version: r.body.version });
   assert.deepEqual([ok.body.status, ok.body.approvedBy], ['approved', ownerId]);
   assert.deepEqual(ok.body.totals, { people: 2, gross: 2945, deductions: 280, net: 2665, paid: 0 });
   // Congelada: subir el sueldo o borrar componentes no la toca; tampoco se editan horas ni ajustes
@@ -681,6 +761,30 @@ test('fechas y montos del CSV', () => {
   assert.equal(dedupeKey('2026-10-01', -10.5, 'R-1', 'lo que sea'), '2026-10-01|-10.50|R-1');
 });
 
+test('F1: celdas hostiles se resuelven en tiempo lineal y con topes (ReDoS)', () => {
+  const evil = '.' + '1'.repeat(40_000) + ',1,1';
+  let t = performance.now();
+  assert.equal(parseCsvAmount(evil), null);
+  assert.equal(parseCsvDate(evil, 'MM/DD/YYYY'), null);
+  assert.ok(performance.now() - t < 50, `parseCsvAmount tardó ${performance.now() - t} ms`);
+  // Sin el tope de longitud, la regex tampoco es cuadrática ni acepta separadores ambiguos
+  assert.equal(parseCsvAmount('.11,1,1'), null);
+  assert.equal(parseCsvAmount('1,2.3.4'), null);
+  assert.equal(parseCsvAmount('1.2,3,4'), null);
+  assert.equal(parseCsvAmount('1,234,567.89'), 1234567.89);
+  assert.equal(parseCsvAmount('1.234.567,89'), 1234567.89);
+  // parseCsv: celda de 40 000 caracteres y encabezado de 2 M celdas, cortados y rápidos
+  t = performance.now();
+  const recs = parseCsv(`"${evil}";x\n${','.repeat(2_000_000)}`, ';');
+  const rec2 = parseCsv(','.repeat(2_000_000), ',');
+  assert.ok(performance.now() - t < 1_000, `parseCsv tardó ${performance.now() - t} ms`);
+  assert.equal(recs[0]!.cells[0]!.length, 1_000);
+  assert.equal(rec2[0]!.cells.length, 200);
+  t = performance.now();
+  for (const c of recs[0]!.cells) parseCsvAmount(c);
+  assert.ok(performance.now() - t < 50);
+});
+
 test('suggestCarrier: nombre o alias como palabra completa, la coincidencia más larga y solo entradas', () => {
   const carriers = [
     { id: 'americo', name: 'Americo', aliases: ['americo'] },
@@ -804,6 +908,41 @@ test('banco: movimientos importados solo editan compañía, notas y cruce; desha
 });
 
 // ═══════════════════════════ 6. Aislamiento entre agencias ═══════════════════════════
+
+test('F3: comprobantes y estados de cuenta solo los bajan Owner, Admin y Contable con el módulo activo', async () => {
+  const receipt = await upload(conta, slugA, 'recibo.png', 'image/png', 'png', 'expense');
+  for (const id of [csvFile, receipt]) {
+    for (const [c, status] of [[owner, 200], [conta, 200], [ana, 404], [guest, 404]] as const) {
+      const r = await c('GET', `/w/${slugA}/files/${id}`);
+      assert.equal(r.status, status, `${id} → ${r.status}`);
+    }
+  }
+  // Un archivo de otro contexto sí lo baja cualquiera del workspace
+  const doc = await upload(ana, slugA, 'nota.txt', 'text/plain', 'hola', 'document');
+  assert.equal((await guest('GET', `/w/${slugA}/files/${doc}`)).status, 200);
+  // Con el módulo apagado, ni el Owner ni el Contable (ni quien lo subió)
+  await adminPool.query(`update workspaces set settings = settings || '{"finance_module": false}' where id = $1`, [wsA]);
+  try {
+    assert.equal((await owner('GET', `/w/${slugA}/files/${csvFile}`)).status, 404);
+    assert.equal((await conta('GET', `/w/${slugA}/files/${receipt}`)).status, 404);
+  } finally {
+    await adminPool.query(`update workspaces set settings = settings || '{"finance_module": true}' where id = $1`, [wsA]);
+  }
+});
+
+test('F6: desbordes de numeric/integer → 400, no 500', async () => {
+  assert.equal((await owner('PATCH', A(`/expense-categories/${otherA}`), { position: 2 ** 31 })).status, 400);
+  assert.equal((await owner('PATCH', A(`/expense-categories/${otherA}`), { position: -1 })).status, 400);
+  const cal = (await conta('POST', A('/payroll/calendars'), { name: `Horas ${run}`, frequency: 'monthly', payDay: 'last' })).body.id;
+  const pid = (await conta('POST', A('/payroll/people'), { name: 'Tarifa alta', calendarId: cal, payMethod: 'ach' })).body.id;
+  assert.equal((await conta('POST', A(`/payroll/people/${pid}/components`), { kind: 'hourly', amount: 10_000_000, effectiveFrom: '2026-01-01' })).status, 201);
+  const r = await conta('POST', A('/payroll/runs'), { calendarId: cal, periodStart: '2026-07-01', periodEnd: '2026-07-31', payDate: '2026-07-31' });
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  const h = await conta('PATCH', A(`/payroll/runs/${r.body.id}/lines/${r.body.lines[0].id}`), { hours: 1000 });
+  assert.deepEqual([h.status, h.body.code], [400, 'amount_out_of_range']);
+  assert.equal((await conta('PATCH', A(`/payroll/runs/${r.body.id}/lines/${r.body.lines[0].id}`), { hours: 999 })).status, 200);
+  await conta('DELETE', A(`/payroll/runs/${r.body.id}`));
+});
 
 test('aislamiento: la agencia B no ve ni toca nada de la A con IDs de la A', async () => {
   // Datos propios de B para comprobar que los listados no se mezclan

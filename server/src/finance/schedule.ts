@@ -15,6 +15,13 @@ export type ScheduleRule = {
 
 /** Ventana de generación: hoy + 35 días */
 export const HORIZON_DAYS = 35;
+/**
+ * Revisión de seguridad F5: una plantilla no empieza más de un año atrás (lo valida la API), y cada pasada genera como
+ * máximo MAX_OCCURRENCES_PER_PASS ocurrencias por plantilla; si quedan más, `generated_until` se queda en la última
+ * creada y la siguiente pasada (job horario o próxima edición) sigue desde ahí.
+ */
+export const MAX_PAST_DAYS = 366;
+export const MAX_OCCURRENCES_PER_PASS = 400;
 
 const MS = 86_400_000;
 /** Días desde 1970-01-01 (UTC, sin husos horarios) */
@@ -105,7 +112,9 @@ export async function generateOccurrences(db: pg.PoolClient, scheduleId: string 
   let created = 0;
   for (const s of rows) {
     const from = s.gen ? addDays(s.gen, 1) : s.starts;
-    const dates = occurrences(ruleOf(s), from, horizon);
+    const all = occurrences(ruleOf(s), from, horizon);
+    const dates = all.slice(0, MAX_OCCURRENCES_PER_PASS);
+    const until = all.length > dates.length ? dates[dates.length - 1]! : horizon;
     if (dates.length) {
       created += (await db.query(
         `insert into expenses (workspace_id, schedule_id, category_id, vendor, concept, due_date, amount, pay_method,
@@ -114,7 +123,7 @@ export async function generateOccurrences(db: pg.PoolClient, scheduleId: string 
          on conflict (schedule_id, due_date) do nothing`,
         [s.id, s.category_id, s.vendor, s.concept, s.amount, s.pay_method, dates])).rowCount ?? 0;
     }
-    await db.query('update expense_schedules set generated_until = $2 where id = $1', [s.id, horizon]);
+    await db.query('update expense_schedules set generated_until = $2 where id = $1', [s.id, until]);
   }
   return created;
 }

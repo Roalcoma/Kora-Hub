@@ -134,10 +134,11 @@ docsRouter.patch('/documents/:id', async (req, res) => {
     await db.query(`update documents set ${set.join(', ')} where id = $1`, vals);
     if (body.fileIds) {
       await db.query('delete from document_files where document_id = $1', [id]);
-      // FK compuesta: solo entran archivos de este workspace
+      // FK compuesta: solo entran archivos de este workspace; los de finanzas (comprobantes, estados de cuenta) no
       await db.query(
         `insert into document_files (workspace_id, document_id, file_id)
-         select app_ws(), $1, id from files where id = any($2) and status = 'ready'`, [id, body.fileIds]);
+         select app_ws(), $1, id from files where id = any($2) and status = 'ready'
+           and context not in ('expense', 'bank_statement')`, [id, body.fileIds]);
     }
     if (body.title !== undefined || body.content !== undefined) await saveVersion(db, id);
     return getDoc(db, req, id);

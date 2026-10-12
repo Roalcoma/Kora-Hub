@@ -71,19 +71,26 @@ filesRouter.post('/:id/complete', async (req, res) => {
   res.json(toFileRef(req.ws!.slug, file));
 });
 
-// Descarga: valida acceso y hace stream desde S3. Archivos de mensajes solo si puedo leer ese canal.
+/** Contextos de finanzas: solo Owner, Admin o Contable con el módulo activo (revisión de seguridad F3) */
+const FINANCE_CONTEXTS = ['expense', 'bank_statement'];
+const FINANCE_ROLES = ['owner', 'admin', 'accountant'];
+
+// Descarga: valida acceso y hace stream desde S3. Archivos de mensajes solo si puedo leer ese canal. Comprobantes y
+// estados de cuenta, solo para finanzas (ni siquiera quien lo subió si ya no tiene ese rol).
 filesRouter.get('/:id', async (req, res) => {
   const id = Id.parse(req.params.id);
   const file = await tx(req, async (db) => (await db.query(
     `select f.* from files f
      where f.workspace_id = app_ws() and f.id = $1 and f.status = 'ready'
+       and (f.context <> all($2::text[])
+         or ($3 and exists (select 1 from workspaces w where w.id = app_ws() and w.settings->>'finance_module' = 'true')))
        and (f.uploader_id = app_user()
          or f.context <> 'message'
          or exists (select 1 from message_files mf join messages m on m.id = mf.message_id join channels c on c.id = m.channel_id
                     where mf.file_id = f.id and m.deleted_at is null
                       and (c.kind in ('public', 'announcement')
                         or exists (select 1 from channel_members cm where cm.channel_id = c.id and cm.user_id = app_user()))))`,
-    [id])).rows[0]);
+    [id, FINANCE_CONTEXTS, FINANCE_ROLES.includes(req.ws!.role)])).rows[0]);
   if (!file) throw new HttpError(404, 'file_not_found', 'Archivo no encontrado');
   const range = req.headers.range;
   const s3 = await fetch(presign('GET', file.storage_key, 60), { headers: range ? { range } : {} });

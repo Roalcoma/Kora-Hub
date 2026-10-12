@@ -1,0 +1,1149 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kora Landing</title>
+<meta name="description" content="Mockup de la landing pública de Kora (Ola 4), para aprobación.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Roboto:wght@400;500;700&display=swap">
+<style>
+/* Mockup de la landing de Kora. Tokens copiados de web/src/design/tokens.css (sin cambios).
+   Reglas: radio 0 en todo (salvo .presence), texto sobre naranja en --color-ink, solo tema claro. */
+:root {
+  --color-primary: #F69008; --color-primary-dark: #D97706; --color-primary-light: #FEF3C7;
+  --color-ink: #13243D; --color-ink-soft: #1C3150; --color-leaf: #2F5D8A; --color-cta: #60D0FA;
+  --color-canvas: #F7F8FA; --color-surface: #FFFFFF; --color-canvas-deep: #EEF1F5;
+  --color-line: #E4E7EC; --color-line-strong: #CBD1DA; --color-muted: #5E6878; --color-sidebar-text: #C9D3E0;
+  --color-danger: #B42318; --color-danger-light: #FDECEA; --color-warning: #B54708; --color-warning-light: #FEF0E1;
+  --color-success: #1E7F4F; --color-success-light: #E6F4EC; --color-presence: #2BAC76;
+  --font-sans: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Roboto', system-ui, sans-serif;
+  --shadow-sm: 0 1px 2px rgb(19 36 61 / 0.08);
+  --shadow-md: 0 4px 14px rgb(19 36 61 / 0.12);
+  --shadow-lg: 0 12px 32px rgb(19 36 61 / 0.18);
+  --duration: 160ms;
+  --gutter: 48px;
+  color-scheme: light;
+}
+*, *::before, *::after { border-radius: 0 !important; box-sizing: border-box; }
+.presence { border-radius: 50% !important; }
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+html { background: var(--color-canvas); }
+html, body { margin: 0; color: var(--color-ink); overflow-x: clip; }
+body { font-family: var(--font-sans); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; letter-spacing: -0.01em; }
+p { margin: 0; }
+a { color: var(--color-leaf); }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.wrap { max-width: 1480px; margin: 0 auto; padding-inline: var(--gutter); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0ms !important; } html { scroll-behavior: auto; } }
+
+/* ── Botones ── */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 18px; font-weight: 700; font-size: 15px; text-decoration: none; border: 1px solid transparent; transition: background var(--duration), box-shadow var(--duration), transform var(--duration), border-color var(--duration); white-space: nowrap; }
+.btn.primary { background: var(--color-primary); color: var(--color-ink); box-shadow: var(--shadow-sm); }
+.btn.primary:hover { background: var(--color-primary-dark); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.btn.ghost { background: var(--color-surface); color: var(--color-ink); border-color: var(--color-line-strong); }
+.btn.ghost:hover { border-color: var(--color-ink); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.btn.ink { background: var(--color-ink); color: #fff; }
+.btn.ink:hover { background: var(--color-ink-soft); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.btn.lg { min-height: 52px; padding: 0 24px; font-size: 16px; }
+
+/* ── Encabezado ── */
+.site-head { position: sticky; top: 0; z-index: 50; background: rgb(255 255 255 / .96); backdrop-filter: blur(8px); border-bottom: 1px solid var(--color-line); box-shadow: var(--shadow-sm); }
+.site-head .wrap { display: flex; align-items: center; gap: 32px; height: 68px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--color-ink); font-family: var(--font-display); font-weight: 800; font-size: 22px; letter-spacing: -0.02em; }
+.brand .mark { width: 34px; height: 34px; display: grid; place-items: center; background: var(--color-ink); color: var(--color-primary); font-size: 19px; position: relative; box-shadow: 3px 3px 0 var(--color-primary); }
+.nav { display: flex; gap: 4px; }
+.nav a { padding: 8px 12px; color: var(--color-ink); text-decoration: none; font-weight: 500; font-size: 15px; border-bottom: 2px solid transparent; transition: border-color var(--duration), background var(--duration); }
+.nav a:hover { border-bottom-color: var(--color-primary); background: var(--color-canvas); }
+.head-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.lang { display: flex; border: 1px solid var(--color-line-strong); background: var(--color-surface); }
+.lang button { min-width: 40px; height: 36px; font-size: 13px; font-weight: 700; color: var(--color-muted); transition: background var(--duration), color var(--duration); }
+.lang button:hover { color: var(--color-ink); background: var(--color-canvas); }
+.lang button[aria-pressed="true"] { background: var(--color-ink); color: #fff; }
+.menu-btn { display: none; width: 44px; height: 44px; place-items: center; border: 1px solid var(--color-line-strong); background: var(--color-surface); }
+.mobile-menu { display: none; }
+
+/* ── Héroe ── */
+.hero { position: relative; padding: 56px 0 72px; }
+.hero::before { content: ''; position: absolute; inset: 0 0 auto auto; width: 38%; height: 78%; background: var(--color-canvas-deep); z-index: -1; }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: center; }
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; padding: 6px 12px 6px 0; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--color-leaf); }
+.eyebrow::before { content: ''; width: 28px; height: 3px; background: var(--color-primary); }
+.hero h1 { font-size: clamp(2.3rem, 4.2vw, 4rem); line-height: 1.04; font-weight: 800; margin-top: 14px; text-wrap: balance; letter-spacing: -0.025em; }
+.hero h1 .hl { position: relative; white-space: nowrap; }
+.hero h1 .sub { display: block; color: var(--color-leaf); font-size: .62em; line-height: 1.15; margin-top: .3em; letter-spacing: -0.015em; }
+.hero h1 .hl::after { content: ''; position: absolute; left: 0; right: 0; bottom: .1em; height: .16em; background: var(--color-primary); z-index: -1; opacity: .85; }
+.hero .lead { margin-top: 20px; font-size: 19px; line-height: 1.55; color: #33425A; max-width: 54ch; }
+.hero .ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.assurances { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 22px 0 0; padding: 0; list-style: none; font-size: 14px; color: var(--color-muted); }
+.assurances li { display: inline-flex; align-items: center; gap: 6px; }
+.assurances .i { width: 16px; height: 16px; color: var(--color-success); }
+
+/* Escena del héroe: la app recreada + elementos flotantes */
+.scene { position: relative; padding: 0 0 36px 0; isolation: isolate; }
+.scene::before { content: ''; position: absolute; right: -20px; top: 28px; bottom: 0; left: 48px; background: var(--color-ink); z-index: -1; }
+.window { background: var(--color-surface); box-shadow: var(--shadow-lg); border: 1px solid var(--color-line); overflow: hidden; }
+.chrome { height: 34px; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: var(--color-canvas-deep); border-bottom: 1px solid var(--color-line); }
+.chrome .dots { display: flex; gap: 6px; } .chrome .dots i { width: 10px; height: 10px; background: var(--color-line-strong); display: block; }
+.chrome .url { flex: 1; max-width: 340px; margin: 0 auto; height: 22px; display: flex; align-items: center; gap: 6px; padding: 0 10px; background: var(--color-surface); border: 1px solid var(--color-line); font-size: 12px; color: var(--color-muted); }
+.chrome .url .i { width: 12px; height: 12px; }
+.app { display: grid; grid-template-columns: 210px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 520px; font-size: 13px; }
+.sb { background: linear-gradient(180deg, var(--color-ink) 0%, #0F1E34 100%); color: var(--color-sidebar-text); display: flex; flex-direction: column; min-height: 0; }
+.sb-top { padding: 12px 14px; border-bottom: 1px solid rgb(255 255 255 / .08); display: grid; gap: 10px; }
+.sb-ws { display: flex; align-items: center; gap: 8px; color: #fff; font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+.sb-ws .ws { width: 26px; height: 26px; display: grid; place-items: center; background: var(--color-primary); color: var(--color-ink); font-size: 13px; }
+.sb-ws .i { width: 14px; height: 14px; margin-left: auto; opacity: .7; }
+.sb-search { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: rgb(0 0 0 / .2); font-size: 12px; }
+.sb-search .i { width: 13px; height: 13px; }
+.sb-search kbd { margin-left: auto; font: 11px var(--font-sans); padding: 0 4px; border: 1px solid rgb(255 255 255 / .2); }
+.sb-list { padding: 8px 0; display: grid; gap: 10px; align-content: start; flex: 1; overflow: hidden; }
+.sb-sec h4 { font-family: var(--font-sans); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .07em; color: #8FA0B8; padding: 2px 14px 4px; }
+.sb-item { display: flex; align-items: center; gap: 8px; padding: 4px 14px; position: relative; white-space: nowrap; }
+.sb-item .i { width: 14px; height: 14px; opacity: .8; }
+.sb-item.unread { color: #fff; font-weight: 700; }
+.sb-item.active { background: var(--color-ink-soft); color: #fff; }
+.sb-item.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--color-primary); }
+.badge { margin-left: auto; min-width: 18px; padding: 0 5px; background: var(--color-primary); color: var(--color-ink); font-size: 11px; font-weight: 700; text-align: center; }
+.sb-item .presence { width: 8px; height: 8px; background: var(--color-presence); flex: none; }
+.sb-item .presence.away { background: transparent; border: 1.5px solid #8FA0B8; }
+.sb-me { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid rgb(255 255 255 / .08); background: rgb(0 0 0 / .14); }
+.sb-me b { display: block; color: #fff; font-size: 12px; } .sb-me small { font-size: 11px; color: #8FA0B8; }
+.av { width: 30px; height: 30px; display: grid; place-items: center; font-weight: 700; font-size: 11px; color: #fff; flex: none; position: relative; }
+.av.sm { width: 22px; height: 22px; font-size: 9px; }
+.c1 { background: var(--color-leaf); } .c2 { background: var(--color-primary); color: var(--color-ink); } .c3 { background: #5B4B8A; } .c4 { background: #1E7F4F; } .c5 { background: #A3412A; }
+.main { display: flex; flex-direction: column; min-width: 0; background: var(--color-canvas); }
+.top { height: 46px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 16px; background: var(--color-surface); border-bottom: 1px solid var(--color-line); }
+.top b { font-family: var(--font-display); font-size: 15px; display: flex; align-items: center; gap: 4px; }
+.top b .i { width: 15px; height: 15px; }
+.top span { color: var(--color-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.stack { margin-left: auto; display: flex; align-items: center; gap: 6px; padding: 3px 6px; border: 1px solid var(--color-line); font-size: 12px; }
+.stack .av { margin-left: -5px; border: 2px solid var(--color-surface); } .stack .av:first-child { margin-left: 0; }
+.feed { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 0 4px; }
+.day { display: flex; align-items: center; gap: 10px; padding: 2px 16px; font-size: 11px; font-weight: 700; color: var(--color-danger); }
+.day::after { content: ''; flex: 1; height: 1px; background: var(--color-danger); }
+.msg { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; padding: 6px 16px; }
+.msg.mention { background: var(--color-primary-light); box-shadow: inset 3px 0 0 var(--color-primary); }
+.msg-h { display: flex; align-items: baseline; gap: 8px; } .msg-h time { font-size: 11px; color: var(--color-muted); }
+.msg p { margin-top: 1px; line-height: 1.45; }
+.at { background: var(--color-primary); color: var(--color-ink); font-weight: 500; padding: 0 3px; }
+.reacts { display: flex; gap: 6px; margin-top: 5px; }
+.react { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border: 1px solid var(--color-line); background: var(--color-surface); font-size: 11px; }
+.react.mine { border-color: var(--color-leaf); background: #EAF1F8; color: var(--color-leaf); font-weight: 500; }
+.react .i { width: 12px; height: 12px; }
+.replies { display: inline-flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 12px; } .replies b { color: var(--color-leaf); } .replies span { color: var(--color-muted); }
+.ann { margin: 6px 16px; background: var(--color-surface); border: 1px solid var(--color-line); border-top: 3px solid var(--color-primary); box-shadow: var(--shadow-md); }
+.ann-tag { display: flex; align-items: center; gap: 6px; padding: 8px 12px 0; font-size: 11px; font-weight: 500; color: var(--color-muted); text-transform: uppercase; letter-spacing: .05em; }
+.ann-tag .i { width: 13px; height: 13px; color: var(--color-warning); }
+.ann h5 { font-family: var(--font-display); font-size: 14px; margin: 4px 12px 2px; }
+.ann p { padding: 0 12px 8px; color: #33425A; }
+.ack { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--color-line); background: var(--color-canvas); }
+.ack .btn { min-height: 30px; padding: 0 10px; font-size: 12px; }
+.prog { flex: 1; display: grid; gap: 3px; font-size: 11px; color: var(--color-muted); }
+.bar { height: 5px; background: var(--color-line); } .bar i { display: block; height: 100%; background: var(--color-ink); }
+.composer { margin: 4px 16px 12px; background: var(--color-surface); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 6px; padding: 8px 8px 8px 12px; color: var(--color-muted); font-size: 12px; }
+.composer .send { margin-left: auto; display: grid; place-items: center; width: 30px; height: 30px; background: var(--color-primary); color: var(--color-ink); }
+.composer .send .i { width: 14px; height: 14px; }
+.typing { padding: 0 16px; height: 18px; font-size: 11px; color: var(--color-muted); }
+
+.float { position: absolute; background: var(--color-surface); box-shadow: var(--shadow-lg); border: 1px solid var(--color-line); z-index: 2; }
+.float-task { left: -36px; bottom: 0; width: 256px; padding: 12px 14px; display: grid; gap: 8px; border-left: 3px solid var(--color-primary); }
+.float-task .k { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--color-muted); }
+.float-task .k .i { width: 14px; height: 14px; }
+.float-task .t { font-weight: 500; font-size: 14px; line-height: 1.35; }
+.row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--color-muted); }
+.row .av { margin-left: auto; }
+.due { display: inline-flex; align-items: center; gap: 4px; } .due .i { width: 13px; height: 13px; }
+.prio { padding: 1px 6px; font-size: 11px; font-weight: 700; background: var(--color-warning-light); color: var(--color-warning); }
+.prio.urgent { background: var(--color-danger-light); color: var(--color-danger); }
+.float-push { right: -8px; top: -18px; width: 300px; padding: 10px 12px; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; align-items: start; }
+.app-ico { width: 34px; height: 34px; display: grid; place-items: center; background: var(--color-ink); color: var(--color-primary); font-family: var(--font-display); font-weight: 800; font-size: 17px; }
+.float-push .h { display: flex; justify-content: space-between; font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .05em; }
+.float-push b { display: block; font-size: 13px; }
+.float-push p { font-size: 13px; color: #33425A; line-height: 1.35; }
+
+/* ── Franja de confianza ── */
+.strip { background: var(--color-surface); border-block: 1px solid var(--color-line); }
+.strip .wrap { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.fact { display: flex; align-items: center; gap: 14px; padding: 22px 24px; border-left: 1px solid var(--color-line); }
+.fact:first-child { border-left: 0; padding-left: 0; }
+.fact .ic { width: 42px; height: 42px; display: grid; place-items: center; background: var(--color-canvas-deep); color: var(--color-ink); flex: none; }
+.fact b { display: block; font-family: var(--font-display); font-size: 16px; }
+.fact span { font-size: 14px; color: var(--color-muted); }
+
+/* ── Secciones ── */
+section.block { padding: 96px 0; }
+.sec-head { display: grid; gap: 12px; max-width: 760px; }
+.sec-head h2 { font-size: clamp(1.9rem, 3vw, 2.75rem); line-height: 1.1; font-weight: 800; text-wrap: balance; letter-spacing: -0.02em; }
+.sec-head p { font-size: 18px; color: #33425A; line-height: 1.55; }
+
+/* Módulos: lista lateral de pestañas + panel elevado */
+.modules { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 40px; margin-top: 48px; align-items: stretch; }
+.mod-list { display: grid; gap: 10px; grid-auto-rows: 1fr; }
+.mod-tab { display: grid; grid-template-columns: 44px minmax(0, 1fr) 18px; gap: 14px; align-items: center; text-align: left; padding: 16px 18px; background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-sm); position: relative; transition: box-shadow var(--duration), transform var(--duration), border-color var(--duration); }
+.mod-tab:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.mod-tab .ic { width: 44px; height: 44px; display: grid; place-items: center; background: var(--color-canvas-deep); color: var(--color-ink); transition: background var(--duration); }
+.mod-tab b { display: block; font-family: var(--font-display); font-size: 17px; }
+.mod-tab span { display: block; font-size: 14px; color: var(--color-muted); line-height: 1.4; margin-top: 2px; }
+.mod-tab > .i { color: var(--color-line-strong); transition: color var(--duration), transform var(--duration); }
+.mod-tab[aria-selected="true"] { border-color: var(--color-ink); box-shadow: var(--shadow-md); transform: translateX(8px); }
+.mod-tab[aria-selected="true"]::before { content: ''; position: absolute; left: -1px; top: -1px; bottom: -1px; width: 4px; background: var(--color-primary); }
+.mod-tab[aria-selected="true"] .ic { background: var(--color-primary); color: var(--color-ink); }
+.mod-tab[aria-selected="true"] > .i { color: var(--color-ink); }
+.mod-panel { background: var(--color-surface); box-shadow: var(--shadow-lg); border: 1px solid var(--color-line); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 560px; }
+.mod-panel[hidden] { display: none; }
+.mp-head { padding: 28px 32px 20px; display: grid; gap: 6px; border-bottom: 1px solid var(--color-line); }
+.mp-head h3 { font-size: 26px; font-weight: 800; }
+.mp-head p { color: #33425A; font-size: 17px; max-width: 68ch; }
+.mp-visual { background: var(--color-canvas); padding: 28px 32px; display: grid; align-content: center; position: relative; overflow: hidden; }
+.mp-points { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--color-line); }
+.mp-points div { padding: 18px 24px 22px; border-left: 1px solid var(--color-line); display: grid; gap: 4px; align-content: start; }
+.mp-points div:first-child { border-left: 0; padding-left: 32px; }
+.mp-points b { font-family: var(--font-display); font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.mp-points b .i { width: 16px; height: 16px; color: var(--color-primary-dark); }
+.mp-points span { font-size: 14px; color: var(--color-muted); line-height: 1.45; }
+
+/* Visuales de cada módulo */
+.v-chat { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 0; background: var(--color-surface); box-shadow: var(--shadow-md); border: 1px solid var(--color-line); font-size: 13px; }
+.v-chat .chan { padding: 6px 0; }
+.v-chat .thread { border-left: 1px solid var(--color-line); background: var(--color-surface); box-shadow: -6px 0 18px rgb(19 36 61 / .08); padding-bottom: 8px; }
+.v-chat .thread h6 { margin: 0; padding: 10px 14px; font: 700 13px var(--font-display); border-bottom: 1px solid var(--color-line); display: flex; gap: 6px; align-items: center; }
+.v-chat .thread h6 small { font: 400 12px var(--font-sans); color: var(--color-muted); }
+.v-ann { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; font-size: 13px; }
+.v-ann .ann { margin: 0; }
+.ack-list { background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-md); }
+.ack-list h6 { margin: 0; padding: 10px 14px; font: 700 13px var(--font-display); border-bottom: 1px solid var(--color-line); display: flex; justify-content: space-between; }
+.ack-list h6 span { font: 500 12px var(--font-sans); color: var(--color-muted); }
+.ack-row { display: flex; align-items: center; gap: 10px; padding: 7px 14px; border-top: 1px solid var(--color-line); }
+.ack-row:first-of-type { border-top: 0; }
+.ack-row small { margin-left: auto; font-size: 12px; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.ack-row .ok { color: var(--color-success); } .ack-row .ok .i { width: 15px; height: 15px; }
+.ack-row.pend small { color: var(--color-warning); font-weight: 500; }
+.v-doc { display: grid; grid-template-columns: 210px minmax(0, 1fr); background: var(--color-surface); box-shadow: var(--shadow-md); border: 1px solid var(--color-line); font-size: 13px; }
+.tree { border-right: 1px solid var(--color-line); padding: 10px 0; background: var(--color-surface); }
+.tree h6 { margin: 6px 12px 4px; font: 500 11px var(--font-sans); text-transform: uppercase; letter-spacing: .06em; color: var(--color-muted); }
+.tree .t { display: flex; align-items: center; gap: 6px; padding: 4px 12px; position: relative; }
+.tree .t .i { width: 14px; height: 14px; color: var(--color-muted); }
+.tree .t.l2 { padding-left: 28px; }
+.tree .t.on { background: var(--color-primary-light); font-weight: 500; }
+.tree .t.on::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--color-primary); }
+.doc { padding: 18px 24px; }
+.doc .meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 12px; color: var(--color-muted); padding-bottom: 10px; border-bottom: 1px solid var(--color-line); }
+.doc h4 { font-size: 21px; margin-bottom: 6px; }
+.doc h5 { font: 700 14px var(--font-display); margin: 12px 0 4px; }
+.doc ol { margin: 0; padding-left: 18px; line-height: 1.6; color: #33425A; }
+.callout { display: flex; gap: 8px; margin-top: 10px; padding: 8px 12px; background: var(--color-primary-light); border-left: 3px solid var(--color-primary); line-height: 1.45; }
+.callout .i { width: 16px; height: 16px; margin-top: 1px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; font-size: 12px; font-weight: 500; border: 1px solid var(--color-line); background: var(--color-canvas); color: var(--color-ink); }
+.chip.blue { background: #EAF1F8; border-color: #C3D5E8; color: var(--color-leaf); }
+.chip.green { background: var(--color-success-light); border-color: #B7DCC6; color: var(--color-success); }
+.v-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; font-size: 13px; }
+.col { background: var(--color-canvas-deep); padding: 10px; display: grid; gap: 8px; align-content: start; }
+.col-h { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; } .col-h span { color: var(--color-muted); font-weight: 500; }
+.card { background: var(--color-surface); border: 1px solid var(--color-line); padding: 10px 12px; display: grid; gap: 8px; box-shadow: var(--shadow-sm); transition: box-shadow var(--duration), transform var(--duration); }
+.card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.card.lift { transform: rotate(-1.5deg) translateY(-4px); box-shadow: var(--shadow-lg); }
+.card.over { border-left: 3px solid var(--color-danger); }
+.card.done .t { text-decoration: line-through; color: var(--color-muted); }
+.card .t { font-weight: 500; line-height: 1.35; }
+.due.over { color: var(--color-danger); font-weight: 700; }
+.v-goals { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; font-size: 13px; }
+.kpis { display: grid; gap: 12px; align-content: start; }
+.kpi { background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-sm); padding: 12px 14px; display: grid; gap: 2px; }
+.kpi small { color: var(--color-muted); font-size: 12px; } .kpi b { font: 800 26px var(--font-display); } .kpi span { font-size: 12px; }
+.up { color: var(--color-success); font-weight: 500; }
+.chart { background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-md); padding: 14px 16px; display: grid; gap: 8px; }
+.chart h6 { margin: 0; font: 700 13px var(--font-display); display: flex; justify-content: space-between; align-items: center; }
+.legend { display: flex; gap: 14px; font: 400 12px var(--font-sans); color: var(--color-muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; }
+.chart svg { width: 100%; height: auto; display: block; }
+
+/* ── Rubros (banda marino) ── */
+.industries { background: var(--color-ink); color: #fff; position: relative; overflow: hidden; }
+.industries::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 10px; background: var(--color-primary); }
+.ind-grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 56px; align-items: start; }
+.industries .sec-head h2 { color: #fff; }
+.industries .sec-head p { color: var(--color-sidebar-text); }
+.industries .eyebrow { color: var(--color-cta); }
+.ind-note { margin-top: 28px; display: grid; gap: 14px; }
+.ind-note div { display: flex; gap: 12px; align-items: flex-start; color: var(--color-sidebar-text); font-size: 15px; line-height: 1.5; }
+.ind-note .i { color: var(--color-cta); margin-top: 3px; }
+.ind-note b { color: #fff; }
+.ind-grid { align-items: stretch; }
+.ind-side { display: flex; flex-direction: column; }
+.ind-cta { margin-top: auto; padding: 22px 24px; background: var(--color-ink-soft); border-left: 4px solid var(--color-primary); box-shadow: 0 12px 32px rgb(0 0 0 / .28); display: grid; gap: 6px; justify-items: start; }
+.ind-cta b { font: 700 18px var(--font-display); }
+.ind-cta > span { color: var(--color-sidebar-text); font-size: 15px; margin-bottom: 10px; }
+.ind-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.ind { background: var(--color-surface); color: var(--color-ink); padding: 22px 24px; display: grid; grid-template-rows: auto auto 1fr; gap: 14px; box-shadow: 0 12px 32px rgb(0 0 0 / .28); border-top: 3px solid transparent; transition: transform var(--duration), border-color var(--duration); }
+.ind:hover { transform: translateY(-4px); border-top-color: var(--color-primary); }
+.ind-h { display: flex; align-items: center; gap: 12px; }
+.ind-h .ic { width: 40px; height: 40px; display: grid; place-items: center; background: var(--color-canvas-deep); }
+.ind-h h3 { font-size: 20px; }
+.ind-h small { margin-left: auto; font-size: 12px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 500; }
+.ind dl { margin: 0; display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 8px 12px; font-size: 14px; align-content: start; }
+.ind dt { color: var(--color-muted); }
+.ind dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ind .depts { color: #33425A; line-height: 1.45; }
+.ind .empty { color: var(--color-muted); font-style: italic; }
+.yours { grid-column: 1 / -1; background: var(--color-primary-light); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; padding: 24px; border-top: 3px solid var(--color-primary); box-shadow: 0 12px 32px rgb(0 0 0 / .28); color: var(--color-ink); }
+.yours h3 { font-size: 22px; display: flex; align-items: center; gap: 10px; }
+.yours h3 .ic { width: 40px; height: 40px; display: grid; place-items: center; background: var(--color-primary); }
+.yours p { margin-top: 8px; color: #33425A; font-size: 15px; line-height: 1.5; }
+.yours .pick { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.yours .pick button { padding: 7px 12px; min-height: 36px; background: var(--color-surface); border: 1px solid var(--color-line-strong); font-size: 14px; font-weight: 500; transition: box-shadow var(--duration), transform var(--duration), background var(--duration); }
+.yours .pick button:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.yours .pick button[aria-pressed="true"] { background: var(--color-ink); color: #fff; border-color: var(--color-ink); }
+.mini-sb { background: linear-gradient(180deg, var(--color-ink) 0%, #0F1E34 100%); color: var(--color-sidebar-text); font-size: 13px; padding: 12px 0; box-shadow: var(--shadow-lg); align-self: stretch; display: grid; align-content: start; gap: 2px; }
+.mini-sb h4 { font: 500 11px var(--font-sans); text-transform: uppercase; letter-spacing: .07em; color: #8FA0B8; padding: 4px 16px; }
+.mini-sb .sb-item .sw { width: 9px; height: 9px; flex: none; }
+
+/* ── iPhone ── */
+.iphone-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 64px; align-items: center; }
+.steps { margin-top: 36px; display: grid; gap: 0; counter-reset: s; }
+.step { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 18px 20px; background: var(--color-surface); border: 1px solid var(--color-line); margin-top: -1px; box-shadow: var(--shadow-sm); position: relative; transition: box-shadow var(--duration), transform var(--duration); }
+.step:hover { box-shadow: var(--shadow-md); transform: translateX(6px); z-index: 1; }
+.step .n { width: 56px; height: 56px; display: grid; place-items: center; background: var(--color-ink); color: #fff; font: 800 22px var(--font-display); }
+.step:last-child .n { background: var(--color-primary); color: var(--color-ink); }
+.step b { font-family: var(--font-display); font-size: 17px; display: block; }
+.step span { color: var(--color-muted); font-size: 15px; }
+.step .tool { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--color-line); background: var(--color-canvas); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.step .tool .i { width: 16px; height: 16px; color: #0A66D9; }
+.small-print { margin-top: 16px; font-size: 14px; color: var(--color-muted); display: flex; gap: 8px; align-items: flex-start; }
+.small-print .i { width: 16px; height: 16px; margin-top: 3px; }
+.phone-stage { position: relative; display: grid; justify-items: center; padding: 24px 0; }
+.phone-stage::before { content: ''; position: absolute; left: 12%; right: -20px; top: 60px; bottom: 0; background: var(--color-canvas-deep); z-index: -1; }
+.phone { width: 320px; height: 640px; background: #0B1628; padding: 12px; box-shadow: var(--shadow-lg), 0 30px 60px rgb(19 36 61 / .22); position: relative; }
+.screen { width: 100%; height: 100%; background: linear-gradient(165deg, #2F5D8A 0%, #13243D 70%); position: relative; overflow: hidden; display: flex; flex-direction: column; color: #fff; }
+.notch { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 96px; height: 26px; background: #0B1628; }
+.lock-time { text-align: center; margin-top: 64px; font: 700 64px/1 var(--font-display); letter-spacing: -0.02em; }
+.lock-date { text-align: center; font-size: 15px; margin-top: 6px; color: #DCE6F2; }
+.notifs { margin-top: auto; padding: 12px; display: grid; gap: 8px; }
+.notif { background: rgb(255 255 255 / .94); color: var(--color-ink); padding: 10px 12px; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; box-shadow: var(--shadow-md); }
+.notif .h { display: flex; justify-content: space-between; font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .04em; }
+.notif b { display: block; font-size: 13px; }
+.notif p { font-size: 13px; line-height: 1.35; color: #2A3A52; }
+.notif.back { transform: scale(.94); opacity: .85; margin-top: -4px; }
+.home-ind { width: 120px; height: 5px; background: #fff; margin: 4px auto 8px; }
+.home-icon { position: absolute; z-index: 3; left: -10px; top: 120px; background: var(--color-surface); box-shadow: var(--shadow-lg); padding: 12px 14px; display: flex; gap: 10px; align-items: center; font-size: 13px; border-left: 3px solid var(--color-primary); }
+.home-icon .app-ico { width: 44px; height: 44px; font-size: 22px; }
+.home-icon b { display: block; font-size: 14px; } .home-icon div span { color: var(--color-muted); }
+
+/* ── Precios ── */
+.pricing-head, .sec-split { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 40px; align-items: end; }
+.sec-split .sec-head { max-width: 820px; }
+.pricing-head .aside, .sec-split .aside { border-left: 3px solid var(--color-primary); padding: 4px 0 4px 18px; color: #33425A; font-size: 15px; line-height: 1.55; }
+.plans { margin-top: 44px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; align-items: stretch; }
+.plan { background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-md); padding: 28px; display: flex; flex-direction: column; position: relative; transition: box-shadow var(--duration), transform var(--duration); }
+.plan:hover { box-shadow: var(--shadow-lg); transform: translateY(-4px); }
+.plan .tag { position: absolute; top: -1px; right: -1px; padding: 5px 10px; background: var(--color-primary); color: var(--color-ink); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.plan h3 { font-size: 20px; }
+.plan .sub { color: var(--color-muted); font-size: 14px; margin-top: 4px; min-height: 42px; }
+.price { display: flex; align-items: baseline; gap: 6px; margin-top: 18px; padding-bottom: 20px; border-bottom: 1px solid var(--color-line); }
+.price b { font: 800 48px/1 var(--font-display); letter-spacing: -0.03em; }
+.price span { color: var(--color-muted); font-size: 14px; }
+.feats { list-style: none; margin: 20px 0 28px; padding: 0; display: grid; gap: 10px; font-size: 15px; }
+.feats li { display: flex; gap: 10px; align-items: flex-start; line-height: 1.4; }
+.feats .i { width: 18px; height: 18px; color: var(--color-success); margin-top: 1px; }
+.feats li.plus { font-weight: 500; }
+.plan .btn { margin-top: auto; width: 100%; }
+.plan.pro { background: var(--color-ink); color: #fff; border-color: var(--color-ink); box-shadow: var(--shadow-lg); }
+.plan.pro::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--color-primary); }
+.plan.pro .sub, .plan.pro .price span { color: var(--color-sidebar-text); }
+.plan.pro .price { border-bottom-color: rgb(255 255 255 / .14); }
+.plan.pro .feats .i { color: var(--color-cta); }
+.plan.pro .btn.primary { box-shadow: none; }
+.plan-foot { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px 28px; font-size: 14px; color: var(--color-muted); }
+.plan-foot span { display: inline-flex; align-items: center; gap: 6px; }
+.plan-foot .i { width: 16px; height: 16px; }
+
+/* ── Preguntas ── */
+.faq-grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 56px; align-items: start; }
+.faq-side { position: sticky; top: 100px; display: grid; gap: 24px; }
+.help { background: var(--color-surface); border: 1px solid var(--color-line); border-left: 4px solid var(--color-leaf); box-shadow: var(--shadow-md); padding: 20px 22px; display: grid; gap: 8px; }
+.help b { font-family: var(--font-display); font-size: 17px; }
+.help p { color: var(--color-muted); font-size: 15px; }
+.docs-card { border-left-color: var(--color-primary); }
+.help a { font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+.faq { display: grid; gap: 10px; }
+.faq details { background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-sm); transition: box-shadow var(--duration); }
+.faq details:hover { box-shadow: var(--shadow-md); }
+.faq details[open] { box-shadow: var(--shadow-md); border-left: 4px solid var(--color-primary); }
+.faq summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 16px; padding: 18px 22px; font-family: var(--font-display); font-weight: 700; font-size: 17px; min-height: 44px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary .i { margin-left: auto; transition: transform var(--duration); color: var(--color-muted); }
+.faq details[open] summary .i { transform: rotate(45deg); color: var(--color-ink); }
+.faq .ans { padding: 0 22px 20px; color: #33425A; line-height: 1.6; max-width: 72ch; }
+
+/* ── CTA final ── */
+.final { padding: 0 0 96px; }
+.final-box { background: var(--color-ink); color: #fff; display: grid; grid-template-columns: minmax(0, 8fr) minmax(0, 4fr); box-shadow: var(--shadow-lg); position: relative; overflow: hidden; }
+.final-box .txt { padding: 52px 56px; display: grid; gap: 14px; }
+.final-box h2 { font-size: clamp(1.9rem, 3vw, 2.75rem); line-height: 1.1; font-weight: 800; max-width: 22ch; }
+.final-box p { color: var(--color-sidebar-text); font-size: 18px; max-width: 56ch; }
+.final-box .act { background: var(--color-primary); color: var(--color-ink); padding: 40px; display: grid; align-content: center; gap: 14px; }
+.final-box .act b { font: 800 20px var(--font-display); }
+.final-box .act span { font-size: 15px; }
+.final-box .act .btn.ink { width: 100%; }
+
+/* ── Pie ── */
+.site-foot { background: var(--color-surface); border-top: 1px solid var(--color-line); padding: 48px 0 32px; }
+.foot-grid { display: grid; grid-template-columns: minmax(0, 5fr) repeat(3, minmax(0, 2fr)); gap: 32px; }
+.foot-grid p { color: var(--color-muted); font-size: 14px; margin-top: 12px; max-width: 40ch; line-height: 1.55; }
+.foot-grid h4 { font-size: 14px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; }
+.foot-grid ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.foot-grid a.brand { font-size: 22px; }
+.foot-grid a { color: var(--color-ink); text-decoration: none; font-size: 15px; } .foot-grid a:hover { color: var(--color-leaf); text-decoration: underline; }
+.foot-bottom { margin-top: 36px; padding-top: 20px; border-top: 1px solid var(--color-line); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--color-muted); }
+
+/* ── Responsive ── */
+@media (max-width: 1200px) {
+  .hero .wrap { grid-template-columns: minmax(0, 1fr); }
+  .scene { margin: 24px 0 0 36px; }
+  .modules, .ind-grid, .faq-grid { grid-template-columns: minmax(0, 1fr); }
+  .ind-cta { margin-top: 32px; }
+  .mod-list { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .mod-tab[aria-selected="true"] { transform: translateY(-4px); }
+  .faq-side { position: static; }
+  .iphone-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 40px; }
+}
+@media (max-width: 960px) {
+  :root { --gutter: 24px; }
+  .nav, .head-actions .enter, .head-actions .trial { display: none; }
+  .menu-btn { display: grid; }
+  .mobile-menu { position: absolute; left: 0; right: 0; top: 100%; background: var(--color-surface); box-shadow: var(--shadow-lg); border-top: 1px solid var(--color-line); padding: 12px var(--gutter) 20px; display: none; gap: 4px; }
+  .mobile-menu.open { display: grid; }
+  .mobile-menu a:not(.btn) { padding: 12px 4px; color: var(--color-ink); text-decoration: none; font-weight: 500; border-bottom: 1px solid var(--color-line); }
+  .mobile-menu .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .strip .wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fact { border-left: 0; padding-left: 0; }
+  .pricing-head, .sec-split, .iphone-grid { grid-template-columns: minmax(0, 1fr); }
+  .plans { grid-template-columns: minmax(0, 1fr); max-width: 560px; }
+  .final-box { grid-template-columns: minmax(0, 1fr); }
+  .foot-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .foot-grid > :first-child { grid-column: 1 / -1; }
+  .v-chat { grid-template-columns: minmax(0, 1fr); } .v-chat .thread { display: none; }
+  .v-ann, .v-goals { grid-template-columns: minmax(0, 1fr); }
+  .v-goals .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  :root { --gutter: 16px; }
+  section.block { padding: 64px 0; }
+  .hero { padding: 32px 0 48px; }
+  .hero::before { width: 60%; height: 40%; }
+  .hero .lead { font-size: 17px; }
+  .hero .ctas .btn { flex: 1 1 100%; }
+  .scene { margin: 16px 0 0 0; padding-bottom: 0; }
+  .scene::before { left: 24px; right: -16px; top: 20px; bottom: -16px; }
+  .app { grid-template-columns: minmax(0, 1fr); height: 440px; }
+  .app .sb { display: none; }
+  .float-push { position: relative; right: auto; top: auto; width: auto; margin: 0 0 12px 0; }
+  .float-task { position: relative; left: auto; bottom: auto; width: auto; margin: 12px 0 0 28px; }
+  .chrome .url { max-width: 200px; }
+  .head-actions .lang button { min-width: 36px; }
+  .strip .wrap { grid-template-columns: minmax(0, 1fr); }
+  .fact { padding: 14px 0; border-top: 1px solid var(--color-line); } .fact:first-child { border-top: 0; }
+  .modules { margin-top: 32px; gap: 20px; }
+  .mod-list { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .mod-tab { padding: 10px 14px; grid-template-columns: 40px minmax(0, 1fr) 18px; } .mod-tab .ic { width: 40px; height: 40px; } .mod-tab > span:not(.ic) > span { display: none; }
+  .mod-panel { min-height: 0; }
+  .mp-head, .mp-visual { padding: 20px 16px; }
+  .mp-points { grid-template-columns: minmax(0, 1fr); }
+  .mp-points div, .mp-points div:first-child { padding: 14px 16px; border-left: 0; border-top: 1px solid var(--color-line); }
+  .mp-points div:first-child { border-top: 0; }
+  .v-doc { grid-template-columns: minmax(0, 1fr); } .v-doc .tree { display: none; }
+  .v-board { grid-template-columns: minmax(0, 1fr); } .v-board .col:nth-child(3) { display: none; }
+  .ind-cards { grid-template-columns: minmax(0, 1fr); }
+  .ind dl { grid-template-columns: 96px minmax(0, 1fr); }
+  .yours { grid-template-columns: minmax(0, 1fr); padding: 20px; }
+  .industries::after { width: 6px; }
+  .step { grid-template-columns: 44px minmax(0, 1fr); padding: 14px; gap: 14px; }
+  .step .n { width: 44px; height: 44px; font-size: 18px; }
+  .step .tool { grid-column: 2; justify-self: start; }
+  .phone { width: 290px; height: 580px; }
+  .home-icon { left: 0; top: 190px; }
+  .phone-stage::before { left: 20%; right: -16px; }
+  .plan { padding: 22px; }
+  .final-box .txt { padding: 32px 20px; } .final-box .act { padding: 24px 20px; }
+  .foot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+</style>
+</head>
+<body>
+
+<!-- Sprite de íconos (trazos de lucide) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-mega" viewBox="0 0 24 24"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+  <symbol id="i-task" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-hash" viewBox="0 0 24 24"><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2"/><path d="M12 18h.01"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></symbol>
+  <symbol id="i-addsq" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3"/><path d="M8 12h8"/><path d="M12 8v8"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-checks" viewBox="0 0 24 24"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-chevd" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></symbol>
+  <symbol id="i-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-plane" viewBox="0 0 24 24"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  <symbol id="i-at" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></symbol>
+  <symbol id="i-drive" viewBox="0 0 24 24"><line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
+  <symbol id="i-thumb" viewBox="0 0 24 24"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+</svg>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Kora"><span class="mark">K</span>Kora</a>
+    <nav class="nav" aria-label="Principal">
+      <a href="#producto" data-i18n="nav.product">Producto</a>
+      <a href="#rubros" data-i18n="nav.industries">Rubros</a>
+      <a href="#precios" data-i18n="nav.pricing">Precios</a>
+      <a href="#preguntas" data-i18n="nav.faq">Preguntas</a>
+    </nav>
+    <div class="head-actions">
+      <div class="lang" role="group" aria-label="Idioma / Language">
+        <button type="button" data-lang="es" aria-pressed="true">ES</button>
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      </div>
+      <a class="btn ghost enter" href="#" data-i18n="cta.login">Entrar</a>
+      <a class="btn primary trial" href="#" data-i18n="cta.trial">Prueba 14 días gratis</a>
+      <button class="menu-btn" type="button" aria-label="Menú" aria-expanded="false" aria-controls="mmenu"><svg class="i"><use href="#i-menu"/></svg></button>
+    </div>
+  </div>
+  <div class="mobile-menu" id="mmenu">
+    <a href="#producto" data-i18n="nav.product">Producto</a>
+    <a href="#rubros" data-i18n="nav.industries">Rubros</a>
+    <a href="#precios" data-i18n="nav.pricing">Precios</a>
+    <a href="#preguntas" data-i18n="nav.faq">Preguntas</a>
+    <div class="btns">
+      <a class="btn ghost" href="#" data-i18n="cta.login">Entrar</a>
+      <a class="btn primary" href="#" data-i18n="cta.trialShort">Probar gratis</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+<!-- ═════════ HÉROE ═════════ -->
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow" data-i18n="hero.eyebrow">Espacio de trabajo para agencias</span>
+      <h1 data-i18n="hero.title">Toda tu agencia <span class="hl">en un solo lugar</span> <span class="sub">y también en el iPhone</span></h1>
+      <p class="lead" data-i18n="hero.lead">Chat en tiempo real como Slack, anuncios que tu equipo confirma, manuales siempre al día, tareas y metas semanales. Se instala en el iPhone como una app y avisa con notificaciones.</p>
+      <div class="ctas">
+        <a class="btn primary lg" href="#"><span data-i18n="cta.trial">Prueba 14 días gratis</span><svg class="i"><use href="#i-arrow"/></svg></a>
+        <a class="btn ghost lg" href="#producto" data-i18n="hero.see">Ver cómo funciona</a>
+      </div>
+      <ul class="assurances">
+        <li><svg class="i"><use href="#i-check"/></svg><span data-i18n="hero.a1">Sin tarjeta para empezar</span></li>
+        <li><svg class="i"><use href="#i-check"/></svg><span data-i18n="hero.a2">Español e inglés</span></li>
+        <li><svg class="i"><use href="#i-check"/></svg><span data-i18n="hero.a3">Listo en 5 minutos</span></li>
+      </ul>
+    </div>
+
+    <div class="scene" aria-label="Vista de la app Kora" role="img">
+      <div class="float float-push">
+        <span class="app-ico">K</span>
+        <div><div class="h"><span>Kora</span><span data-i18n="push.now">ahora</span></div>
+          <b>#ventas · Ana Torres</b>
+          <p data-i18n="push.msg">@Rodrigo ¿cerramos la meta de la semana hoy?</p></div>
+      </div>
+      <div class="window">
+        <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url"><svg class="i"><use href="#i-lock"/></svg>kora.app/agencia-sol</span></div>
+        <div class="app">
+          <aside class="sb">
+            <div class="sb-top">
+              <div class="sb-ws"><span class="ws">AS</span>Agencia Sol<svg class="i"><use href="#i-chevd"/></svg></div>
+              <div class="sb-search"><svg class="i"><use href="#i-search"/></svg><span data-i18n="app.search">Buscar</span><kbd>Ctrl K</kbd></div>
+            </div>
+            <div class="sb-list">
+              <div class="sb-sec"><h4 data-i18n="app.channels">Canales</h4>
+                <div class="sb-item"><svg class="i"><use href="#i-hash"/></svg>general</div>
+                <div class="sb-item active"><svg class="i"><use href="#i-hash"/></svg>ventas</div>
+                <div class="sb-item unread"><svg class="i"><use href="#i-hash"/></svg>renovaciones<span class="badge">3</span></div>
+                <div class="sb-item"><svg class="i"><use href="#i-mega"/></svg><span data-i18n="app.annCh">anuncios</span></div>
+                <div class="sb-item"><svg class="i"><use href="#i-lock"/></svg><span data-i18n="app.leaders">líderes</span></div>
+              </div>
+              <div class="sb-sec"><h4 data-i18n="app.dms">Mensajes directos</h4>
+                <div class="sb-item unread"><span class="presence"></span>Ana Torres<span class="badge">1</span></div>
+                <div class="sb-item"><span class="presence"></span>Luis Pérez</div>
+                <div class="sb-item"><span class="presence away"></span>Marta Ruiz</div>
+              </div>
+              <div class="sb-sec"><h4 data-i18n="app.modules">Módulos</h4>
+                <div class="sb-item"><svg class="i"><use href="#i-book"/></svg><span data-i18n="mod.docs">Manuales</span></div>
+                <div class="sb-item"><svg class="i"><use href="#i-task"/></svg><span data-i18n="mod.tasks">Tareas</span></div>
+                <div class="sb-item"><svg class="i"><use href="#i-target"/></svg><span data-i18n="mod.goals">Metas</span></div>
+              </div>
+            </div>
+            <div class="sb-me"><span class="av c2">RA</span><div><b>Rodrigo A.</b><small>Owner · <span data-i18n="app.online">En línea</span></small></div></div>
+          </aside>
+          <div class="main">
+            <div class="top"><b><svg class="i"><use href="#i-hash"/></svg>ventas</b><span data-i18n="app.topic">Seguimiento diario del equipo comercial</span>
+              <div class="stack"><span class="av sm c1">AT</span><span class="av sm c3">LP</span><span class="av sm c4">MR</span>18</div></div>
+            <div class="feed">
+              <div class="msg"><span class="av c5">JG</span><div>
+                <div class="msg-h"><b>José Gil</b><time>8:47</time></div>
+                <p data-i18n="app.m0">Buenos días. Hoy reviso los prospectos que quedaron pendientes del viernes.</p>
+              </div></div>
+              <div class="day"><span data-i18n="app.new">Nuevos</span></div>
+              <div class="msg"><span class="av c1">AT</span><div>
+                <div class="msg-h"><b>Ana Torres</b><time>9:12</time></div>
+                <p data-i18n="app.m1">Cerré 4 clientes nuevos ayer. Subí el resumen al manual de cierres.</p>
+                <div class="reacts"><span class="react mine"><svg class="i"><use href="#i-thumb"/></svg>6</span><span class="react"><svg class="i"><use href="#i-check"/></svg>3</span></div>
+              </div></div>
+              <div class="ann">
+                <div class="ann-tag"><svg class="i"><use href="#i-mega"/></svg><span data-i18n="app.annTag">Anuncio · requiere confirmación</span></div>
+                <h5 data-i18n="app.annTitle">Nuevo horario de cierre a partir del lunes</h5>
+                <p data-i18n="app.annText">Los reportes semanales se entregan los viernes antes de las 4:00 p. m.</p>
+                <div class="ack"><span class="btn primary"><svg class="i"><use href="#i-check"/></svg><span data-i18n="app.ack">Entendido</span></span>
+                  <div class="prog"><span data-i18n="app.ackProg">14 de 18 confirmaron</span><div class="bar"><i style="width:78%"></i></div></div></div>
+              </div>
+              <div class="msg mention"><span class="av c3">LP</span><div>
+                <div class="msg-h"><b>Luis Pérez</b><time>9:40</time></div>
+                <p><span class="at">@Rodrigo</span> <span data-i18n="app.m2">te asigné la llamada de renovaciones de octubre.</span></p>
+                <div class="replies"><span class="av sm c2">RA</span><b data-i18n="app.replies">2 respuestas</b><span data-i18n="app.lastReply">hace 5 min</span></div>
+              </div></div>
+            </div>
+            <div class="typing"><b>Marta</b> <span data-i18n="app.typing">está escribiendo…</span></div>
+            <div class="composer"><span data-i18n="app.compose">Escribe en #ventas</span><span class="send"><svg class="i"><use href="#i-send"/></svg></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="float float-task">
+        <div class="k"><svg class="i"><use href="#i-task"/></svg><span data-i18n="task.k">Tarea asignada a ti</span></div>
+        <div class="t" data-i18n="task.t">Llamar a renovaciones de octubre</div>
+        <div class="row"><span class="due"><svg class="i"><use href="#i-cal"/></svg><span data-i18n="task.due">Vie 10 oct</span></span><span class="prio" data-i18n="task.prio">Alta</span><span class="av sm c2">RA</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Franja de confianza -->
+<div class="strip">
+  <div class="wrap">
+    <div class="fact"><span class="ic"><svg class="i"><use href="#i-phone"/></svg></span><div><b data-i18n="f1.b">App en el iPhone</b><span data-i18n="f1.s">Sin App Store, con notificaciones</span></div></div>
+    <div class="fact"><span class="ic"><svg class="i"><use href="#i-globe"/></svg></span><div><b data-i18n="f2.b">Bilingüe</b><span data-i18n="f2.s">Cada persona elige su idioma</span></div></div>
+    <div class="fact"><span class="ic"><svg class="i"><use href="#i-shield"/></svg></span><div><b data-i18n="f3.b">Datos aislados</b><span data-i18n="f3.s">Cada agencia en su propio espacio</span></div></div>
+    <div class="fact"><span class="ic"><svg class="i"><use href="#i-users"/></svg></span><div><b data-i18n="f4.b">Pagas por usuario activo</b><span data-i18n="f4.s">Los invitados no cuentan</span></div></div>
+  </div>
+</div>
+
+<!-- ═════════ PRODUCTO ═════════ -->
+<section class="block" id="producto">
+  <div class="wrap">
+    <div class="sec-split">
+      <div class="sec-head">
+        <span class="eyebrow" data-i18n="prod.eyebrow">Producto</span>
+        <h2 data-i18n="prod.title">Cinco herramientas conectadas que tu equipo usa todos los días</h2>
+      </div>
+      <p class="aside" data-i18n="prod.lead">Deja de saltar entre WhatsApp, hojas de cálculo y carpetas compartidas. En Kora, un anuncio, un manual o una tarea viven al lado de la conversación.</p>
+    </div>
+
+    <div class="modules">
+      <div class="mod-list" role="tablist" aria-label="Módulos">
+        <button class="mod-tab" role="tab" aria-selected="true" aria-controls="p-chat" id="t-chat"><span class="ic"><svg class="i"><use href="#i-msg"/></svg></span><span><b data-i18n="mod.chat">Chat</b><span data-i18n="mod.chatS">Canales, mensajes directos e hilos en tiempo real</span></span><svg class="i"><use href="#i-chev"/></svg></button>
+        <button class="mod-tab" role="tab" aria-selected="false" aria-controls="p-ann" id="t-ann"><span class="ic"><svg class="i"><use href="#i-mega"/></svg></span><span><b data-i18n="mod.ann">Anuncios</b><span data-i18n="mod.annS">Avisos importantes que cada persona confirma</span></span><svg class="i"><use href="#i-chev"/></svg></button>
+        <button class="mod-tab" role="tab" aria-selected="false" aria-controls="p-docs" id="t-docs"><span class="ic"><svg class="i"><use href="#i-book"/></svg></span><span><b data-i18n="mod.docs">Manuales</b><span data-i18n="mod.docsS">Procesos y guías por departamento, con historial</span></span><svg class="i"><use href="#i-chev"/></svg></button>
+        <button class="mod-tab" role="tab" aria-selected="false" aria-controls="p-tasks" id="t-tasks"><span class="ic"><svg class="i"><use href="#i-task"/></svg></span><span><b data-i18n="mod.tasks">Tareas</b><span data-i18n="mod.tasksS">Tablero, lista y "mis tareas" con fechas y avisos</span></span><svg class="i"><use href="#i-chev"/></svg></button>
+        <button class="mod-tab" role="tab" aria-selected="false" aria-controls="p-goals" id="t-goals"><span class="ic"><svg class="i"><use href="#i-target"/></svg></span><span><b data-i18n="mod.goals">Metas</b><span data-i18n="mod.goalsS">Metas semanales y reportes de cada persona</span></span><svg class="i"><use href="#i-chev"/></svg></button>
+      </div>
+
+      <!-- Chat -->
+      <article class="mod-panel" role="tabpanel" id="p-chat" aria-labelledby="t-chat">
+        <div class="mp-head"><h3 data-i18n="pc.h">Conversaciones por canal en lugar de grupos de WhatsApp</h3><p data-i18n="pc.p">Canales públicos y privados por departamento, mensajes directos, hilos para no perder el tema, menciones y búsqueda que ignora acentos.</p></div>
+        <div class="mp-visual">
+          <div class="v-chat">
+            <div class="chan">
+              <div class="msg"><span class="av c4">MR</span><div><div class="msg-h"><b>Marta Ruiz</b><time>10:02</time></div><p data-i18n="pc.m1">¿Alguien tiene la plantilla nueva de propuesta?</p>
+                <div class="replies"><span class="av sm c1">AT</span><span class="av sm c3">LP</span><b data-i18n="pc.r">3 respuestas</b><span data-i18n="pc.rt">última hace 2 min</span></div></div></div>
+              <div class="msg mention"><span class="av c1">AT</span><div><div class="msg-h"><b>Ana Torres</b><time>10:05</time></div><p><span class="at">@aquí</span> <span data-i18n="pc.m2">reunión rápida a las 11 en #ventas.</span></p>
+                <div class="reacts"><span class="react mine"><svg class="i"><use href="#i-check"/></svg>9</span><span class="react"><svg class="i"><use href="#i-thumb"/></svg>4</span></div></div></div>
+              <div class="msg"><span class="av c5">JG</span><div><div class="msg-h"><b>José Gil</b><time>10:07</time></div><p data-i18n="pc.m3">Listo, llevo los números de la semana.</p></div></div>
+              <div class="composer"><svg class="i" style="width:14px;height:14px"><use href="#i-at"/></svg><span data-i18n="pc.c">Responde en #ventas</span><span class="send"><svg class="i"><use href="#i-send"/></svg></span></div>
+            </div>
+            <div class="thread">
+              <h6><span data-i18n="pc.th">Hilo</span><small># ventas</small></h6>
+              <div class="msg"><span class="av c3">LP</span><div><div class="msg-h"><b>Luis Pérez</b><time>10:03</time></div><p data-i18n="pc.t1">Está en Manuales &gt; Ventas &gt; Plantillas.</p></div></div>
+              <div class="msg"><span class="av c4">MR</span><div><div class="msg-h"><b>Marta Ruiz</b><time>10:04</time></div><p data-i18n="pc.t2">Gracias, ya la tengo.</p></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="mp-points">
+          <div><b><svg class="i"><use href="#i-hash"/></svg><span data-i18n="pc.p1">Canales e hilos</span></b><span data-i18n="pc.p1s">Públicos, privados y por departamento.</span></div>
+          <div><b><svg class="i"><use href="#i-search"/></svg><span data-i18n="pc.p2">Búsqueda total</span></b><span data-i18n="pc.p2s">Mensajes, archivos y personas al instante.</span></div>
+          <div><b><svg class="i"><use href="#i-bell"/></svg><span data-i18n="pc.p3">Avisos con criterio</span></b><span data-i18n="pc.p3s">Menciones y mensajes directos llegan al iPhone.</span></div>
+        </div>
+      </article>
+
+      <!-- Anuncios -->
+      <article class="mod-panel" role="tabpanel" id="p-ann" aria-labelledby="t-ann" hidden>
+        <div class="mp-head"><h3 data-i18n="pa.h">Sabes quién leyó el aviso y quién no</h3><p data-i18n="pa.p">Publica un anuncio, fíjalo arriba del canal y pide confirmación. Cada persona toca "Entendido" y tú ves el avance en vivo.</p></div>
+        <div class="mp-visual">
+          <div class="v-ann">
+            <div class="ann">
+              <div class="ann-tag"><svg class="i"><use href="#i-pin"/></svg><span data-i18n="pa.tag">Fijado · requiere confirmación</span></div>
+              <h5 data-i18n="pa.t">Cambio en el proceso de reembolsos</h5>
+              <p data-i18n="pa.x">Desde el 15 de octubre, toda solicitud se registra en Tareas con el formulario nuevo. El manual ya está actualizado.</p>
+              <div class="ack"><span class="btn primary"><svg class="i"><use href="#i-check"/></svg><span data-i18n="app.ack">Entendido</span></span><div class="prog"><span data-i18n="pa.prog">15 de 18 confirmaron</span><div class="bar"><i style="width:83%"></i></div></div></div>
+            </div>
+            <div class="ack-list">
+              <h6><span data-i18n="pa.list">Confirmaciones</span><span>15 / 18</span></h6>
+              <div class="ack-row"><span class="av sm c1">AT</span>Ana Torres<small class="ok"><svg class="i"><use href="#i-checks"/></svg></small><small>9:14</small></div>
+              <div class="ack-row"><span class="av sm c3">LP</span>Luis Pérez<small class="ok"><svg class="i"><use href="#i-checks"/></svg></small><small>9:20</small></div>
+              <div class="ack-row"><span class="av sm c5">JG</span>José Gil<small class="ok"><svg class="i"><use href="#i-checks"/></svg></small><small>9:31</small></div>
+              <div class="ack-row pend"><span class="av sm c4">MR</span>Marta Ruiz<small data-i18n="pa.pend">Pendiente</small></div>
+              <div class="ack-row pend"><span class="av sm c2">DC</span>Diego Castro<small data-i18n="pa.pend">Pendiente</small></div>
+            </div>
+          </div>
+        </div>
+        <div class="mp-points">
+          <div><b><svg class="i"><use href="#i-pin"/></svg><span data-i18n="pa.p1">Siempre a la vista</span></b><span data-i18n="pa.p1s">Fijado arriba hasta que lo confirmen.</span></div>
+          <div><b><svg class="i"><use href="#i-checks"/></svg><span data-i18n="pa.p2">Confirmación de lectura</span></b><span data-i18n="pa.p2s">Quién confirmó y a qué hora (plan Pro).</span></div>
+          <div><b><svg class="i"><use href="#i-bell"/></svg><span data-i18n="pa.p3">Recordatorio</span></b><span data-i18n="pa.p3s">Un toque para avisar a los pendientes.</span></div>
+        </div>
+      </article>
+
+      <!-- Manuales -->
+      <article class="mod-panel" role="tabpanel" id="p-docs" aria-labelledby="t-docs" hidden>
+        <div class="mp-head"><h3 data-i18n="pd.h">El manual de la agencia siempre vivo y fácil de encontrar</h3><p data-i18n="pd.p">Un árbol por departamento, un editor con títulos, tablas e imágenes, y cada cambio queda en el historial para restaurarlo si hace falta.</p></div>
+        <div class="mp-visual">
+          <div class="v-doc">
+            <nav class="tree">
+              <h6 data-i18n="pd.dept1">Ventas</h6>
+              <div class="t"><svg class="i"><use href="#i-folder"/></svg><span data-i18n="pd.f1">Procesos</span></div>
+              <div class="t l2 on"><svg class="i"><use href="#i-file"/></svg><span data-i18n="pd.d1">Cierre de una venta</span></div>
+              <div class="t l2"><svg class="i"><use href="#i-file"/></svg><span data-i18n="pd.d2">Seguimiento a prospectos</span></div>
+              <div class="t"><svg class="i"><use href="#i-folder"/></svg><span data-i18n="pd.f2">Plantillas</span></div>
+              <h6 data-i18n="pd.dept2">Administración</h6>
+              <div class="t"><svg class="i"><use href="#i-file"/></svg><span data-i18n="pd.d3">Reembolsos</span></div>
+              <div class="t"><svg class="i"><use href="#i-file"/></svg><span data-i18n="pd.d4">Vacaciones</span></div>
+            </nav>
+            <div class="doc">
+              <h4 data-i18n="pd.title">Cierre de una venta</h4>
+              <div class="meta"><span class="chip green" data-i18n="pd.dept1">Ventas</span><span><svg class="i" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-history"/></svg> <span data-i18n="pd.saved">Guardado hace 1 min · versión 12</span></span></div>
+              <h5 data-i18n="pd.s1">Pasos</h5>
+              <ol><li data-i18n="pd.l1">Confirma los datos del cliente en la ficha.</li><li data-i18n="pd.l2">Envía la propuesta desde la plantilla vigente.</li><li data-i18n="pd.l3">Registra el cierre en Tareas y avisa en #ventas.</li></ol>
+              <div class="callout"><svg class="i"><use href="#i-info"/></svg><span data-i18n="pd.call">Si el cliente pide un descuento, consulta antes con tu líder.</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="mp-points">
+          <div><b><svg class="i"><use href="#i-folder"/></svg><span data-i18n="pd.p1">Por departamento</span></b><span data-i18n="pd.p1s">Cada equipo encuentra lo suyo.</span></div>
+          <div><b><svg class="i"><use href="#i-history"/></svg><span data-i18n="pd.p2">Historial</span></b><span data-i18n="pd.p2s">Versiones con vista previa y restaurar.</span></div>
+          <div><b><svg class="i"><use href="#i-msg"/></svg><span data-i18n="pd.p3">Enlazado al chat</span></b><span data-i18n="pd.p3s">Pegas el enlace y se ve como tarjeta.</span></div>
+        </div>
+      </article>
+
+      <!-- Tareas -->
+      <article class="mod-panel" role="tabpanel" id="p-tasks" aria-labelledby="t-tasks" hidden>
+        <div class="mp-head"><h3 data-i18n="pt.h">Cada pendiente tiene dueño, fecha y prioridad</h3><p data-i18n="pt.p">Tablero tipo kanban, vista de lista y "mis tareas". Kora avisa cuando te asignan algo y cuando una fecha está por vencer.</p></div>
+        <div class="mp-visual">
+          <div class="v-board">
+            <div class="col"><div class="col-h" data-i18n-html="pt.c1">Por hacer <span>4</span></div>
+              <div class="card over"><div class="t" data-i18n="pt.k1">Enviar propuesta a Grupo Delta</div><div class="row"><span class="due over"><svg class="i"><use href="#i-clock"/></svg><span data-i18n="pt.d1">Venció ayer</span></span><span class="prio urgent" data-i18n="pt.urgent">Urgente</span><span class="av sm c1">AT</span></div></div>
+              <div class="card"><div class="t" data-i18n="pt.k2">Actualizar lista de precios</div><div class="row"><span class="due"><svg class="i"><use href="#i-cal"/></svg><span data-i18n="pt.d2">Jue 9 oct</span></span><span class="av sm c4">MR</span></div></div>
+            </div>
+            <div class="col"><div class="col-h" data-i18n-html="pt.c2">En curso <span>3</span></div>
+              <div class="card lift"><div class="t" data-i18n="task.t">Llamar a renovaciones de octubre</div><div class="row"><span class="due"><svg class="i"><use href="#i-cal"/></svg><span data-i18n="task.due">Vie 10 oct</span></span><span class="prio" data-i18n="task.prio">Alta</span><span class="av sm c2">RA</span></div></div>
+              <div class="card"><div class="t" data-i18n="pt.k3">Capacitar a los nuevos asesores</div><div class="row"><span class="due"><svg class="i"><use href="#i-cal"/></svg><span data-i18n="pt.d3">Lun 13 oct</span></span><span class="av sm c3">LP</span></div></div>
+            </div>
+            <div class="col"><div class="col-h" data-i18n-html="pt.c3">Hecho <span>12</span></div>
+              <div class="card done"><div class="t" data-i18n="pt.k4">Reporte de cierres de septiembre</div><div class="row"><span class="due"><svg class="i"><use href="#i-check"/></svg><span data-i18n="pt.d4">Hecho el 3 oct</span></span><span class="av sm c5">JG</span></div></div>
+              <div class="card done"><div class="t" data-i18n="pt.k5">Revisar contratos pendientes</div><div class="row"><span class="due"><svg class="i"><use href="#i-check"/></svg><span data-i18n="pt.d5">Hecho el 2 oct</span></span><span class="av sm c1">AT</span></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="mp-points">
+          <div><b><svg class="i"><use href="#i-task"/></svg><span data-i18n="pt.p1">Tres vistas</span></b><span data-i18n="pt.p1s">Tablero, lista y lo que te toca a ti.</span></div>
+          <div><b><svg class="i"><use href="#i-bell"/></svg><span data-i18n="pt.p2">Avisos de vencimiento</span></b><span data-i18n="pt.p2s">Antes de que la fecha se pase.</span></div>
+          <div><b><svg class="i"><use href="#i-users"/></svg><span data-i18n="pt.p3">Varias personas</span></b><span data-i18n="pt.p3s">Asigna, comenta y adjunta archivos.</span></div>
+        </div>
+      </article>
+
+      <!-- Metas -->
+      <article class="mod-panel" role="tabpanel" id="p-goals" aria-labelledby="t-goals" hidden>
+        <div class="mp-head"><h3 data-i18n="pg.h">Metas semanales que se reportan solas</h3><p data-i18n="pg.p">Cada persona reporta su avance en un minuto. Los líderes ven el semáforo del equipo y la tendencia de las últimas semanas.</p></div>
+        <div class="mp-visual">
+          <div class="v-goals">
+            <div class="kpis">
+              <div class="kpi"><small data-i18n="pg.k1">Ventas de la semana</small><b>42</b><span class="up" data-i18n="pg.k1s">+12% vs. semana pasada</span></div>
+              <div class="kpi"><small data-i18n="pg.k2">Reportes entregados</small><b>16/18</b><span style="color:var(--color-muted)" data-i18n="pg.k2s">2 pendientes</span></div>
+            </div>
+            <div class="chart">
+              <h6><span data-i18n="pg.chart">Ventas por semana</span><span class="legend"><span><i style="background:var(--color-ink)"></i><span data-i18n="pg.real">Real</span></span><span><i style="background:var(--color-primary)"></i><span data-i18n="pg.goal">Meta</span></span></span></h6>
+              <svg viewBox="0 0 480 180" role="img" aria-label="Ventas por semana frente a la meta">
+                <g stroke="#E4E7EC" stroke-width="1"><line x1="30" x2="470" y1="20" y2="20"/><line x1="30" x2="470" y1="76" y2="76"/><line x1="30" x2="470" y1="132" y2="132"/><line x1="30" x2="470" y1="160" y2="160"/></g>
+                <g font-family="Roboto, sans-serif" font-size="11" fill="#5E6878"><text x="0" y="24">50</text><text x="0" y="80">30</text><text x="0" y="136">10</text></g>
+                <g fill="#13243D">
+                  <rect x="48" y="92" width="34" height="68"/><rect x="118" y="80" width="34" height="80"/><rect x="188" y="62" width="34" height="98"/>
+                  <rect x="258" y="74" width="34" height="86"/><rect x="328" y="50" width="34" height="110"/><rect x="398" y="40" width="34" height="120" fill="#2F5D8A"/>
+                </g>
+                <line x1="30" x2="470" y1="57" y2="57" stroke="#F69008" stroke-width="3"/>
+                <g font-family="Roboto, sans-serif" font-size="11" fill="#5E6878" text-anchor="middle"><text x="65" y="176">S1</text><text x="135" y="176">S2</text><text x="205" y="176">S3</text><text x="275" y="176">S4</text><text x="345" y="176">S5</text><text x="415" y="176">S6</text></g>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div class="mp-points">
+          <div><b><svg class="i"><use href="#i-target"/></svg><span data-i18n="pg.p1">Metas por persona</span></b><span data-i18n="pg.p1s">O por equipo y departamento.</span></div>
+          <div><b><svg class="i"><use href="#i-bell"/></svg><span data-i18n="pg.p2">Recordatorio del viernes</span></b><span data-i18n="pg.p2s">Nadie olvida reportar.</span></div>
+          <div><b><svg class="i"><use href="#i-chart"/></svg><span data-i18n="pg.p3">Reportes avanzados</span></b><span data-i18n="pg.p3s">Tendencias y exportación (plan Pro).</span></div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ RUBROS ═════════ -->
+<section class="block industries" id="rubros">
+  <div class="wrap ind-grid">
+    <div class="ind-side">
+      <div class="sec-head">
+        <span class="eyebrow" data-i18n="ind.eyebrow">Para cualquier agencia</span>
+        <h2 data-i18n="ind.title">Empieza con una plantilla de tu rubro</h2>
+        <p data-i18n="ind.lead">Al registrarte eliges el tipo de agencia y Kora crea los departamentos y las categorías de inicio. Todo se puede cambiar después.</p>
+      </div>
+      <div class="ind-note">
+        <div><svg class="i"><use href="#i-check"/></svg><span data-i18n-html="ind.n1"><b>Departamentos listos</b> con sus canales y permisos.</span></div>
+        <div><svg class="i"><use href="#i-check"/></svg><span data-i18n-html="ind.n2"><b>Categorías con tu nombre</b>: línea, cliente, sede o producto.</span></div>
+        <div><svg class="i"><use href="#i-check"/></svg><span data-i18n-html="ind.n3"><b>Colores con buen contraste</b> para distinguirlas de un vistazo.</span></div>
+      </div>
+      <div class="ind-cta">
+        <b data-i18n="ind.ctaB">Cambiar de rubro no borra nada</b>
+        <span data-i18n="ind.ctaS">Renombra departamentos y categorías cuando quieras desde Ajustes.</span>
+        <a class="btn primary" href="#"><span data-i18n="cta.trial">Prueba 14 días gratis</span><svg class="i"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+    <div class="ind-cards">
+      <article class="ind">
+        <div class="ind-h"><span class="ic"><svg class="i"><use href="#i-shield"/></svg></span><h3 data-i18n="ind.ins">Seguros</h3><small data-i18n="ind.tpl">Plantilla</small></div>
+        <dl><dt data-i18n="ind.depts">Departamentos</dt><dd class="depts" data-i18n="ind.insD">Ventas, Servicio al cliente, Renovaciones, Administración</dd>
+          <dt data-i18n="ind.insL">Línea</dt><dd><span class="chip green" data-i18n="ind.health">Salud</span><span class="chip blue" data-i18n="ind.life">Vida</span><span class="chip">Medicare</span></dd></dl>
+      </article>
+      <article class="ind">
+        <div class="ind-h"><span class="ic"><svg class="i"><use href="#i-trend"/></svg></span><h3>Marketing</h3><small data-i18n="ind.tpl">Plantilla</small></div>
+        <dl><dt data-i18n="ind.depts">Departamentos</dt><dd class="depts" data-i18n="ind.mktD">Cuentas, Creatividad, Medios, Administración</dd>
+          <dt data-i18n="ind.mktL">Cliente</dt><dd class="empty" data-i18n="ind.mktV">Agregas tus clientes</dd></dl>
+      </article>
+      <article class="ind">
+        <div class="ind-h"><span class="ic"><svg class="i"><use href="#i-house"/></svg></span><h3 data-i18n="ind.re">Inmobiliaria</h3><small data-i18n="ind.tpl">Plantilla</small></div>
+        <dl><dt data-i18n="ind.depts">Departamentos</dt><dd class="depts" data-i18n="ind.reD">Ventas, Alquileres, Administración</dd>
+          <dt data-i18n="ind.reL">Sede</dt><dd><span class="chip blue" data-i18n="ind.reV">Principal</span></dd></dl>
+      </article>
+      <article class="ind">
+        <div class="ind-h"><span class="ic"><svg class="i"><use href="#i-plane"/></svg></span><h3 data-i18n="ind.tr">Viajes</h3><small data-i18n="ind.tpl">Plantilla</small></div>
+        <dl><dt data-i18n="ind.depts">Departamentos</dt><dd class="depts" data-i18n="ind.trD">Ventas, Operaciones, Atención al viajero, Administración</dd>
+          <dt data-i18n="ind.trL">Producto</dt><dd><span class="chip blue" data-i18n="ind.fl">Vuelos</span><span class="chip green" data-i18n="ind.pk">Paquetes</span><span class="chip" data-i18n="ind.cr">Cruceros</span></dd></dl>
+      </article>
+      <article class="yours">
+        <div>
+          <h3><span class="ic"><svg class="i"><use href="#i-tag"/></svg></span><span data-i18n="ind.yours">La tuya</span></h3>
+          <p data-i18n="ind.yoursP">¿Tu agencia no encaja en ninguna? Empieza en blanco y ponle a tus categorías el nombre que uses en el día a día.</p>
+          <div class="pick" role="group" aria-label="Nombre de la categoría">
+            <button type="button" aria-pressed="true" data-cat="sede">Sedes</button>
+            <button type="button" aria-pressed="false" data-cat="cliente">Clientes</button>
+            <button type="button" aria-pressed="false" data-cat="producto">Productos</button>
+            <button type="button" aria-pressed="false" data-cat="equipo">Equipos</button>
+          </div>
+        </div>
+        <div class="mini-sb" aria-live="polite">
+          <h4 id="cat-label">Sedes</h4>
+          <div id="cat-items"></div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ IPHONE ═════════ -->
+<section class="block" id="iphone">
+  <div class="wrap iphone-grid">
+    <div>
+      <div class="sec-head">
+        <span class="eyebrow" data-i18n="ip.eyebrow">En el iPhone</span>
+        <h2 data-i18n="ip.title">Se instala como una app sin pasar por la App Store</h2>
+        <p data-i18n="ip.lead">Kora funciona desde Safari y se agrega a la pantalla de inicio en tres pasos. Desde ahí avisa con notificaciones como cualquier otra app.</p>
+      </div>
+      <div class="steps">
+        <div class="step"><span class="n">1</span><div><b data-i18n="ip.s1">Abre Kora en Safari</b><span data-i18n="ip.s1s">Entra con tu correo y contraseña.</span></div><span class="tool"><svg class="i"><use href="#i-globe"/></svg>kora.app</span></div>
+        <div class="step"><span class="n">2</span><div><b data-i18n="ip.s2">Toca Compartir y "Agregar a inicio"</b><span data-i18n="ip.s2s">El ícono de Kora aparece junto a tus apps.</span></div><span class="tool"><svg class="i"><use href="#i-share"/></svg><span data-i18n="ip.s2t">Compartir</span></span></div>
+        <div class="step"><span class="n">3</span><div><b data-i18n="ip.s3">Activa las notificaciones</b><span data-i18n="ip.s3s">Abre Kora desde el ícono y toca "Permitir".</span></div><span class="tool"><svg class="i"><use href="#i-bell"/></svg><span data-i18n="ip.s3t">Permitir</span></span></div>
+      </div>
+      <p class="small-print"><svg class="i"><use href="#i-info"/></svg><span data-i18n="ip.note">Requiere iOS 16.4 o superior. En Android y en la computadora también funciona, desde el navegador.</span></p>
+    </div>
+    <div class="phone-stage">
+      <div class="home-icon"><span class="app-ico">K</span><div><b data-i18n="ip.added">Agregada a inicio</b><span>Kora</span></div></div>
+      <div class="phone" role="img" aria-label="Pantalla bloqueada del iPhone con notificaciones de Kora">
+        <div class="screen">
+          <span class="notch"></span>
+          <div class="lock-time">9:41</div>
+          <div class="lock-date" data-i18n="ip.date">martes, 7 de octubre</div>
+          <div class="notifs">
+            <div class="notif"><span class="app-ico">K</span><div><div class="h"><span>Kora</span><span data-i18n="push.now">ahora</span></div><b>#ventas · Ana Torres</b><p data-i18n="push.msg">@Rodrigo ¿cerramos la meta de la semana hoy?</p></div></div>
+            <div class="notif"><span class="app-ico">K</span><div><div class="h"><span>Kora</span><span data-i18n="ip.n2t">hace 8 min</span></div><b data-i18n="ip.n2b">Nuevo anuncio</b><p data-i18n="ip.n2">Cambio en el proceso de reembolsos. Toca para confirmar.</p></div></div>
+            <div class="notif back"><span class="app-ico">K</span><div><div class="h"><span>Kora</span><span data-i18n="ip.n3t">hace 1 h</span></div><b data-i18n="ip.n3b">Tarea por vencer</b><p data-i18n="ip.n3">Llamar a renovaciones de octubre vence mañana.</p></div></div>
+          </div>
+          <span class="home-ind"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ PRECIOS ═════════ -->
+<section class="block" id="precios" style="padding-top:24px">
+  <div class="wrap">
+    <div class="pricing-head">
+      <div class="sec-head">
+        <span class="eyebrow" data-i18n="pr.eyebrow">Precios</span>
+        <h2 data-i18n="pr.title">Un precio claro por persona y sin contratos</h2>
+      </div>
+      <p class="aside" data-i18n="pr.aside">Pagas solo por los usuarios activos de tu agencia; los invitados externos no cuentan. Si al terminar la prueba no eliges plan, tu espacio queda en solo lectura: nunca borramos tus datos.</p>
+    </div>
+    <div class="plans">
+      <article class="plan">
+        <h3 data-i18n="pr.trial">Prueba</h3>
+        <p class="sub" data-i18n="pr.trialS">Todo Kora, sin límites, para decidir con calma.</p>
+        <div class="price"><b>$0</b><span data-i18n="pr.trialP">durante 14 días</span></div>
+        <ul class="feats">
+          <li><svg class="i"><use href="#i-check"/></svg><span data-i18n="pr.t1">Todas las funciones del plan Pro</span></li>
+          <li><svg class="i"><use href="#i-check"/></svg><span data-i18n="pr.t2">Usuarios ilimitados durante la prueba</span></li>
+          <li><svg class="i"><use href="#i-check"/></svg><span data-i18n="pr.t3">Sin tarjeta para empezar</span></li>
+          <li><svg class="i"><use href="#i-check"/></svg><span data-i18n="pr.t4">Plantilla de tu rubro incluida</span></li>
+        </ul>
+        <a class="btn ghost lg" href="#" data-i18n="cta.trial">Prueba 14 días gratis</a>
+      </article>
+      <article class="plan">
+        <h3 data-i18n="pr.std">Estándar</h3>
+        <p class="sub" data-i18n="pr.stdS">Lo esencial para que el equipo trabaje unido.</p>
+        <div class="price"><b>$6</b><span data-i18n="pr.per">por usuario / mes</span></div>
+        <ul class="feats">
+          <li><svg class="i"><use href="#i-check"/></svg><span data-i18n="pr.s1">Chat, anuncios, manuales, tareas y metas</span></li>
+          <li><svg class="i"><use href="#i-check"/></svg><span data-i18n="pr.s2">App en el iPhone con notificaciones</span></li>
+          <li><svg class="i"><use href="#i-check"/></svg><span data-i18n="pr.s3">Departamentos, roles y categorías</span></li>
+          <li><svg class="i"><use href="#i-drive"/></svg><span data-i18n="pr.s4">10 GB de archivos por agencia</span></li>
+        </ul>
+        <a class="btn ghost lg" href="#" data-i18n="pr.choose">Empezar con Estándar</a>
+      </article>
+      <article class="plan pro">
+        <span class="tag" data-i18n="pr.rec">Recomendado</span>
+        <h3>Pro</h3>
+        <p class="sub" data-i18n="pr.proS">Para agencias que miden y necesitan constancia.</p>
+        <div class="price"><b>$9</b><span data-i18n="pr.per">por usuario / mes</span></div>
+        <ul class="feats">
+          <li class="plus"><svg class="i"><use href="#i-check"/></svg><span data-i18n="pr.p0">Todo lo de Estándar, más:</span></li>
+          <li><svg class="i"><use href="#i-checks"/></svg><span data-i18n="pr.p1">Confirmación de lectura de anuncios</span></li>
+          <li><svg class="i"><use href="#i-chart"/></svg><span data-i18n="pr.p2">Reportes avanzados de metas</span></li>
+          <li><svg class="i"><use href="#i-drive"/></svg><span data-i18n="pr.p3">50 GB de archivos por agencia</span></li>
+        </ul>
+        <a class="btn primary lg" href="#" data-i18n="pr.chooseP">Empezar con Pro</a>
+      </article>
+    </div>
+    <div class="plan-foot">
+      <span><svg class="i"><use href="#i-users"/></svg><span data-i18n="pr.f1">Precios en USD, por usuario activo</span></span>
+      <span><svg class="i"><use href="#i-clock"/></svg><span data-i18n="pr.f2">Cancela cuando quieras</span></span>
+      <span><svg class="i"><use href="#i-shield"/></svg><span data-i18n="pr.f3">Tus datos se exportan en cualquier momento</span></span>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ PREGUNTAS ═════════ -->
+<section class="block" id="preguntas" style="padding-top:24px">
+  <div class="wrap faq-grid">
+    <div class="faq-side">
+      <div class="sec-head">
+        <span class="eyebrow" data-i18n="faq.eyebrow">Preguntas frecuentes</span>
+        <h2 data-i18n="faq.title">Lo que nos preguntan antes de empezar</h2>
+      </div>
+      <div class="help">
+        <b data-i18n="faq.helpB">¿Te quedó una duda?</b>
+        <p data-i18n="faq.helpP">Escríbenos y te respondemos en español o en inglés, normalmente el mismo día.</p>
+        <a href="#"><svg class="i"><use href="#i-mail"/></svg>hola@kora.app</a>
+      </div>
+      <div class="help docs-card">
+        <b data-i18n="faq.docsB">Términos claros</b>
+        <p data-i18n="faq.docsP">Lee cómo cuidamos tus datos antes de crear tu cuenta.</p>
+        <a href="#"><svg class="i"><use href="#i-file"/></svg><span data-i18n="ft.terms">Términos de servicio</span></a>
+        <a href="#"><svg class="i"><use href="#i-shield"/></svg><span data-i18n="ft.priv">Política de privacidad</span></a>
+      </div>
+    </div>
+    <div class="faq">
+      <details open><summary><span data-i18n="q1">¿Qué pasa cuando terminan los 14 días de prueba?</span><svg class="i"><use href="#i-plus"/></svg></summary><p class="ans" data-i18n="a1">Eliges Estándar o Pro y sigues igual. Si no eliges, tu espacio pasa a solo lectura: puedes entrar y exportar todo, pero no publicar. Nunca borramos datos.</p></details>
+      <details><summary><span data-i18n="q2">¿Cómo se calcula lo que pago?</span><svg class="i"><use href="#i-plus"/></svg></summary><p class="ans" data-i18n="a2">Multiplicamos el precio del plan por los usuarios activos de tu agencia. Los invitados externos no cuentan. Si alguien entra o sale a mitad de mes, el cobro se ajusta en proporción.</p></details>
+      <details><summary><span data-i18n="q3">¿Necesito descargar algo de la App Store?</span><svg class="i"><use href="#i-plus"/></svg></summary><p class="ans" data-i18n="a3">No. Kora se instala desde Safari con "Agregar a inicio" y recibe notificaciones como una app normal (iOS 16.4 o superior). En la computadora y en Android funciona desde el navegador.</p></details>
+      <details><summary><span data-i18n="q4">¿Sirve si mi agencia no es de seguros?</span><svg class="i"><use href="#i-plus"/></svg></summary><p class="ans" data-i18n="a4">Sí. Hay plantillas para marketing, inmobiliarias y viajes, y una en blanco. Las categorías llevan el nombre que tú elijas: cliente, sede, producto o el que uses.</p></details>
+      <details><summary><span data-i18n="q5">¿Mis datos están separados de otras agencias?</span><svg class="i"><use href="#i-plus"/></svg></summary><p class="ans" data-i18n="a5">Sí. Cada agencia vive en su propio espacio y la base de datos impide mezclar información entre agencias. Los archivos son privados y nunca tienen un enlace público.</p></details>
+      <details><summary><span data-i18n="q6">¿Puedo guardar datos de salud de mis clientes?</span><svg class="i"><use href="#i-plus"/></svg></summary><p class="ans" data-i18n="a6">Durante el piloto, no: los Términos piden no guardar información médica protegida (PHI). Estamos preparando la infraestructura para ofrecerlo más adelante.</p></details>
+      <details><summary><span data-i18n="q7">¿La app está en español y en inglés?</span><svg class="i"><use href="#i-plus"/></svg></summary><p class="ans" data-i18n="a7">Sí. Cada persona elige su idioma en su perfil, así un mismo equipo puede trabajar en los dos.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ CTA FINAL ═════════ -->
+<section class="final">
+  <div class="wrap">
+    <div class="final-box">
+      <div class="txt">
+        <h2 data-i18n="fin.title">Tu equipo al día y en el mismo lugar desde esta semana</h2>
+        <p data-i18n="fin.p">Crea tu agencia, invita a tu equipo por correo o con un enlace y empieza a conversar hoy mismo.</p>
+      </div>
+      <div class="act">
+        <b data-i18n="fin.b">14 días gratis, sin tarjeta</b>
+        <span data-i18n="fin.s">Configúralo en 5 minutos con la plantilla de tu rubro.</span>
+        <a class="btn ink lg" href="#"><span data-i18n="cta.trial">Prueba 14 días gratis</span><svg class="i"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div><a class="brand" href="#top"><span class="mark">K</span>Kora</a><p data-i18n="ft.p">El espacio de trabajo para agencias: chat, anuncios, manuales, tareas y metas en un solo lugar.</p></div>
+      <div><h4 data-i18n="ft.prod">Producto</h4><ul><li><a href="#producto" data-i18n="mod.chat">Chat</a></li><li><a href="#rubros" data-i18n="nav.industries">Rubros</a></li><li><a href="#iphone">iPhone</a></li></ul></div>
+      <div><h4 data-i18n="ft.co">Empresa</h4><ul><li><a href="#precios" data-i18n="nav.pricing">Precios</a></li><li><a href="#preguntas" data-i18n="nav.faq">Preguntas</a></li><li><a href="#" data-i18n="ft.contact">Contacto</a></li></ul></div>
+      <div><h4 data-i18n="ft.legal">Legal</h4><ul><li><a href="#" data-i18n="ft.terms">Términos de servicio</a></li><li><a href="#" data-i18n="ft.priv">Política de privacidad</a></li></ul></div>
+    </div>
+    <div class="foot-bottom"><span data-i18n="ft.copy">© 2026 Kora. Todos los derechos reservados.</span><span data-i18n="ft.made">Hecho para agencias de EE. UU. y Latinoamérica</span></div>
+  </div>
+</footer>
+
+<script>
+/* i18n: el español vive en el HTML; al cargar se guarda como copia y el inglés sale del diccionario. */
+const EN = {
+  'nav.product':'Product','nav.industries':'Industries','nav.pricing':'Pricing','nav.faq':'FAQ',
+  'cta.login':'Log in','cta.trial':'Try 14 days free','cta.trialShort':'Try free',
+  'hero.eyebrow':'A workspace for agencies','hero.title':'Your whole agency <span class="hl">in one place</span> <span class="sub">and on your iPhone too</span>',
+  'hero.lead':'Real-time chat like Slack, announcements your team confirms, always up-to-date handbooks, tasks and weekly goals. It installs on the iPhone like an app and alerts you with notifications.',
+  'hero.see':'See how it works','hero.a1':'No card to start','hero.a2':'English and Spanish','hero.a3':'Ready in 5 minutes',
+  'push.now':'now','push.msg':'@Rodrigo should we close this week’s goal today?',
+  'app.search':'Search','app.channels':'Channels','app.annCh':'announcements','app.leaders':'leaders','app.dms':'Direct messages','app.modules':'Modules','app.online':'Online',
+  'app.m0':'Good morning. Today I’m reviewing the leads left pending from Friday.','app.new':'New','app.topic':'Daily follow-up for the sales team','app.m1':'Closed 4 new clients yesterday. I uploaded the summary to the closing handbook.',
+  'app.annTag':'Announcement · needs confirmation','app.annTitle':'New closing schedule starting Monday','app.annText':'Weekly reports are due Fridays before 4:00 p.m.',
+  'app.ack':'Got it','app.ackProg':'14 of 18 confirmed','app.m2':'I assigned you the October renewals call.','app.replies':'2 replies','app.lastReply':'5 min ago',
+  'app.typing':'is typing…','app.compose':'Message #ventas',
+  'task.k':'Task assigned to you','task.t':'Call October renewals','task.due':'Fri Oct 10','task.prio':'High','task.cat':'Renewals',
+  'f1.b':'An app on the iPhone','f1.s':'No App Store, with notifications','f2.b':'Bilingual','f2.s':'Everyone picks their language','f3.b':'Isolated data','f3.s':'Each agency in its own space','f4.b':'Pay per active user','f4.s':'Guests don’t count',
+  'prod.eyebrow':'Product','prod.title':'Five connected tools your team uses every day','prod.lead':'Stop jumping between WhatsApp, spreadsheets and shared folders. In Kora, an announcement, a handbook or a task lives right next to the conversation.',
+  'mod.chat':'Chat','mod.chatS':'Channels, direct messages and threads in real time','mod.ann':'Announcements','mod.annS':'Important notices each person confirms','mod.docs':'Handbooks','mod.docsS':'Processes and guides by department, with history','mod.tasks':'Tasks','mod.tasksS':'Board, list and "my tasks" with dates and reminders','mod.goals':'Goals','mod.goalsS':'Weekly goals and everyone’s reports',
+  'pc.h':'Conversations by channel instead of WhatsApp groups','pc.p':'Public and private channels per department, direct messages, threads to stay on topic, mentions and accent-insensitive search.',
+  'pc.m1':'Does anyone have the new proposal template?','pc.r':'3 replies','pc.rt':'last 2 min ago','pc.m2':'quick meeting at 11 in #ventas.','pc.m3':'Done, I’ll bring this week’s numbers.','pc.c':'Reply in #ventas','pc.th':'Thread','pc.t1':'It’s in Handbooks &gt; Sales &gt; Templates.','pc.t2':'Thanks, got it.',
+  'pc.p1':'Channels and threads','pc.p1s':'Public, private and per department.','pc.p2':'Search everything','pc.p2s':'Messages, files and people in an instant.','pc.p3':'Sensible alerts','pc.p3s':'Mentions and direct messages reach the iPhone.',
+  'pa.h':'Know who read the notice and who didn’t','pa.p':'Post an announcement, pin it to the top of the channel and ask for confirmation. Everyone taps "Got it" and you watch progress live.',
+  'pa.tag':'Pinned · needs confirmation','pa.t':'Change to the reimbursement process','pa.x':'Starting October 15, every request is logged in Tasks with the new form. The handbook is already updated.','pa.prog':'15 of 18 confirmed','pa.list':'Confirmations','pa.pend':'Pending',
+  'pa.p1':'Always visible','pa.p1s':'Pinned on top until confirmed.','pa.p2':'Read receipts','pa.p2s':'Who confirmed and when (Pro plan).','pa.p3':'Reminder','pa.p3s':'One tap to nudge those pending.',
+  'pd.h':'Your agency’s handbook always alive and easy to find','pd.p':'A tree per department, an editor with headings, tables and images, and every change kept in history so you can restore it.',
+  'pd.dept1':'Sales','pd.f1':'Processes','pd.d1':'Closing a sale','pd.d2':'Following up on leads','pd.f2':'Templates','pd.dept2':'Administration','pd.d3':'Reimbursements','pd.d4':'Time off',
+  'pd.title':'Closing a sale','pd.saved':'Saved 1 min ago · version 12','pd.s1':'Steps','pd.l1':'Confirm the client’s details on file.','pd.l2':'Send the proposal from the current template.','pd.l3':'Log the close in Tasks and post in #ventas.','pd.call':'If the client asks for a discount, check with your leader first.',
+  'pd.p1':'By department','pd.p1s':'Each team finds its own.','pd.p2':'History','pd.p2s':'Versions with preview and restore.','pd.p3':'Linked to chat','pd.p3s':'Paste the link and it shows as a card.',
+  'pt.h':'Every to-do has an owner, a date and a priority','pt.p':'Kanban board, list view and "my tasks". Kora tells you when something is assigned to you and when a date is about to pass.',
+  'pt.c1':'To do <span>4</span>','pt.c2':'In progress <span>3</span>','pt.c3':'Done <span>12</span>','pt.k1':'Send proposal to Grupo Delta','pt.d1':'Due yesterday','pt.urgent':'Urgent','pt.k2':'Update the price list','pt.d2':'Thu Oct 9','pt.k3':'Train the new advisors','pt.d3':'Mon Oct 13','pt.k4':'September closings report','pt.d4':'Done Oct 3','pt.k5':'Review pending contracts','pt.d5':'Done Oct 2',
+  'pt.p1':'Three views','pt.p1s':'Board, list and what’s on you.','pt.p2':'Due-date alerts','pt.p2s':'Before the date slips by.','pt.p3':'Several people','pt.p3s':'Assign, comment and attach files.',
+  'pg.h':'Weekly goals that practically report themselves','pg.p':'Everyone reports progress in a minute. Leaders see the team’s traffic light and the trend over recent weeks.',
+  'pg.k1':'Sales this week','pg.k1s':'+12% vs. last week','pg.k2':'Reports submitted','pg.k2s':'2 pending','pg.chart':'Sales per week','pg.real':'Actual','pg.goal':'Goal',
+  'pg.p1':'Goals per person','pg.p1s':'Or per team and department.','pg.p2':'Friday reminder','pg.p2s':'Nobody forgets to report.','pg.p3':'Advanced reports','pg.p3s':'Trends and export (Pro plan).',
+  'ind.eyebrow':'For any agency','ind.title':'Start with a template for your industry','ind.lead':'When you sign up you pick your agency type and Kora creates starter departments and categories. Everything can be changed later.',
+  'ind.n1':'<b>Departments ready</b> with their channels and permissions.','ind.n2':'<b>Categories with your name</b>: line, client, branch or product.','ind.n3':'<b>High-contrast colors</b> to tell them apart at a glance.',
+  'ind.ins':'Insurance','ind.tpl':'Template','ind.depts':'Departments','ind.insD':'Sales, Customer service, Renewals, Administration','ind.insL':'Line','ind.health':'Health','ind.life':'Life',
+  'ind.mktD':'Accounts, Creative, Media, Administration','ind.mktL':'Client','ind.mktV':'You add your clients','ind.re':'Real estate','ind.reD':'Sales, Rentals, Administration','ind.reL':'Branch','ind.reV':'Main',
+  'ind.tr':'Travel','ind.trD':'Sales, Operations, Traveler care, Administration','ind.trL':'Product','ind.fl':'Flights','ind.pk':'Packages','ind.cr':'Cruises',
+  'ind.yours':'Yours','ind.yoursP':'Doesn’t your agency fit any of these? Start blank and give your categories the name you use every day.',
+  'ip.eyebrow':'On the iPhone','ip.title':'Installs like an app with no App Store needed','ip.lead':'Kora runs in Safari and is added to the home screen in three steps. From there it alerts you with notifications like any other app.',
+  'ip.s1':'Open Kora in Safari','ip.s1s':'Sign in with your email and password.','ip.s2':'Tap Share, then "Add to Home Screen"','ip.s2s':'The Kora icon appears next to your apps.','ip.s2t':'Share','ip.s3':'Turn on notifications','ip.s3s':'Open Kora from the icon and tap "Allow".','ip.s3t':'Allow',
+  'ip.note':'Requires iOS 16.4 or later. It also works on Android and on your computer, from the browser.','ip.added':'Added to Home Screen','ip.date':'Tuesday, October 7',
+  'ip.n2t':'8 min ago','ip.n2b':'New announcement','ip.n2':'Change to the reimbursement process. Tap to confirm.','ip.n3t':'1 h ago','ip.n3b':'Task due soon','ip.n3':'Call October renewals is due tomorrow.',
+  'pr.eyebrow':'Pricing','pr.title':'One clear price per person and no contracts','pr.aside':'You only pay for your agency’s active users; external guests don’t count. If you don’t pick a plan when the trial ends, your space becomes read-only: we never delete your data.',
+  'pr.trial':'Trial','pr.trialS':'All of Kora, no limits, so you can decide calmly.','pr.trialP':'for 14 days','pr.t1':'Every Pro plan feature','pr.t2':'Unlimited users during the trial','pr.t3':'No card to start','pr.t4':'Your industry template included',
+  'pr.std':'Standard','pr.stdS':'The essentials for a team that works together.','pr.per':'per user / month','pr.s1':'Chat, announcements, handbooks, tasks and goals','pr.s2':'iPhone app with notifications','pr.s3':'Departments, roles and categories','pr.s4':'10 GB of files per agency','pr.choose':'Start with Standard',
+  'pr.rec':'Recommended','pr.proS':'For agencies that measure and need proof.','pr.p0':'Everything in Standard, plus:','pr.p1':'Read receipts on announcements','pr.p2':'Advanced goal reports','pr.p3':'50 GB of files per agency','pr.chooseP':'Start with Pro',
+  'pr.f1':'Prices in USD, per active user','pr.f2':'Cancel anytime','pr.f3':'Export your data at any time',
+  'faq.eyebrow':'FAQ','faq.title':'What people ask us before starting','faq.docsB':'Clear terms','faq.docsP':'Read how we look after your data before creating your account.','ind.ctaB':'Switching industry deletes nothing','ind.ctaS':'Rename departments and categories anytime from Settings.','faq.helpB':'Still have a question?','faq.helpP':'Write to us and we’ll answer in English or Spanish, usually the same day.',
+  'q1':'What happens when the 14-day trial ends?','a1':'You pick Standard or Pro and carry on. If you don’t, your space becomes read-only: you can sign in and export everything, but not post. We never delete data.',
+  'q2':'How is my bill calculated?','a2':'We multiply the plan price by your agency’s active users. External guests don’t count. If someone joins or leaves mid-month, the charge is prorated.',
+  'q3':'Do I need to download anything from the App Store?','a3':'No. Kora installs from Safari with "Add to Home Screen" and gets notifications like a regular app (iOS 16.4 or later). On computers and Android it works in the browser.',
+  'q4':'Does it work if my agency isn’t in insurance?','a4':'Yes. There are templates for marketing, real estate and travel, plus a blank one. Categories take whatever name you choose: client, branch, product or your own.',
+  'q5':'Is my data kept apart from other agencies?','a5':'Yes. Each agency lives in its own space and the database prevents mixing information between agencies. Files are private and never get a public link.',
+  'q6':'Can I store my clients’ health data?','a6':'Not during the pilot: the Terms ask you not to store protected health information (PHI). We are preparing the infrastructure to offer it later.',
+  'q7':'Is the app in English and Spanish?','a7':'Yes. Everyone picks their language in their profile, so one team can work in both.',
+  'fin.title':'Your team up to date and in one place starting this week','fin.p':'Create your agency, invite your team by email or with a link and start talking today.','fin.b':'14 days free, no card','fin.s':'Set it up in 5 minutes with your industry template.',
+  'ft.p':'The workspace for agencies: chat, announcements, handbooks, tasks and goals in one place.','ft.prod':'Product','ft.co':'Company','ft.contact':'Contact','ft.legal':'Legal','ft.terms':'Terms of service','ft.priv':'Privacy policy',
+  'ft.copy':'© 2026 Kora. All rights reserved.','ft.made':'Made for agencies in the US and Latin America'
+};
+const CATS = {
+  es: { sede: ['Sedes', ['Caracas', 'Miami', 'Madrid']], cliente: ['Clientes', ['Grupo Delta', 'Café Aroma', 'Norte Motors']], producto: ['Productos', ['Planes', 'Servicios', 'Asesorías']], equipo: ['Equipos', ['Equipo A', 'Equipo B', 'Remoto']] },
+  en: { sede: ['Branches', ['Caracas', 'Miami', 'Madrid']], cliente: ['Clients', ['Grupo Delta', 'Café Aroma', 'Norte Motors']], producto: ['Products', ['Plans', 'Services', 'Consulting']], equipo: ['Teams', ['Team A', 'Team B', 'Remote']] }
+};
+const SW = ['#2F5D8A', '#1E7F4F', '#5B4B8A'];
+const ES = {};
+document.querySelectorAll('[data-i18n],[data-i18n-html]').forEach(el => { ES[el.dataset.i18n || el.dataset.i18nHtml] = el.innerHTML; });
+let lang = 'es', cat = 'sede';
+
+function renderCats() {
+  const [label, items] = CATS[lang][cat];
+  document.getElementById('cat-label').textContent = label;
+  document.getElementById('cat-items').innerHTML = items.map((n, i) =>
+    `<div class="sb-item${i === 0 ? ' active' : ''}"><span class="sw" style="background:${SW[i]}"></span>${n}</div>`).join('');
+  document.querySelectorAll('.pick button').forEach(b => { b.textContent = CATS[lang][b.dataset.cat][0]; });
+}
+function setLang(l) {
+  lang = l;
+  document.documentElement.lang = l;
+  document.querySelectorAll('[data-i18n],[data-i18n-html]').forEach(el => {
+    const k = el.dataset.i18n || el.dataset.i18nHtml;
+    el.innerHTML = l === 'en' && EN[k] ? EN[k] : ES[k];
+  });
+  document.querySelectorAll('.lang button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === l)));
+  renderCats();
+  try { localStorage.setItem('kora-lang', l); } catch (e) {}
+}
+document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
+document.querySelectorAll('.pick button').forEach(b => b.addEventListener('click', () => {
+  cat = b.dataset.cat;
+  document.querySelectorAll('.pick button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  renderCats();
+}));
+
+/* Pestañas de módulos */
+const tabs = [...document.querySelectorAll('.mod-tab')];
+tabs.forEach(t => t.addEventListener('click', () => {
+  tabs.forEach(x => { const on = x === t; x.setAttribute('aria-selected', String(on)); document.getElementById(x.getAttribute('aria-controls')).hidden = !on; });
+}));
+
+/* Menú móvil */
+const mb = document.querySelector('.menu-btn'), mm = document.getElementById('mmenu');
+mb.addEventListener('click', () => { const o = mm.classList.toggle('open'); mb.setAttribute('aria-expanded', String(o)); });
+mm.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { mm.classList.remove('open'); mb.setAttribute('aria-expanded', 'false'); }));
+
+let saved = 'es';
+try { saved = localStorage.getItem('kora-lang') || 'es'; } catch (e) {}
+setLang(saved === 'en' ? 'en' : 'es');
+</script>
+</body>
+</html>

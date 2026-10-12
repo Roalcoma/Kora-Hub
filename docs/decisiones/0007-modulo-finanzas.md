@@ -17,7 +17,8 @@ VFS pidió llevar gastos, nómina y estados de cuenta del banco dentro de Kora. 
   Admin y Contable (el resto recibe 404, como si el módulo no existiera, y no ve el menú). La única excepción es la regla de aprobación.
 - Las corridas de nómina las **prepara** el Contable pero solo las **aprueba** Owner/Admin (nadie aprueba su propia
   nómina; decisión del orquestador del 2026-10-11, misma lógica que los gastos). Una corrida aprobada sí la puede
-  marcar pagada el Contable.
+  marcar pagada el Contable. Un Owner/Admin **sí** puede aprobar una corrida que incluye su propia línea (Rodrigo,
+  2026-10-12: en agencias chicas hay una sola persona que aprueba); hallazgo F7 de la revisión de seguridad aceptado.
 
 **Regla de aprobación de gastos.**
 - Gasto o plantilla recurrente creado por Owner/Admin → `approval_status = 'approved'` (aprobado por su autor).

@@ -184,7 +184,7 @@ export type Routes = {
   'PATCH /w/:slug/finance/payroll/runs/:id/lines/:lineId': R<In<typeof Fi.UpdatePayrollLineBody>, Fi.PayrollRunDetail>;   // horas, borrador
   'POST /w/:slug/finance/payroll/runs/:id/adjustments': R<In<typeof Fi.PayrollAdjustmentBody>, Fi.PayrollRunDetail>;      // borrador
   'DELETE /w/:slug/finance/payroll/runs/:id/adjustments/:adjustmentId': R<never, Fi.PayrollRunDetail>;                    // borrador
-  'POST /w/:slug/finance/payroll/runs/:id/approve': R<never, Fi.PayrollRunDetail>;                      // congela líneas y desglose
+  'POST /w/:slug/finance/payroll/runs/:id/approve': R<In<typeof Fi.ApprovePayrollRunBody>, Fi.PayrollRunDetail>;   // congela líneas y desglose; 409 run_changed
   'POST /w/:slug/finance/payroll/runs/:id/reopen': R<never, Fi.PayrollRunDetail>;                       // aprobada sin pagos → borrador
   'POST /w/:slug/finance/payroll/runs/:id/pay': R<In<typeof Fi.PayPayrollBody>, Fi.PayrollRunDetail>;   // por línea o toda
   'GET /w/:slug/finance/payroll/runs/:id/export.csv': R<never, string>;

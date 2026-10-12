@@ -136,3 +136,22 @@ Pedido de VFS el 2026-10-10; producción espera a este módulo. Rama `feat/comis
 - Revisión de Rodrigo en local antes de desplegar.
 - No incluido a propósito: descontar automáticamente el chargeback del siguiente pago (se marca pagado como las demás
   cuotas), overrides de más de un nivel, FEX y otros productos (se agregan desde Configuración cuando VFS los use).
+
+## Finanzas: gastos, nómina y estados de cuenta (plan: [plan-finanzas.md](plan-finanzas.md))
+
+Pedido de VFS el 2026-10-11. Rama `feat/finanzas`. ADR 0007; revisión de seguridad en
+[seguridad/revision-finanzas.md](seguridad/revision-finanzas.md) (F1–F6 corregidos, F7 aceptado).
+
+- **A · Gastos y rol Contable** — hecho. Migración 0010; gastos únicos y recurrentes (job diario), aprobación para el
+  Contable, comprobantes, categorías, CSV.
+- **B · Nómina** — hecho. Personas sin usuario, componentes con vigencia, calendarios, corridas (borrador → aprobada →
+  pagada; aprueba solo Owner/Admin), recibo imprimible; la comisión entra con las cuotas marcadas pagadas.
+- **C · Banco** — hecho. Cuentas, carga manual con referencia, importación CSV con mapeo por cuenta, duplicados y
+  sugerencia de compañía por alias; deshacer importación.
+- **D · Resumen** — hecho. Flujo de caja del periodo, comisiones esperadas vs pagadas, próximos pagos, 6 meses.
+
+### Pendientes del módulo
+- Conciliación banco ↔ comisiones (plan §6) cuando haya estados de cuenta reales de VFS.
+- El desglose de nómina (`detail`) llega en español aunque la UI esté en inglés.
+- No hay DELETE de cuentas bancarias, personas de nómina ni plantillas recurrentes (se desactivan/pausan).
+- Entradas por compañía en Banco se calculan en el cliente sobre máx. 2000 movimientos.

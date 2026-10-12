@@ -1,6 +1,7 @@
 // /w/:slug/finance — gastos: categorías, proveedores, plantillas recurrentes y gastos (docs/plan-finanzas.md §2, ADR 0007).
 // El guardián de routes.ts ya filtró módulo y rol (Owner, Admin o Contable). Aprobación: lo que crea Owner/Admin nace
-// aprobado; lo que crea un Contable (o el monto que cambia de uno aprobado) queda por aprobar. Solo se pagan aprobados.
+// aprobado; lo que crea un Contable (o cualquier cambio material que haga sobre uno aprobado) queda por aprobar. Solo se
+// pagan aprobados, y el Contable solo puede pagar el monto aprobado (revisión de seguridad F2).
 import { Router, type Request } from 'express';
 import type pg from 'pg';
 import {
@@ -13,7 +14,7 @@ import { tx } from '../platform/workspace.ts';
 import { audit } from '../platform/model.ts';
 import { toFileRef } from '../files/routes.ts';
 import { isApprover, requireApprover } from './access.ts';
-import { generateOccurrences, nextOccurrence, ruleOf, todayNy } from './schedule.ts';
+import { addDays, generateOccurrences, MAX_PAST_DAYS, nextOccurrence, ruleOf, todayNy } from './schedule.ts';
 
 export const expensesRouter = Router({ mergeParams: true });
 
@@ -114,6 +115,12 @@ async function oneSchedule(db: pg.PoolClient, id: string, lock = false): Promise
   if (!r) throw new HttpError(404, 'schedule_not_found', 'Gasto recurrente no encontrado');
   return r;
 }
+/** F5: una plantilla no empieza más de un año atrás (evita generar miles de ocurrencias atrasadas de golpe) */
+async function checkStartsOn(db: pg.PoolClient, startsOn: string) {
+  if (startsOn < addDays(await todayNy(db), -MAX_PAST_DAYS)) {
+    throw new HttpError(400, 'starts_too_early', 'La fecha de inicio no puede ser de hace más de un año');
+  }
+}
 const scheduleOut = async (db: pg.PoolClient, id: string) => toSchedule(await oneSchedule(db, id), await todayNy(db));
 
 /** Copia la plantilla a sus ocurrencias futuras pendientes sin pagar (monto, categoría, proveedor, concepto, método) */
@@ -135,6 +142,7 @@ expensesRouter.post('/expense-schedules', async (req, res) => {
   const ap = approvalOf(req);
   res.status(201).json(await tx(req, async (db) => {
     await checkCategory(db, b.categoryId);
+    await checkStartsOn(db, b.startsOn);
     const { rows } = await db.query(
       `insert into expense_schedules (workspace_id, category_id, vendor, concept, amount, pay_method, frequency, interval_n,
          weekdays, month_day, business_days_only, starts_on, ends_on, approval_status, approved_by, approved_at, created_by)
@@ -163,11 +171,17 @@ expensesRouter.patch('/expense-schedules/:id', async (req, res) => {
       ...fields,
     });
     if (body.categoryId) await checkCategory(db, body.categoryId);
+    if (next.startsOn !== before.startsOn) await checkStartsOn(db, next.startsOn);
     const amountChanged = cents(next.amount) !== cents(before.amount);
     const ruleChanged = (['frequency', 'interval', 'monthDay', 'businessDaysOnly', 'startsOn', 'endsOn'] as const)
       .some((k) => next[k] !== before[k]) || JSON.stringify(next.weekdays) !== JSON.stringify(before.weekdays);
-    // Un Contable que cambia el monto de una aprobada (o toca una rechazada) la deja otra vez por aprobar
-    const toPending = !isApprover(req) && (cur.approval_status === 'rejected' || (amountChanged && cur.approval_status === 'approved'));
+    // Cambio material (F2): monto, regla, proveedor, categoría, método, concepto, o reanudar una pausada
+    const material = amountChanged || ruleChanged
+      || (['vendor', 'categoryId', 'payMethod', 'concept'] as const).some((k) => next[k] !== before[k])
+      || (status === 'active' && cur.status === 'paused');
+    // Un Contable que hace un cambio material sobre una aprobada (o toca una rechazada) la deja otra vez por aprobar:
+    // no se propaga a las ocurrencias ni genera nuevas hasta que un Owner/Admin la apruebe
+    const toPending = !isApprover(req) && (cur.approval_status === 'rejected' || (material && cur.approval_status === 'approved'));
     await db.query(
       `update expense_schedules set category_id = $2, vendor = $3, concept = $4, amount = $5, pay_method = $6, frequency = $7,
          interval_n = $8, weekdays = $9, month_day = $10, business_days_only = $11, starts_on = $12, ends_on = $13,
@@ -313,11 +327,14 @@ expensesRouter.patch('/expenses/:id', async (req, res) => {
   res.json(await tx(req, async (db) => {
     const cur = await oneExpense(db, req, id, true);
     const amountChanged = b.amount !== undefined && cents(b.amount) !== cents(cur.amount);
+    // Cambio material (F2): monto, proveedor, categoría, vencimiento, método o concepto
+    const material = amountChanged
+      || (['vendor', 'categoryId', 'dueDate', 'payMethod', 'concept'] as const).some((k) => b[k] !== undefined && b[k] !== cur[k]);
     if (amountChanged && cur.status === 'paid') throw new HttpError(409, 'expense_paid', 'Reabre el gasto pagado para cambiar el monto');
     if (b.categoryId && b.categoryId !== cur.categoryId) await checkCategory(db, b.categoryId);
     await checkFile(db, b.fileId);
-    // Un Contable que cambia el monto de uno aprobado (o corrige uno rechazado) lo deja otra vez por aprobar
-    const toPending = !isApprover(req) && ((amountChanged && cur.approvalStatus === 'approved') || cur.approvalStatus === 'rejected');
+    // Un Contable que hace un cambio material sobre uno aprobado (o corrige uno rechazado) lo deja otra vez por aprobar
+    const toPending = !isApprover(req) && ((material && cur.approvalStatus === 'approved') || cur.approvalStatus === 'rejected');
     await db.query(
       `update expenses set category_id = coalesce($2, category_id), vendor = coalesce($3, vendor), concept = coalesce($4, concept),
          due_date = coalesce($5, due_date), amount = coalesce($6, amount), pay_method = coalesce($7, pay_method),
@@ -370,6 +387,11 @@ expensesRouter.post('/expenses/:id/pay', async (req, res) => {
     const cur = await oneExpense(db, req, id, true);
     if (cur.approvalStatus !== 'approved') throw new HttpError(409, 'not_approved', 'Solo se pagan gastos aprobados');
     if (cur.status !== 'pending') throw new HttpError(409, 'expense_not_pending', 'El gasto no está pendiente');
+    // F2: el Contable paga exactamente lo aprobado; un monto distinto pasa antes por aprobación
+    if (!isApprover(req) && b.paidAmount !== undefined && cents(b.paidAmount) !== cents(cur.amount)) {
+      throw new HttpError(409, 'paid_amount_differs',
+        'El monto pagado difiere del aprobado; edita el gasto para que lo apruebe un Owner/Admin');
+    }
     await checkFile(db, b.fileId);
     await db.query(
       `update expenses set status = 'paid', paid_at = $2, paid_amount = $3, pay_method = coalesce($4, pay_method),

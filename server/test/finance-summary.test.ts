@@ -123,10 +123,10 @@ test('resumen: banco, gastos pagados, nómina, resultado, comisiones, próximos 
   const luis = (await conta('POST', A('/payroll/people'), { name: 'Luis', calendarId: cal, payMethod: 'zelle' })).body.id;
   await conta('POST', A(`/payroll/people/${luis}/components`), { kind: 'salary', amount: 1000, effectiveFrom: '2026-01-01' });
   const aug = (await conta('POST', A('/payroll/runs'), { calendarId: cal, periodStart: '2026-08-01', periodEnd: '2026-08-31', payDate: '2026-08-31' })).body.id;
-  await owner('POST', A(`/payroll/runs/${aug}/approve`));
+  await owner('POST', A(`/payroll/runs/${aug}/approve`), { version: (await owner('GET', A(`/payroll/runs/${aug}`))).body.version });
   assert.equal((await conta('POST', A(`/payroll/runs/${aug}/pay`), { paidAt: '2026-08-31' })).status, 200);
   const next = (await conta('POST', A('/payroll/runs'), { calendarId: cal, periodStart: '2026-12-01', periodEnd: '2026-12-31', payDate: addDays(today, 5) })).body.id;
-  await owner('POST', A(`/payroll/runs/${next}/approve`));
+  await owner('POST', A(`/payroll/runs/${next}/approve`), { version: (await owner('GET', A(`/payroll/runs/${next}`))).body.version });
 
   const r = await conta('GET', A('/summary?from=2026-08-01&to=2026-08-31'));
   assert.equal(r.status, 200, JSON.stringify(r.body));

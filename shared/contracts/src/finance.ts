@@ -83,7 +83,7 @@ export type ExpensesList = {
 
 export const ExpenseCategoryBody = z.object({ name: Text(60).min(1), color: CategoryColor.default('gray') });
 export const UpdateExpenseCategoryBody = z.object({
-  name: Text(60).min(1), color: CategoryColor, position: z.number().int(), archived: z.boolean(),
+  name: Text(60).min(1), color: CategoryColor, position: z.number().int().min(0).max(10_000), archived: z.boolean(),
 }).partial();
 
 const ScheduleFields = z.object({
@@ -183,7 +183,8 @@ export type PayrollRun = {
   approvedBy: Id | null; approvedAt: IsoDate | null; paidAt: Day | null; createdAt: IsoDate;
   totals: { people: number; gross: number; deductions: number; net: number; paid: number };
 };
-export type PayrollRunDetail = PayrollRun & { lines: PayrollLine[] };
+/** `version`: huella de las líneas; se reenvía al aprobar para no aprobar algo distinto de lo revisado */
+export type PayrollRunDetail = PayrollRun & { lines: PayrollLine[]; version: string };
 
 export const PayrollCalendarBody = z.object({
   name: Text(60).min(1), frequency: z.enum(PAYROLL_FREQUENCIES),
@@ -240,6 +241,8 @@ export const PayrollAdjustmentBody = z.object({
   personId: Id, kind: z.enum(['bonus', 'deduction']), label: Text(80).min(1), amount: Money,
 });
 /** Pagar líneas de una corrida aprobada; sin `lineIds`, todas las no pagadas. paidAt null = deshacer el pago */
+/** Aprobar corrida: la `version` de PayrollRunDetail que revisó quien aprueba (409 run_changed si ya no coincide) */
+export const ApprovePayrollRunBody = z.object({ version: z.string().min(1).max(128) });
 export const PayPayrollBody = z.object({
   lineIds: z.array(Id).min(1).max(500).optional(), paidAt: Day.nullable(), reference: Text(120).optional(),
 });

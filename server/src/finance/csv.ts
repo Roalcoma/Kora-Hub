@@ -6,9 +6,16 @@ import { normalize } from '../sales/routes.ts';
 export type CsvRecord = { line: number; cells: string[] };   // line = línea del archivo donde empieza el registro (1 = primera)
 type DateFormat = CsvMapping['dateFormat'];
 
+/** Topes del parser (revisión de seguridad F1): lo que exceda se descarta en silencio */
+export const MAX_CSV_CELL_CHARS = 1_000;
+export const MAX_CSV_CELLS = 200;
+/** Ningún monto ni fecha legítimo pasa de esto; se corta antes de aplicar regex (F1) */
+const MAX_VALUE_CHARS = 32;
+
 /**
  * Parser CSV (RFC 4180 tolerante): BOM, comillas dobles con "" escapadas, saltos CRLF/LF/CR y saltos de línea dentro
- * de campos entre comillas. Omite las líneas en blanco.
+ * de campos entre comillas. Omite las líneas en blanco. Cada celda se corta a MAX_CSV_CELL_CHARS y cada registro a
+ * MAX_CSV_CELLS celdas, para que un archivo hostil no produzca encabezados o celdas gigantes.
  */
 export function parseCsv(text: string, delimiter: string): CsvRecord[] {
   const out: CsvRecord[] = [];
@@ -18,30 +25,32 @@ export function parseCsv(text: string, delimiter: string): CsvRecord[] {
   let quoted = false;     // dentro de un campo entre comillas
   let line = 1;           // línea física actual
   let start = 1;          // línea donde empezó el registro en curso
+  const add = (c: string) => { if (cell.length < MAX_CSV_CELL_CHARS) cell += c; };
+  const push = () => { if (cells.length < MAX_CSV_CELLS) cells.push(cell); cell = ''; };
   const endRecord = () => {
-    cells.push(cell);
+    push();
     if (cells.length > 1 || cells[0]!.trim() !== '') out.push({ line: start, cells });
-    cells = []; cell = '';
+    cells = [];
   };
   for (let i = 0; i < s.length; i++) {
     const c = s[i]!;
     if (quoted) {
       if (c === '"') {
-        if (s[i + 1] === '"') { cell += '"'; i++; } else quoted = false;
+        if (s[i + 1] === '"') { add('"'); i++; } else quoted = false;
       } else {
         if (c === '\n' || (c === '\r' && s[i + 1] !== '\n')) line++;
-        cell += c;
+        add(c);
       }
     } else if (c === '"' && cell.trim() === '') {
       quoted = true; cell = '';
     } else if (c === delimiter) {
-      cells.push(cell); cell = '';
+      push();
     } else if (c === '\r' || c === '\n') {
       if (c === '\r' && s[i + 1] === '\n') i++;
       endRecord();
       line++; start = line;
     } else {
-      cell += c;
+      add(c);
     }
   }
   if (cell !== '' || cells.length) endRecord();
@@ -57,6 +66,7 @@ export function detectDelimiter(text: string): CsvMapping['delimiter'] {
 
 /** Fecha del CSV según el formato del mapeo → YYYY-MM-DD, o null si es ilegible. Acepta días/meses de 1 dígito y hora al final. */
 export function parseCsvDate(raw: string, format: DateFormat): string | null {
+  if (raw.length > MAX_VALUE_CHARS) return null;
   const m = raw.trim().split(/[\sT]/)[0]!.match(/^(\d{1,4})[/\-.](\d{1,2})[/\-.](\d{1,4})$/);
   if (!m) return null;
   const [a, b, c] = [m[1]!, m[2]!, m[3]!];
@@ -75,6 +85,7 @@ export function parseCsvDate(raw: string, format: DateFormat): string | null {
  * signo delante o detrás, paréntesis como negativo y coma decimal ("1.234,56"; "12,5"; pero "1,234" es mil).
  */
 export function parseCsvAmount(raw: string): number | null {
+  if (raw.length > MAX_VALUE_CHARS) return null;   // F1: nada de regex sobre celdas largas
   let s = raw.trim().replace(/[$\s ]|USD/gi, '');
   if (!s) return null;
   let neg = false;
@@ -84,6 +95,8 @@ export function parseCsvAmount(raw: string): number | null {
   if (!/^[\d.,]+$/.test(s) || !/\d/.test(s)) return null;
   const lastDot = s.lastIndexOf('.'), lastComma = s.lastIndexOf(',');
   if (lastDot >= 0 && lastComma >= 0) {
+    // El separador que va último es el decimal y debe aparecer una sola vez; si no, el monto es ambiguo
+    if (lastComma > lastDot ? s.indexOf(',') !== lastComma : s.indexOf('.') !== lastDot) return null;
     s = lastComma > lastDot ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
   } else if (lastComma >= 0) {
     // Solo comas: si hay una sola y no va seguida de exactamente 3 dígitos, es decimal
@@ -91,7 +104,7 @@ export function parseCsvAmount(raw: string): number | null {
   } else if (s.split('.').length > 2) {
     s = s.replace(/\./g, '');   // "1.234.567" = miles con punto
   }
-  if (!/^\d*\.?\d*$/.test(s)) return null;
+  if (!/^\d*(\.\d*)?$/.test(s)) return null;   // sin ambigüedad: lineal (F1)
   const n = Math.round(Number(s) * 100) / 100;
   if (!Number.isFinite(n)) return null;
   return neg ? -n : n;

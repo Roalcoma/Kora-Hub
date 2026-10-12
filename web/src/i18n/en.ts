@@ -508,6 +508,7 @@ export default {
         expandAll: 'Show all breakdowns', collapseAll: 'Hide breakdowns',
         recalculate: 'Recalculate', recalculatedOk: 'Recalculated with current data',
         approve: 'Approve', approvedOk: 'Run approved: it is now frozen',
+        changed: 'The run changed while you were reviewing it; review it again',
         accountantNote: 'Get it ready: an Owner or Admin approves it. Afterwards you can mark it paid.',
         reopen: 'Reopen', reopenedOk: 'Run reopened: back to draft',
         payAll: 'Pay all', pay: 'Pay', payTitle: 'Pay line', payAllTitle: 'Pay all pending lines', paidOk: 'Payment recorded',

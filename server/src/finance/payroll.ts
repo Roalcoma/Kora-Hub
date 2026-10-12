@@ -2,12 +2,13 @@
 // El guardián de routes.ts ya filtra módulo activo y rol (Owner, Admin, Contable). Aprobar y reabrir: solo Owner/Admin
 // (el Contable prepara y paga, no aprueba). En borrador las líneas se recalculan; al aprobar quedan congeladas con su
 // desglose, así que editar o borrar componentes después no toca las corridas aprobadas. El cálculo está en payroll-calc.ts.
+import { createHash } from 'node:crypto';
 import { Router } from 'express';
 import type pg from 'pg';
 import {
   Id, PayrollCalendarBody, UpdatePayrollCalendarBody, PayrollPersonBody, UpdatePayrollPersonBody, PayrollComponentBody,
   UpdatePayrollComponentBody, PayrollRunBody, UpdatePayrollRunBody, UpdatePayrollLineBody, PayrollAdjustmentBody,
-  PayPayrollBody, PayrollRunsQuery,
+  PayPayrollBody, PayrollRunsQuery, ApprovePayrollRunBody,
   type PayrollCalendar, type PayrollPerson, type PayrollComponent, type PayrollRun, type PayrollRunDetail, type PayrollLine,
   type PayrollItem,
 } from '@agencia-hub/contracts';
@@ -24,6 +25,8 @@ const TODAY = `(now() at time zone 'America/New_York')::date`;
 const day = (col: string) => `to_char(${col}, 'YYYY-MM-DD')`;   // como texto: pg pasa `date` a medianoche local y corre el día
 const num = (v: string | number | null) => (v == null ? null : Number(v));
 const dollars = (cents: number) => cents / 100;
+/** Máximo de numeric(12,2) en centavos: un bruto, deducción o neto mayor se rechaza con 400 en vez de un 500 (F6) */
+const MAX_CENTS = 999_999_999_999;
 /** Traduce violaciones de FK/unique a errores legibles */
 const pgError = (e: any, messages: { unique?: [string, string]; fk?: [string, string] }) => {
   if (e?.code === '23505' && messages.unique) return new HttpError(409, ...messages.unique);
@@ -245,7 +248,11 @@ async function getRun(db: pg.PoolClient, id: string): Promise<PayrollRunDetail> 
     gross: Number(l.gross), deductions: Number(l.deductions), net: Number(l.net), breakdown: l.breakdown,
     payMethod: l.pay_method, paidAt: l.paid, reference: l.reference, adjustments: l.adjustments,
   }));
-  return { ...toRun(run), lines };
+  // Huella de lo que se ve (F4): si cambia algo de una línea, cambia la versión
+  const version = createHash('sha256')
+    .update(JSON.stringify(lines.map((l) => [l.personId, l.hours, l.gross, l.deductions, l.net, l.payMethod, l.breakdown])))
+    .digest('hex').slice(0, 32);
+  return { ...toRun(run), lines, version };
 }
 
 /** Corrida bloqueada para escritura; exige el estado indicado */
@@ -309,6 +316,9 @@ async function recalcRun(db: pg.PoolClient, runId: string) {
       issuedSales: (p.user_id && sold.get(p.user_id)) || zero,
       adjustments: adjustments.rows.filter((a) => a.person_id === p.id),
     });
+    if ([r.grossCents, r.deductionsCents, r.netCents].some((c) => Math.abs(c) > MAX_CENTS)) {
+      throw new HttpError(400, 'amount_out_of_range', 'El bruto, las deducciones o el neto de una línea superan el máximo permitido');
+    }
     await db.query('update payroll_lines set gross = $2, deductions = $3, net = $4, breakdown = $5, pay_method = $6 where id = $1',
       [line.id, dollars(r.grossCents), dollars(r.deductionsCents), dollars(r.netCents), JSON.stringify(r.breakdown), p.pay_method]);
   }
@@ -416,12 +426,20 @@ payrollRouter.delete('/payroll/runs/:id/adjustments/:adjustmentId', async (req, 
   }));
 });
 
-/** Aprobar: recalcula una última vez (lo congelado = datos actuales) y fija líneas y desglose. Solo Owner/Admin. */
+/**
+ * Aprobar: recalcula una última vez y fija líneas y desglose. Solo Owner/Admin. El cliente manda la `version` de la
+ * corrida que revisó; si tras recalcular no coincide (alguien añadió un ajuste, cambió horas o componentes, o
+ * entraron comisiones), responde 409 `run_changed` y no aprueba (F4).
+ */
 payrollRouter.post('/payroll/runs/:id/approve', async (req, res) => {
   requireApprover(req);
   const id = Id.parse(req.params.id);
   res.json(await tx(req, async (db) => {
-    await recalcRun(db, id);
+    await recalcRun(db, id);   // primero: corrida ajena o no borrador → 404/409 antes de mirar el body
+    const b = parse(ApprovePayrollRunBody, req.body ?? {});
+    if ((await getRun(db, id)).version !== b.version) {
+      throw new HttpError(409, 'run_changed', 'La corrida cambió mientras la revisabas; revísala de nuevo');
+    }
     await db.query("update payroll_runs set status = 'approved', approved_by = app_user(), approved_at = now() where id = $1", [id]);
     const run = await getRun(db, id);
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'payroll.run_approved', targetType: 'payroll_run', targetId: id, meta: run.totals });
