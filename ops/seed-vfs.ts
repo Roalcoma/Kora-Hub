@@ -70,9 +70,13 @@ async function main() {
     const carrier = (await call(office, 'POST', w('/carriers'), { name: c.name, aliases: c.aliases, advanceMonths: 9 })).data;
     const p = (await call(office, 'POST', w(`/carriers/${carrier.id}/products`), { name: c.product, aliases: c.productAliases })).data.products[0];
     await call(office, 'PUT', w(`/products/${p.id}/grid`), { effectiveFrom: '2024-08-19', rows: grid(c.rates) });
-    // Sin producto en el mensaje = el IUL. FEX se acepta; su comisión se define después (sin tabla no se puede marcar ISSUED)
+    // Sin producto en el mensaje = el IUL. FEX paga 5 puntos más que el IUL de la compañía en cada nivel
     await call(office, 'PATCH', w(`/carriers/${carrier.id}`), { defaultProductId: p.id });
-    if (c.name !== 'National Life Group') await call(office, 'POST', w(`/carriers/${carrier.id}/products`), { name: 'FEX', aliases: ['FEX'] });
+    if (c.name !== 'National Life Group') {
+      const fex = (await call(office, 'POST', w(`/carriers/${carrier.id}/products`), { name: 'FEX', aliases: ['FEX'] })).data
+        .products.find((x: { name: string }) => x.name === 'FEX');
+      await call(office, 'PUT', w(`/products/${fex.id}/grid`), { effectiveFrom: '2024-08-19', rows: grid(c.rates.map((r) => r + 5)) });
+    }
     product[c.name] = p.id;
     carrierId[c.name] = carrier.id;
   }

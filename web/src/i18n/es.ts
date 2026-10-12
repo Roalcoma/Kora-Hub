@@ -281,8 +281,10 @@ export default {
     discordPlaceholder: 'ID numérico', gridSummary: '{n} niveles · de {lo} a {hi}', addLevel: 'Agregar nivel', removeRow: 'Quitar fila',
     dateFilter: { today: 'Hoy', day: 'Un día…', range: 'Rango…', dayLabel: 'Día', from: 'Desde', to: 'Hasta', invalid: 'La fecha «Desde» no puede ser posterior a «Hasta».' },
     seller: 'Agente vendedor', allSellers: 'Todos los vendedores', allBeneficiaries: 'Todos los beneficiarios',
-    levelByCarrier: 'Nivel por compañía', assign: 'Asignar', levelCarriers: 'Compañías', allCarriersShort: 'Todas',
-    levelPickCarrier: 'Marca al menos una compañía.', levelHistory: 'Historial',
+    levelCarriers: 'Compañías', allCarriersShort: 'Todas', levelPickCarrier: 'Marca al menos una compañía.', levelHistory: 'Historial',
+    levelsOf: 'Niveles de {name}', levelsHint: 'Nivel de contrato vigente con cada compañía. Toca una para cambiarlo.', levelCurrent: 'Vigente por compañía',
+    levelAllCarriers: 'todas las compañías', levelInCarriers: '{n} compañía | {n} compañías', levelMissing: 'falta en {n}',
+    assignLevel: 'Asignar nivel', noLevel: 'Sin nivel',
   },
   settings: {
     searchTimezone: 'Buscar ciudad o zona (ej.: Lima, New York)',

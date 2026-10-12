@@ -282,8 +282,10 @@ export default {
     discordPlaceholder: 'Numeric ID', gridSummary: '{n} levels · from {lo} to {hi}', addLevel: 'Add level', removeRow: 'Remove row',
     dateFilter: { today: 'Today', day: 'A day…', range: 'Range…', dayLabel: 'Day', from: 'From', to: 'To', invalid: '"From" can\'t be after "To".' },
     seller: 'Selling agent', allSellers: 'All sellers', allBeneficiaries: 'All beneficiaries',
-    levelByCarrier: 'Level by carrier', assign: 'Assign', levelCarriers: 'Carriers', allCarriersShort: 'All',
-    levelPickCarrier: 'Pick at least one carrier.', levelHistory: 'History',
+    levelCarriers: 'Carriers', allCarriersShort: 'All', levelPickCarrier: 'Pick at least one carrier.', levelHistory: 'History',
+    levelsOf: "{name}'s levels", levelsHint: 'Current contract level with each carrier. Tap one to change it.', levelCurrent: 'Current by carrier',
+    levelAllCarriers: 'all carriers', levelInCarriers: '{n} carrier | {n} carriers', levelMissing: 'missing in {n}',
+    assignLevel: 'Assign level', noLevel: 'No level',
   },
   settings: {
     searchTimezone: 'Search city or zone (e.g. Lima, New York)',

@@ -3,7 +3,7 @@
 // compañías con sus productos, alias para el lector de Discord y tabla nivel → %.
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Plus, Pencil, Table2, TrendingUp, Building2, Users } from 'lucide-vue-next';
+import { Plus, Pencil, Table2, TrendingUp, Building2, Users, ChevronRight, AlertTriangle } from 'lucide-vue-next';
 import type { Carrier, Product } from '@agencia-hub/contracts';
 import Dropdown from '@/design/Dropdown.vue';
 import Button from '@/design/Button.vue';
@@ -61,17 +61,37 @@ const agents = computed(() => [...ref_.sellers].sort((a, b) => {
 }));
 const teamSize = (id: string) => ref_.agents.filter((x) => x.uplineUserId === id).length;
 
-// Nivel de contrato por compañía (ADR 0006): una columna por compañía activa; el modal aplica el mismo nivel a
-// las compañías marcadas (un ascenso general sigue siendo una sola acción).
+// Nivel de contrato por compañía (ADR 0006): la tabla muestra un resumen que escala a N compañías y el detalle vive en
+// el modal; el formulario aplica el mismo nivel a las compañías marcadas (un ascenso general sigue siendo una acción).
 const activeCarriers = computed(() => ref_.carriers.filter((c) => !c.archivedAt));
+/** Resumen de la celda: rango de niveles vigentes y cuántas compañías activas no tienen nivel */
+function levelSummary(userId: string) {
+  const cur = activeCarriers.value.map((c) => ref_.currentLevel(userId, c.id)?.level ?? null);
+  const set = cur.filter((x): x is number => x !== null);
+  if (!set.length) return null;
+  const lo = Math.min(...set), hi = Math.max(...set), missing = cur.length - set.length;
+  const scope = lo === hi && !missing && cur.length > 1 ? t('sales.levelAllCarriers')
+    : cur.length === 1 ? activeCarriers.value[0]!.name : t('sales.levelInCarriers', { n: set.length }, set.length);
+  return { range: lo === hi ? String(lo) : `${lo}–${hi}`, scope, missing };
+}
 const levelFor = ref<string | null>(null);
 const levelForm = reactive({ carrierIds: [] as string[], level: '', effectiveFrom: '' });
 const levelOpen = computed({ get: () => !!levelFor.value, set: (v) => { if (!v) levelFor.value = null; } });
-function openLevel(userId: string, carrierId: string) {
+const historyOpen = ref(false);
+/** Abre el modal: preselecciona las compañías sin nivel (o todas) y, si comparten nivel, lo propone */
+function openLevel(userId: string) {
   levelFor.value = userId;
-  levelForm.carrierIds = [carrierId];
-  levelForm.level = String(ref_.currentLevel(userId, carrierId)?.level ?? '');
+  historyOpen.value = false;
+  const missing = activeCarriers.value.filter((c) => !ref_.currentLevel(userId, c.id)).map((c) => c.id);
+  levelForm.carrierIds = missing.length && missing.length < activeCarriers.value.length ? missing : activeCarriers.value.map((c) => c.id);
+  const lv = new Set(levelForm.carrierIds.map((id) => ref_.currentLevel(userId, id)?.level));
+  levelForm.level = lv.size === 1 ? String([...lv][0] ?? '') : '';
   levelForm.effectiveFrom = today().slice(0, 8) + '01';   // los ascensos rigen desde el 1° del mes
+}
+/** Clic en una fila de compañía: el formulario pasa a esa compañía con su nivel actual */
+function pickCarrier(carrierId: string) {
+  levelForm.carrierIds = [carrierId];
+  levelForm.level = String(ref_.currentLevel(levelFor.value!, carrierId)?.level ?? '');
 }
 const allCarriersOn = computed(() => activeCarriers.value.every((c) => levelForm.carrierIds.includes(c.id)));
 const toggleAllCarriers = () => { levelForm.carrierIds = allCarriersOn.value ? [] : activeCarriers.value.map((c) => c.id); };
@@ -141,12 +161,11 @@ const gridSummary = (p: Product) => {
           <table>
             <thead>
               <tr>
-                <th scope="col" :rowspan="activeCarriers.length ? 2 : 1">{{ t('sales.agent') }}</th>
-                <th v-if="activeCarriers.length" scope="colgroup" :colspan="activeCarriers.length" class="grp">{{ t('sales.levelByCarrier') }}</th>
-                <th scope="col" :rowspan="activeCarriers.length ? 2 : 1">{{ t('sales.upline') }}</th>
-                <th scope="col" :rowspan="activeCarriers.length ? 2 : 1">{{ t('sales.discordId') }}</th>
+                <th scope="col">{{ t('sales.agent') }}</th>
+                <th scope="col">{{ t('sales.level') }}</th>
+                <th scope="col">{{ t('sales.upline') }}</th>
+                <th scope="col">{{ t('sales.discordId') }}</th>
               </tr>
-              <tr v-if="activeCarriers.length"><th v-for="c in activeCarriers" :key="c.id" scope="col" class="cr">{{ c.name }}</th></tr>
             </thead>
             <tbody>
               <tr v-for="m in agents" :key="m.userId">
@@ -154,18 +173,22 @@ const gridSummary = (p: Product) => {
                   <span class="who"><Avatar :name="m.name" :size="30" /><span>{{ m.name }}
                     <Badge v-if="teamSize(m.userId)" tone="primary">{{ t('sales.ownerOf', { n: teamSize(m.userId) }, teamSize(m.userId)) }}</Badge></span></span>
                 </th>
-                <td v-for="c in activeCarriers" :key="c.id" class="lv">
-                  <button v-for="cur in [ref_.currentLevel(m.userId, c.id)]" :key="c.id" type="button" class="lvl" :class="{ none: !cur }"
-                    :aria-label="`${t('sales.levelTitle')} · ${m.name} · ${c.name}`" @click="openLevel(m.userId, c.id)">
-                    <template v-if="cur"><b>{{ cur.level }}</b><small>{{ day(cur.effectiveFrom) }}</small></template>
-                    <template v-else><TrendingUp :size="14" />{{ t('sales.assign') }}</template>
+                <td class="lv">
+                  <button v-for="sum in [levelSummary(m.userId)]" :key="m.userId" type="button" class="lvl" :class="{ none: !sum }"
+                    :aria-label="`${t('sales.levelTitle')} · ${m.name}`" @click="openLevel(m.userId)">
+                    <template v-if="sum">
+                      <b>{{ sum.range }}</b><span class="scope">{{ sum.scope }}</span>
+                      <span v-if="sum.missing" class="miss"><AlertTriangle :size="13" />{{ t('sales.levelMissing', { n: sum.missing }) }}</span>
+                    </template>
+                    <template v-else><TrendingUp :size="15" />{{ t('sales.assignLevel') }}</template>
+                    <ChevronRight :size="16" class="chev" />
                   </button>
                 </td>
-                <td class="up">
+                <td class="up" :data-label="t('sales.upline')">
                   <Dropdown :model-value="ref_.agent(m.userId)?.uplineUserId ?? ''" :options="uplineOptions(m.userId)" searchable :search-placeholder="t('sales.searchAgent')"
                     :aria-label="t('sales.upline')" @update:model-value="(v) => v !== (ref_.agent(m.userId)?.uplineUserId ?? '') && setUpline(m.userId, v ?? '')" />
                 </td>
-                <td>
+                <td :data-label="t('sales.discordId')">
                   <input class="dc" :value="discordOf(m.userId)" inputmode="numeric" :placeholder="t('sales.discordPlaceholder')" :aria-label="`${t('sales.discordId')} · ${m.name}`"
                     @input="discordDraft[m.userId] = ($event.target as HTMLInputElement).value" @blur="saveDiscord(m.userId)" @keydown.enter="saveDiscord(m.userId)">
                 </td>
@@ -203,26 +226,52 @@ const gridSummary = (p: Product) => {
       </section>
     </div>
 
-    <Modal v-model="levelOpen" :title="t('sales.levelTitle')" :subtitle="levelFor ? ref_.memberName(levelFor) : ''" width="480px">
-      <fieldset class="pick">
-        <legend>{{ t('sales.levelCarriers') }}</legend>
-        <div class="chips">
-          <label class="chip all" :class="{ on: allCarriersOn }"><input type="checkbox" :checked="allCarriersOn" @change="toggleAllCarriers">{{ t('sales.allCarriersShort') }}</label>
-          <label v-for="c in activeCarriers" :key="c.id" class="chip" :class="{ on: levelForm.carrierIds.includes(c.id) }">
-            <input type="checkbox" :checked="levelForm.carrierIds.includes(c.id)" @change="toggleCarrier(c.id)">{{ c.name }}
-            <small v-if="levelFor && ref_.currentLevel(levelFor, c.id)">{{ ref_.currentLevel(levelFor, c.id)!.level }}</small>
-          </label>
+    <Modal v-model="levelOpen" :title="levelFor ? t('sales.levelsOf', { name: ref_.memberName(levelFor) }) : ''" :subtitle="t('sales.levelsHint')" width="560px">
+      <!-- Nivel vigente por compañía: cada fila lleva su compañía al formulario -->
+      <section v-if="levelFor" class="cur">
+        <span class="h-title">{{ t('sales.levelCurrent') }}</span>
+        <ul>
+          <li v-for="c in activeCarriers" :key="c.id">
+            <button v-for="cur in [ref_.currentLevel(levelFor, c.id)]" :key="c.id" type="button" class="cur-row"
+              :class="{ on: levelForm.carrierIds.length === 1 && levelForm.carrierIds[0] === c.id, none: !cur }" @click="pickCarrier(c.id)">
+              <span class="nm">{{ c.name }}</span>
+              <template v-if="cur"><b>{{ cur.level }}</b><small>{{ t('sales.since', { date: day(cur.effectiveFrom) }) }}</small></template>
+              <span v-else class="miss"><AlertTriangle :size="13" />{{ t('sales.noLevel') }}</span>
+              <Pencil :size="14" class="edit" />
+            </button>
+          </li>
+        </ul>
+      </section>
+      <!-- Formulario de asignación -->
+      <section class="assign">
+        <span class="h-title">{{ t('sales.assignLevel') }}</span>
+        <fieldset class="pick">
+          <legend>{{ t('sales.levelCarriers') }}</legend>
+          <div class="chips">
+            <label class="chip all" :class="{ on: allCarriersOn }"><input type="checkbox" :checked="allCarriersOn" @change="toggleAllCarriers">{{ t('sales.allCarriersShort') }}</label>
+            <label v-for="c in activeCarriers" :key="c.id" class="chip" :class="{ on: levelForm.carrierIds.includes(c.id) }">
+              <input type="checkbox" :checked="levelForm.carrierIds.includes(c.id)" @change="toggleCarrier(c.id)">{{ c.name }}
+            </label>
+          </div>
+          <p v-if="!levelForm.carrierIds.length" class="hint-sm warn">{{ t('sales.levelPickCarrier') }}</p>
+        </fieldset>
+        <div class="two">
+          <Input v-model="levelForm.level" type="number" :label="t('sales.level')" />
+          <label class="date">{{ t('sales.effectiveFrom') }}<input v-model="levelForm.effectiveFrom" type="date"></label>
         </div>
-        <p v-if="!levelForm.carrierIds.length" class="hint-sm warn">{{ t('sales.levelPickCarrier') }}</p>
-      </fieldset>
-      <Input v-model="levelForm.level" type="number" :label="t('sales.level')" :hint="t('sales.levelHint')" />
-      <label class="date">{{ t('sales.effectiveFrom') }}<input v-model="levelForm.effectiveFrom" type="date"></label>
+        <p class="hint-sm">{{ t('sales.levelHint') }}</p>
+      </section>
+      <!-- Historial plegado, agrupado por compañía -->
       <div v-if="levelHistory.length" class="history">
-        <span class="h-title">{{ t('sales.levelHistory') }}</span>
-        <section v-for="g in levelHistory" :key="g.carrier.id">
-          <b class="h-carrier">{{ g.carrier.name }}</b>
-          <ul><li v-for="l in g.levels" :key="l.effectiveFrom"><b>{{ l.level }}</b> {{ t('sales.since', { date: day(l.effectiveFrom) }) }}</li></ul>
-        </section>
+        <button type="button" class="h-toggle" :aria-expanded="historyOpen" @click="historyOpen = !historyOpen">
+          <ChevronRight :size="15" class="chev" :class="{ open: historyOpen }" />{{ t('sales.levelHistory') }}
+        </button>
+        <div v-if="historyOpen" class="h-groups">
+          <section v-for="g in levelHistory" :key="g.carrier.id">
+            <b class="h-carrier">{{ g.carrier.name }}</b>
+            <ul><li v-for="l in g.levels" :key="l.effectiveFrom"><b>{{ l.level }}</b> {{ t('sales.since', { date: day(l.effectiveFrom) }) }}</li></ul>
+          </section>
+        </div>
       </div>
       <template #footer>
         <Button variant="ghost" @click="levelFor = null">{{ t('common.cancel') }}</Button>
@@ -263,28 +312,25 @@ h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 19px; }
 
 .table-wrap { overflow-x: auto; margin: 0 -20px; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td { padding: 8px 12px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--color-line); }
+th, td { padding: 8px 10px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--color-line); }
 thead th { font-size: 12px; font-weight: 600; color: var(--color-muted); text-transform: uppercase; letter-spacing: .03em; background: var(--color-canvas); white-space: nowrap; }
 th:first-child, td:first-child { padding-left: 20px; }
 tbody th { font-weight: 600; }
 .who { display: flex; align-items: center; gap: 10px; }
 .who > span { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.lv { padding-left: 4px; padding-right: 4px; }
-/* Celda de nivel compacta: número arriba, fecha desde la que rige debajo (caben varias compañías sin scroll) */
-.lv .lvl { display: inline-grid; justify-items: start; gap: 0; min-width: 84px; min-height: 42px; padding: 3px 10px; line-height: 1.2; }
-.lv .lvl small { font-size: 11px; }
-.lv .lvl.none { display: inline-flex; gap: 6px; }
-.grp { text-align: left; border-bottom: 0; }
-thead .cr { font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--color-ink); padding-left: 6px; padding-right: 6px; }
-.lvl { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; font: inherit; color: var(--color-ink); background: var(--color-canvas); border: 1px solid var(--color-line); cursor: pointer; white-space: nowrap; transition: box-shadow var(--duration), border-color var(--duration); }
+/* Resumen de niveles: un solo botón por agente, escala a N compañías; el detalle está en el modal */
+.lvl { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 6px 0 10px; font: inherit; font-size: 13px; color: var(--color-ink); background: var(--color-canvas);
+  border: 1px solid var(--color-line); border-left: 3px solid var(--color-line-strong); cursor: pointer; white-space: nowrap; width: 100%; min-width: 200px; transition: box-shadow var(--duration), border-color var(--duration); }
 .lvl:hover { border-color: var(--color-ink); box-shadow: var(--shadow-sm); }
 .lvl b { font-size: 16px; font-variant-numeric: tabular-nums; }
-.lvl small { font-size: 12px; color: var(--color-muted); }
-.lvl.none { font-size: 13px; }
-.lvl.none { color: var(--color-warning); background: var(--color-warning-light); border-color: transparent; font-weight: 600; }
-.up { width: 170px; min-width: 150px; max-width: 170px; }
+.lvl .scope { color: var(--color-muted); }
+.lvl .chev { color: var(--color-muted); margin-left: auto; flex: none; }
+.miss { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; font-size: 12px; font-weight: 600; color: var(--color-warning); background: var(--color-warning-light); }
+.lvl.none { color: var(--color-warning); background: var(--color-warning-light); border-color: transparent; border-left-color: var(--color-warning); font-weight: 600; }
+.lvl.none .chev { color: var(--color-warning); }
+.up { width: 180px; min-width: 180px; }
 .up :deep(.trigger) { min-width: 0; }
-.dc { width: 130px; min-height: 36px; padding: 0 10px; font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--color-ink); background: var(--color-surface); border: 1px solid var(--color-line-strong); outline: none; }
+.dc { width: 176px; max-width: 100%; min-height: 36px; padding: 0 10px; font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--color-ink); background: var(--color-surface); border: 1px solid var(--color-line-strong); outline: none; }
 .dc:focus { border-color: var(--color-ink); box-shadow: 0 0 0 3px rgb(246 144 8 / .22); }
 
 .carriers { display: grid; gap: 14px; }
@@ -312,15 +358,50 @@ thead .cr { font-size: 12px; text-transform: none; letter-spacing: 0; color: var
 .chip:hover { border-color: var(--color-ink); box-shadow: var(--shadow-md); }
 .chip.on { border-color: var(--color-ink); background: var(--color-canvas); }
 .chip.all { border-left: 3px solid var(--color-primary); }
-.chip small { padding: 1px 6px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--color-muted); background: var(--color-canvas-deep); }
 .hint-sm.warn { margin: 0; color: var(--color-warning); }
-.history { display: grid; gap: 10px; padding: 10px 14px 12px; font-size: 13px; color: var(--color-muted); background: var(--color-canvas); border-left: 3px solid var(--color-line-strong); }
-.h-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
-.history section { display: grid; gap: 2px; }
+.h-title { font-size: 12px; font-weight: 600; color: var(--color-muted); text-transform: uppercase; letter-spacing: .03em; }
+.cur, .assign { display: grid; gap: 10px; }
+.cur ul { margin: 0; padding: 0; list-style: none; display: grid; box-shadow: var(--shadow-sm); border: 1px solid var(--color-line); }
+.cur li + li { border-top: 1px solid var(--color-line); }
+.cur-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 12px 0 14px; font: inherit; font-size: 14px; text-align: left; color: var(--color-ink);
+  background: var(--color-surface); border: 0; border-left: 3px solid transparent; cursor: pointer; transition: background var(--duration), border-color var(--duration); }
+.cur-row:hover { background: var(--color-canvas); }
+.cur-row.on { background: var(--color-canvas); border-left-color: var(--color-primary); }
+.cur-row .nm { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cur-row b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.cur-row small { font-size: 12px; color: var(--color-muted); white-space: nowrap; }
+.cur-row .edit { color: var(--color-muted); flex: none; }
+.assign { padding: 14px 16px 16px; background: var(--color-canvas); border-left: 3px solid var(--color-primary); }
+.assign .hint-sm { margin: 0; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; align-items: start; }
+.history { display: grid; gap: 8px; font-size: 13px; color: var(--color-muted); }
+.h-toggle { display: inline-flex; align-items: center; gap: 6px; justify-self: start; min-height: 32px; padding: 0 8px 0 2px; font: inherit; font-size: 12px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .03em; color: var(--color-muted); background: none; border: 0; cursor: pointer; }
+.h-toggle:hover { color: var(--color-ink); }
+.h-toggle .chev { transition: transform var(--duration); }
+.h-toggle .chev.open { transform: rotate(90deg); }
+.h-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 16px; padding: 10px 14px 12px; background: var(--color-canvas); border-left: 3px solid var(--color-line-strong); }
+.history section { display: grid; gap: 2px; align-content: start; }
 .history ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
 .history b { color: var(--color-ink); }
 .h-carrier { font-size: 13px; }
 
 @media (max-width: 1400px) { .split { grid-template-columns: 1fr; } }
-@media (max-width: 767px) { .body { padding: 14px 16px 32px; } }
+@media (max-width: 767px) {
+  .body { padding: 14px 16px 32px; }
+  .two { grid-template-columns: 1fr; }
+  .cur-row { flex-wrap: wrap; row-gap: 2px; padding-top: 8px; padding-bottom: 8px; }
+  /* Tabla de agentes como lista de fichas: sin scroll horizontal a 390 px */
+  .table-wrap { overflow: visible; margin: 0; }
+  table, tbody, tr, th, td { display: block; }
+  thead { display: none; }
+  tbody tr { display: grid; gap: 8px; padding: 12px 0 14px; border-bottom: 1px solid var(--color-line); }
+  tbody th, tbody td { padding: 0 !important; border: 0; }
+  .lvl { min-width: 0; white-space: normal; flex-wrap: wrap; }
+  .lvl .chev { margin-left: auto; }
+  .up { width: auto; min-width: 0; }
+  .lvl { width: 100%; }
+  .dc { width: 100%; }
+  td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--color-muted); text-transform: uppercase; letter-spacing: .03em; }
+}
 </style>
