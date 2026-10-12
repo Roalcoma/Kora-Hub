@@ -27,7 +27,7 @@ export type CalendarRule = { frequency: PayrollFrequency; anchorDate: string | n
  *   (periodo = [pago − n, pago − 1]).
  * - semimonthly: 1–15 (paga el 15) y 16–último (paga el último).
  * - monthly: mes calendario; paga el `payDay` del mes siguiente, o el último día del mismo mes si es 'last'/31
- *   (un día mayor al último del mes cae en el último).
+ *   (en el mes siguiente, un día mayor al último cae en el último: 30 → 28 de febrero).
  */
 export function periodContaining(cal: CalendarRule, day: string): Period {
   if (cal.frequency === 'weekly' || cal.frequency === 'biweekly') {
@@ -46,7 +46,7 @@ export function periodContaining(cal: CalendarRule, day: string): Period {
   }
   const end = ymd(y, m, lastDay(y, m));
   const pd = cal.payDay ?? 'last';
-  const payDate = pd === 'last' || pd >= lastDay(y, m) ? end : ymd(y, m + 1, Math.min(pd, lastDay(y, m + 1)));
+  const payDate = pd === 'last' || pd >= 31 ? end : ymd(y, m + 1, Math.min(pd, lastDay(y, m + 1)));   // 30 paga el 30 del mes siguiente, aunque el mes tenga 30 días
   return { periodStart: ymd(y, m, 1), periodEnd: end, payDate };
 }
 

@@ -43,7 +43,7 @@ after(async () => {
   // Limpieza: borra todo lo creado por esta corrida (adminPool ignora RLS)
   const ws = (await adminPool.query('select id from workspaces where slug = any($1)', [[slugA, slugB, slugMk, slugTr, slugBl]])).rows.map((r) => r.id);
   for (const t of ['audit_log', 'channel_members', 'channels', 'member_departments', 'member_lines', 'invitations',
-    'departments', 'business_lines', 'workspace_members', 'jobs']) {
+    'departments', 'business_lines', 'expense_categories', 'workspace_members', 'jobs']) {
     await adminPool.query(`delete from ${t} where workspace_id = any($1)`, [ws]);
   }
   await adminPool.query('delete from workspaces where id = any($1)', [ws]);

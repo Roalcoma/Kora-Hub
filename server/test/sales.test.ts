@@ -66,7 +66,7 @@ after(async () => {
   await adminPool.query('update carriers set default_product_id = null where workspace_id = any($1)', [ws]);
   for (const t of ['sale_inbox', 'commission_installments', 'sales', 'agent_levels', 'comp_grid', 'agent_profiles', 'carrier_products', 'carriers',
     'discord_feeds', 'messages', 'channel_members', 'channels', 'audit_log', 'member_departments', 'member_lines', 'invitations',
-    'departments', 'business_lines', 'workspace_members', 'jobs']) {
+    'departments', 'business_lines', 'expense_categories', 'workspace_members', 'jobs']) {
     await adminPool.query(`delete from ${t} where workspace_id = any($1)`, [ws]);
   }
   await adminPool.query('delete from workspaces where id = any($1)', [ws]);

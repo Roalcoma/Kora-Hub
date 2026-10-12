@@ -98,7 +98,7 @@ after(async () => {
   }
   await adminPool.query('update messages set parent_id = null where workspace_id = any($1)', [ws]);
   for (const t of ['messages', 'channel_members', 'channels', 'audit_log', 'member_departments', 'invitations', 'departments',
-    'business_lines', 'workspace_members', 'jobs']) {
+    'business_lines', 'expense_categories', 'workspace_members', 'jobs']) {
     await adminPool.query(`delete from ${t} where workspace_id = any($1)`, [ws]);
   }
   await adminPool.query('delete from workspaces where id = any($1)', [ws]);
