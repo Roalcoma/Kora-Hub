@@ -256,17 +256,19 @@ expensesRouter.get('/expenses', async (req, res) => {
   const live = items.filter((e) => e.status !== 'skipped' && e.approvalStatus !== 'rejected');
   const sum = (list: Expense[], f: (e: Expense) => number) => list.reduce((t, e) => t + cents(f(e)), 0) / 100;
   const paid = (e: Expense) => (e.status === 'paid' ? e.paidAmount ?? 0 : 0);
+  /** Monto real: lo pagado si ya se pagó (puede diferir del estimado), si no el estimado */
+  const real = (e: Expense) => (e.status === 'paid' ? e.paidAmount ?? e.amount : e.amount);
   const cats = new Map<string, Expense[]>();
   for (const e of live) cats.set(e.categoryId, [...(cats.get(e.categoryId) ?? []), e]);
   const overdue = live.filter((e) => e.overdue);
   const out: ExpensesList = {
     items,
     totals: {
-      count: live.length, amount: sum(live, (e) => e.amount), paid: sum(live, paid),
+      count: live.length, amount: sum(live, real), paid: sum(live, paid),
       pending: sum(live.filter((e) => e.status === 'pending'), (e) => e.amount),
       overdue: sum(overdue, (e) => e.amount), overdueCount: overdue.length,
     },
-    byCategory: [...cats].map(([categoryId, list]) => ({ categoryId, amount: sum(list, (e) => e.amount), paid: sum(list, paid) }))
+    byCategory: [...cats].map(([categoryId, list]) => ({ categoryId, amount: sum(list, real), paid: sum(list, paid) }))
       .sort((a, b) => b.amount - a.amount),
   };
   res.json(out);

@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { Building2, ShieldCheck, LogOut, UserPlus } from 'lucide-vue-next';
+import { Building2, ShieldCheck, LogOut, UserPlus, BadgeDollarSign, Landmark } from 'lucide-vue-next';
 import { INDUSTRIES, type Industry, type Member, type Role } from '@agencia-hub/contracts';
 import { api } from '@/api.ts';
 import { useSession } from '@/stores/session.ts';
@@ -61,7 +61,7 @@ const members = ref<Member[] | null>(null);
 const loadMembers = async () => { members.value = await api('GET /w/:slug/members', { params: { slug: slug.value } }); };
 watch(tab, (v) => { if (v === 'members' && !members.value) loadMembers(); }, { immediate: true });
 
-const roleOptions = computed(() => (['owner', 'admin', 'lead', 'member', 'guest'] as const).map((r) => ({ value: r, label: t(`roles.${r}`) })));
+const roleOptions = computed(() => (['owner', 'admin', 'lead', 'member', 'accountant', 'guest'] as const).map((r) => ({ value: r, label: t(`roles.${r}`) })));
 const deptName = (id: string) => s.workspace!.departments.find((d) => d.id === id)?.name ?? '';
 
 const patchMember = (m: Member, body: { role?: Role; isActive?: boolean; departments?: { id: string; isLead: boolean }[] }, ok?: string) =>
@@ -90,6 +90,22 @@ const saveWorkspace = () => guard(async () => {
   await api('PATCH /w/:slug', { params: { slug: slug.value }, body: { name: wsName.value } });
   await s.refreshWorkspace();
 }, t('common.saved'));
+
+// ─── Módulos opcionales (ventas y finanzas): se encienden por agencia ───
+type ModuleKey = 'salesModule' | 'financeModule';
+const modules = computed(() => [
+  { key: 'salesModule' as const, icon: BadgeDollarSign, on: s.workspace!.settings.salesModule },
+  { key: 'financeModule' as const, icon: Landmark, on: s.workspace!.settings.financeModule },
+]);
+const moduleBusy = ref<ModuleKey | null>(null);
+async function toggleModule(key: ModuleKey, on: boolean) {
+  moduleBusy.value = key;
+  await guard(async () => {
+    await api('PATCH /w/:slug', { params: { slug: slug.value }, body: { settings: key === 'salesModule' ? { salesModule: on } : { financeModule: on } } });
+    await s.refreshWorkspace();
+  }, on ? t('settings.moduleOn') : t('settings.moduleOff'));
+  moduleBusy.value = null;
+}
 
 // ─── Estructura: cómo llama la agencia a sus categorías y su rubro ───
 const catForm = reactive({
@@ -218,12 +234,26 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
       </section>
 
       <section v-else-if="tab === 'workspace'" class="split">
+        <div class="col">
         <form class="card accent" @submit.prevent="saveWorkspace">
           <h2>{{ t('settings.workspace') }}</h2>
           <Input v-model="wsName" :label="t('settings.agencyName')" />
           <p class="addr"><span>{{ t('settings.address') }}</span><code>{{ origin }}/w/{{ s.workspace!.slug }}</code></p>
           <div><Button type="submit" variant="primary">{{ t('common.save') }}</Button></div>
         </form>
+        <div class="card box">
+          <h2>{{ t('settings.modules') }}</h2>
+          <p class="hint">{{ t('settings.modulesHint') }}</p>
+          <ul class="mods">
+            <li v-for="m in modules" :key="m.key" :class="{ on: m.on }">
+              <span class="mi"><component :is="m.icon" :size="20" /></span>
+              <div class="mt"><b>{{ t(`settings.moduleNames.${m.key}`) }}</b><small>{{ t(`settings.moduleHints.${m.key}`) }}</small></div>
+              <button type="button" role="switch" class="sw" :aria-checked="m.on" :aria-label="t(`settings.moduleNames.${m.key}`)" :disabled="moduleBusy === m.key"
+                @click="toggleModule(m.key, !m.on)"><span /></button>
+            </li>
+          </ul>
+        </div>
+        </div>
         <aside class="card plan">
           <h2>{{ t('settings.plan') }}</h2>
           <dl>
@@ -324,6 +354,21 @@ h2 { margin: 0; font-size: 17px; }
 .seg button { min-height: 36px; padding: 0 10px; font: inherit; font-size: 13px; color: var(--color-ink); background: var(--color-surface); border: 0; cursor: pointer; }
 .seg button[aria-checked="true"] { background: var(--color-ink); color: #fff; }
 .box { border-left: 4px solid var(--color-ink); }
+/* Módulos: fila con ícono, texto y un interruptor cuadrado (sin controles nativos) */
+.mods { display: grid; margin: 0; padding: 0; list-style: none; border: 1px solid var(--color-line); }
+.mods li { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-top: 1px solid var(--color-line); border-left: 3px solid transparent; transition: background var(--duration), border-color var(--duration); }
+.mods li:first-child { border-top: 0; }
+.mods li.on { border-left-color: var(--color-primary); }
+.mi { width: 40px; height: 40px; display: grid; place-items: center; flex: none; color: var(--color-muted); background: var(--color-canvas); }
+.mods li.on .mi { color: #8A4B00; background: var(--color-primary-light); box-shadow: var(--shadow-sm); }
+.mt { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.mt small { font-size: 13px; color: var(--color-muted); }
+.sw { position: relative; width: 48px; height: 26px; flex: none; padding: 0; background: var(--color-line-strong); border: 0; cursor: pointer; transition: background var(--duration); }
+.sw span { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: var(--color-surface); box-shadow: var(--shadow-sm); transition: transform var(--duration); }
+.sw[aria-checked="true"] { background: var(--color-ink); }
+.sw[aria-checked="true"] span { transform: translateX(22px); background: var(--color-primary); }
+.sw:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgb(246 144 8 / .35); }
+.sw:disabled { opacity: .6; cursor: wait; }
 .secret { padding: 10px 12px; font-size: 16px; letter-spacing: .08em; background: var(--color-canvas); border: 1px solid var(--color-line); word-break: break-all; }
 @media (max-width: 1023px) { .split, .split.even { grid-template-columns: minmax(0, 1fr); } .naming-row { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 767px) { .content { padding: 16px; } .role { width: 100%; } .card { padding: 16px; } .naming-row { grid-template-columns: minmax(0, 1fr); } .naming-row > .btn { margin-top: 0; } }

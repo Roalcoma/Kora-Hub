@@ -1,6 +1,6 @@
 // Subida de un archivo: pedir alta → PUT del contenido (con progreso) → confirmar.
 import { reactive } from 'vue';
-import type { FileRef } from '@agencia-hub/contracts';
+import type { FileRef, Routes } from '@agencia-hub/contracts';
 import { ALLOWED_MIME } from '@agencia-hub/contracts';
 import { api } from '@/api.ts';
 
@@ -32,7 +32,7 @@ function put(url: string, f: File, onProgress: (p: number) => void) {
 
 /** Sube `f` y va actualizando el objeto reactivo devuelto (progreso, error o FileRef final). */
 export function uploadFile(
-  slug: string, f: File, maxMb: number, texts: { tooBig: string; failed: string }, context: 'message' | 'document' | 'task' = 'message',
+  slug: string, f: File, maxMb: number, texts: { tooBig: string; failed: string }, context: Routes['POST /w/:slug/files']['body']['context'] = 'message',
 ): Upload {
   const u = reactive<Upload>({ key: `${f.name}-${f.size}-${Math.random()}`, name: f.name, progress: 0, done: Promise.resolve() });
   if (f.type.startsWith('image/')) u.preview = URL.createObjectURL(f);

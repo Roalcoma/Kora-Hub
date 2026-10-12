@@ -19,7 +19,7 @@ const params = computed(() => ({ slug: s.workspace!.slug }));
 
 type InviteRole = Exclude<Role, 'owner'>;
 const role = ref<InviteRole>('member');
-const roleOptions = computed(() => (['member', 'lead', 'admin'] as const).map((r) => ({ value: r, label: t(`roles.${r}`) })));
+const roleOptions = computed(() => (['member', 'lead', 'accountant', 'admin'] as const).map((r) => ({ value: r, label: t(`roles.${r}`) })));
 const link = ref('');
 const emails = ref('');
 const pending = ref<Invitation[]>([]);

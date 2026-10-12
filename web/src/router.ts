@@ -32,6 +32,7 @@ export const router = createRouter({
         { path: 'tasks', component: () => import('@/tasks/TasksPage.vue'), meta: { view: 'tasks' } },
         { path: 'goals', component: () => import('@/goals/GoalsPage.vue'), meta: { view: 'goals' } },
         { path: 'sales/:tab?', component: () => import('@/sales/SalesPage.vue'), meta: { view: 'sales' } },
+        { path: 'finance/:tab?', component: () => import('@/finance/FinancePage.vue'), meta: { view: 'finance' } },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
