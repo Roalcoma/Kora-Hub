@@ -318,9 +318,9 @@ salesRouter.post('/sales/:id/issue', async (req, res) => {
     const { advance_months } = (await db.query('select advance_months from carriers where id = $1', [sale.carrierId])).rows[0];
     for (const i of installments(toCents(sale.amount), advance_months, commissionShares(agent, upline))) {
       await db.query(
-        `insert into commission_installments (workspace_id, sale_id, beneficiary_user_id, kind, part, level, rate, amount, due_date)
-         values (app_ws(), $1, $2, $3, $4, $5, $6, $7, $8::date + make_interval(months => $9))`,
-        [id, i.beneficiaryUserId, i.kind, i.part, levels.get(i.beneficiaryUserId), i.rate, i.amountCents / 100, issuedAt, i.monthsAfterIssue]);
+        `insert into commission_installments (workspace_id, sale_id, beneficiary_user_id, kind, part, seq, level, rate, amount, due_date)
+         values (app_ws(), $1, $2, $3, $4, $5, $6, $7, $8, $9::date + make_interval(months => $10))`,
+        [id, i.beneficiaryUserId, i.kind, i.part, i.seq, levels.get(i.beneficiaryUserId), i.rate, i.amountCents / 100, issuedAt, i.monthsAfterIssue]);
     }
     await db.query("update sales set status = 'issued', issued_at = $2, updated_at = now() where id = $1", [id, issuedAt]);
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'sale.issued', targetType: 'sale', targetId: id, meta: { issuedAt } });
@@ -374,14 +374,18 @@ async function queryInstallments(req: Request, q: ReturnType<typeof CommissionsQ
     or exists (select 1 from agent_profiles ap where ap.user_id = s.agent_user_id and ap.upline_user_id = app_user()))`;
   return tx(req, async (db) => (await db.query(
     `select i.*, ${day('i.due_date')} as due, ${day('i.paid_at')} as paid, s.agent_user_id, s.product_id, p.carrier_id,
-       s.client_name, s.amount as sale_amount, ${day('s.issued_at')} as issued, s.status as sale_status, sib.sibling
+       s.client_name, s.amount as sale_amount, ${day('s.issued_at')} as issued, s.status as sale_status, g.grp,
+       -- Mes de calendario respecto al ISSUE (no age(): 31/01 + 10 meses = 30/11 daría 9 meses y 30 días)
+       case when i.part <> 'chargeback' then ((extract(year from i.due_date) - extract(year from s.issued_at)) * 12
+         + extract(month from i.due_date) - extract(month from s.issued_at))::int end as month
      from commission_installments i join sales s on s.id = i.sale_id join carrier_products p on p.id = s.product_id
-     -- La pareja (adelanto ↔ resto) es del mismo beneficiario, venta y tipo: si veo una cuota, veo la otra
+     -- Las cuotas de una comisión (adelanto + resto) son del mismo beneficiario, venta y tipo: si veo una, veo las demás
      left join lateral (
-       select json_build_object('id', o.id, 'part', o.part, 'amount', o.amount, 'dueDate', ${day('o.due_date')}, 'status', o.status) as sibling
+       select json_agg(json_build_object('id', o.id, 'part', o.part, 'seq', o.seq, 'amount', o.amount, 'dueDate', ${day('o.due_date')}, 'status', o.status)
+                order by o.seq, o.due_date) as grp
        from commission_installments o
-       where o.sale_id = i.sale_id and o.beneficiary_user_id = i.beneficiary_user_id and o.kind = i.kind and o.id <> i.id
-         and i.part <> 'chargeback' and o.part <> 'chargeback' limit 1) sib on true
+       where o.sale_id = i.sale_id and o.beneficiary_user_id = i.beneficiary_user_id and o.kind = i.kind
+         and i.part <> 'chargeback' and o.part <> 'chargeback') g on true
      where ${visible}
        and ($1::date is null or i.due_date >= $1) and ($2::date is null or i.due_date <= $2)
        and ($3::uuid is null or i.beneficiary_user_id = $3) and ($4::text is null or i.status = $4)
@@ -390,12 +394,18 @@ async function queryInstallments(req: Request, q: ReturnType<typeof CommissionsQ
     [q.from ?? null, q.to ?? null, q.beneficiaryUserId ?? null, q.status ?? null, q.carrierId ?? null, q.agentUserId ?? null],
   )).rows.map((r) => ({
     id: r.id, saleId: r.sale_id, beneficiaryUserId: r.beneficiary_user_id, kind: r.kind, part: r.part,
-    level: r.level, rate: Number(r.rate), amount: Number(r.amount), dueDate: r.due, status: r.status, paidAt: r.paid,
-    total: (toCents(r.amount) + (r.sibling ? toCents(r.sibling.amount) : 0)) / 100,
-    sibling: r.sibling ? { ...r.sibling, amount: Number(r.sibling.amount) } : null,
+    seq: r.seq, month: r.month, level: r.level, rate: Number(r.rate), amount: Number(r.amount), dueDate: r.due, status: r.status, paidAt: r.paid,
+    ...group(r),
     sale: { agentUserId: r.agent_user_id, carrierId: r.carrier_id, productId: r.product_id, clientName: r.client_name,
       amount: Number(r.sale_amount), issuedAt: r.issued, status: r.sale_status },
   })));
+}
+
+/** Grupo de cuotas de la comisión, su número y su total (un chargeback va solo) */
+function group(r: any): Pick<Installment, 'total' | 'of' | 'group'> {
+  const g: Installment['group'] = (r.grp ?? []).map((o: any) => ({ ...o, amount: Number(o.amount) }));
+  if (!g.length) return { total: Number(r.amount), of: 1, group: [] };
+  return { total: g.reduce((t, o) => t + toCents(o.amount), 0) / 100, of: g.length, group: g };
 }
 
 salesRouter.get('/commissions', async (req, res) => {
@@ -408,10 +418,13 @@ salesRouter.get('/commissions', async (req, res) => {
 salesRouter.get('/commissions.csv', async (req, res) => {
   const items = await queryInstallments(req, parse(CommissionsQuery, req.query));
   const names = await nameMaps(req);
-  const PART = { advance: 'Adelanto', remainder: 'Resto 12 meses', chargeback: 'Chargeback' };
+  const PART = { advance: 'Adelanto al ISSUE', remainder: 'Resto', chargeback: 'Chargeback' };
+  // "Resto · cuota 2 de 4 (mes 10)"; el número es la posición dentro de la comisión
+  const part = (i: Installment) => i.part === 'chargeback' ? PART.chargeback
+    : `${PART[i.part]} · cuota ${i.group.findIndex((o) => o.id === i.id) + 1} de ${i.of}${i.part === 'remainder' ? ` (mes ${i.month})` : ''}`;
   sendCsv(res, 'comisiones.csv', [
     ['Beneficiario', 'Tipo', 'Cuota', 'Agente', 'Cliente', 'Compañía', 'Producto', 'Monto venta', 'Nivel', '%', 'Monto de la cuota', 'Comisión total', 'Fecha de pago', 'Estado', 'Pagada el'],
-    ...items.map((i) => [names.get(i.beneficiaryUserId), i.kind === 'direct' ? 'Directa' : 'Override', PART[i.part], names.get(i.sale.agentUserId),
+    ...items.map((i) => [names.get(i.beneficiaryUserId), i.kind === 'direct' ? 'Directa' : 'Override', part(i), names.get(i.sale.agentUserId),
       i.sale.clientName, names.get(i.sale.carrierId), names.get(i.sale.productId), i.sale.amount.toFixed(2), i.level ?? '', i.rate, i.amount.toFixed(2), i.total.toFixed(2),
       i.dueDate, i.status, i.paidAt ?? '']),
   ]);

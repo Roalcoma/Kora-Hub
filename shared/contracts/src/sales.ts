@@ -48,12 +48,20 @@ export type SalesList = {
   totals: { count: number; amount: number; issued: number; pending: number };
 };
 
+/** Una cuota de la comisión vista desde otra (para saltar entre ellas) */
+export type InstallmentRef = { id: Id; part: 'advance' | 'remainder'; seq: number; amount: number; dueDate: Day; status: InstallmentStatus };
 export type Installment = {
   id: Id; saleId: Id; beneficiaryUserId: Id; kind: 'direct' | 'override'; part: 'advance' | 'remainder' | 'chargeback';
+  /** 0 = adelanto, 1..n = cuotas mensuales del resto (ADR 0008); null en chargebacks */
+  seq: number | null;
+  /** Meses después del ISSUE en que vence (0 = adelanto, 10/11/12 = resto con 9 adelantados); null en chargebacks */
+  month: number | null;
   level: number | null; rate: number; amount: number; dueDate: Day; status: InstallmentStatus; paidAt: Day | null;
-  total: number;                          // comisión completa: adelanto + resto (en chargeback, el mismo monto)
-  /** La otra cuota de la misma comisión (adelanto ↔ resto); null en chargebacks */
-  sibling: { id: Id; part: 'advance' | 'remainder'; amount: number; dueDate: Day; status: InstallmentStatus } | null;
+  total: number;                          // comisión completa: adelanto + cuotas del resto (en chargeback, el mismo monto)
+  /** Cuántas cuotas tiene esta comisión (1 en chargebacks) */
+  of: number;
+  /** Todas las cuotas de la misma venta, beneficiario y tipo, ordenadas por `seq` (incluye esta); vacío en chargebacks */
+  group: InstallmentRef[];
   sale: Pick<Sale, 'agentUserId' | 'carrierId' | 'productId' | 'clientName' | 'amount' | 'issuedAt' | 'status'>;
 };
 export type CommissionsList = {

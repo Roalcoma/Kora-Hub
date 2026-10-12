@@ -1,4 +1,4 @@
-// Ventas y comisiones por HTTP: % por nivel FFL × tabla del producto, 75/25 con override de un nivel, % congelado al ISSUE, chargebacks,
+// Ventas y comisiones por HTTP: % por nivel FFL × tabla del producto, adelanto + resto mensual con override de un nivel, % congelado al ISSUE, chargebacks,
 // visibilidad (agente / dueño de agencia / admin) y aislamiento: la agencia B no ve ni toca nada de la A.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -79,12 +79,36 @@ after(async () => {
 
 // ═══ Cálculo puro ═══
 
-test('comisión directa y override: 75 % al ISSUE y 25 % a los 12 meses', () => {
+test('comisión directa y override: 75 % al ISSUE y el resto en 3 cuotas de 1/12 (meses 10, 11 y 12)', () => {
   const rows = installments(120_000, 9, commissionShares({ userId: 'ana', rate: 70 }, { userId: 'carlos', rate: 90 }));
-  assert.deepEqual(rows.map((r) => [r.beneficiaryUserId, r.kind, r.part, r.amountCents, r.monthsAfterIssue]), [
-    ['ana', 'direct', 'advance', 63_000, 0], ['ana', 'direct', 'remainder', 21_000, 12],
-    ['carlos', 'override', 'advance', 18_000, 0], ['carlos', 'override', 'remainder', 6_000, 12],
+  assert.deepEqual(rows.map((r) => [r.beneficiaryUserId, r.kind, r.part, r.seq, r.amountCents, r.monthsAfterIssue]), [
+    ['ana', 'direct', 'advance', 0, 63_000, 0], ['ana', 'direct', 'remainder', 1, 7_000, 10],
+    ['ana', 'direct', 'remainder', 2, 7_000, 11], ['ana', 'direct', 'remainder', 3, 7_000, 12],
+    ['carlos', 'override', 'advance', 0, 18_000, 0], ['carlos', 'override', 'remainder', 1, 2_000, 10],
+    ['carlos', 'override', 'remainder', 2, 2_000, 11], ['carlos', 'override', 'remainder', 3, 2_000, 12],
   ]);
+});
+
+test('redondeo: total no divisible entre 12, la última cuota absorbe la diferencia', () => {
+  // 1199.88 × 72.5 % = 869.91 → adelanto 652.43; 1/12 = 72.49 → 72.49 + 72.49 + 72.50
+  const rows = installments(119_988, 9, [{ beneficiaryUserId: 'a', kind: 'direct', rate: 72.5 }]);
+  assert.deepEqual(rows.map((r) => r.amountCents), [65_243, 7_249, 7_249, 7_250]);
+  assert.equal(rows.reduce((t, r) => t + r.amountCents, 0), 86_991);
+  // Barrido: en cualquier monto y adelanto la suma cuadra y no hay cuotas en 0 ni negativas
+  for (let m = 0; m <= 12; m++) for (const c of [1, 5, 6, 7, 13, 18, 99, 1001, 100_006, 123_457]) {
+    const r = installments(c * 100, m, [{ beneficiaryUserId: 'a', kind: 'direct', rate: 1 }]);
+    assert.equal(r.reduce((t, i) => t + i.amountCents, 0), c, `${c} con ${m}`);
+    assert.ok(r.every((i) => i.amountCents > 0));
+    assert.deepEqual(r.filter((i) => i.part === 'remainder').map((i) => i.seq), r.filter((i) => i.part === 'remainder').map((_, k) => k + 1));
+  }
+});
+
+test('adelanto de 6 meses: 6 cuotas mensuales; de 12 meses: sin resto', () => {
+  const six = installments(120_000, 6, [{ beneficiaryUserId: 'a', kind: 'direct', rate: 65 }]);
+  assert.deepEqual(six.map((r) => [r.part, r.seq, r.amountCents, r.monthsAfterIssue]), [
+    ['advance', 0, 39_000, 0], ...[7, 8, 9, 10, 11, 12].map((m, k) => ['remainder', k + 1, 6_500, m])]);
+  const twelve = installments(120_000, 12, [{ beneficiaryUserId: 'a', kind: 'direct', rate: 65 }]);
+  assert.deepEqual(twelve.map((r) => [r.part, r.seq, r.amountCents, r.monthsAfterIssue]), [['advance', 0, 78_000, 0]]);
 });
 
 test('override en 0 si el dueño no supera al agente; los centavos siempre cuadran', () => {
@@ -172,15 +196,23 @@ test('ISSUE genera las cuotas con el nivel y la tabla vigentes a esa fecha', asy
   const c = (await owner('GET', A('/commissions'))).body;
   // Ana nivel 80 → 65 %; Carlos nivel 105 → 90 %, override 25 %
   assert.deepEqual(c.items.map((i: any) => [i.beneficiaryUserId, i.kind, i.part, i.level, i.rate, i.amount, i.dueDate]).sort(), [
-    [anaId, 'direct', 'advance', 80, 65, 585, '2026-10-15'], [anaId, 'direct', 'remainder', 80, 65, 195, '2027-10-15'],
-    [carlosId, 'override', 'advance', 105, 25, 225, '2026-10-15'], [carlosId, 'override', 'remainder', 105, 25, 75, '2027-10-15'],
+    [anaId, 'direct', 'advance', 80, 65, 585, '2026-10-15'], [anaId, 'direct', 'remainder', 80, 65, 65, '2027-08-15'],
+    [anaId, 'direct', 'remainder', 80, 65, 65, '2027-09-15'], [anaId, 'direct', 'remainder', 80, 65, 65, '2027-10-15'],
+    [carlosId, 'override', 'advance', 105, 25, 225, '2026-10-15'], [carlosId, 'override', 'remainder', 105, 25, 25, '2027-08-15'],
+    [carlosId, 'override', 'remainder', 105, 25, 25, '2027-09-15'], [carlosId, 'override', 'remainder', 105, 25, 25, '2027-10-15'],
   ].sort());
   assert.equal(c.totals.pending, 1080);
-  // Cada cuota trae el total de su comisión y su pareja (adelanto ↔ resto)
-  const adv = c.items.find((i: any) => i.beneficiaryUserId === anaId && i.part === 'advance');
-  const rem = c.items.find((i: any) => i.beneficiaryUserId === anaId && i.part === 'remainder');
-  assert.deepEqual([adv.total, adv.sibling], [780, { id: rem.id, part: 'remainder', amount: 195, dueDate: '2027-10-15', status: 'pending' }]);
-  assert.equal(rem.sibling.id, adv.id);
+  // Cada cuota trae su número, el mes, el total de su comisión y el grupo completo de cuotas (incluida ella)
+  const anas = c.items.filter((i: any) => i.beneficiaryUserId === anaId);
+  assert.deepEqual(anas.map((i: any) => [i.part, i.seq, i.month, i.of, i.total]), [
+    ['advance', 0, 0, 4, 780], ['remainder', 1, 10, 4, 780], ['remainder', 2, 11, 4, 780], ['remainder', 3, 12, 4, 780]]);
+  const group = anas.map((i: any) => ({ id: i.id, part: i.part, seq: i.seq, amount: i.amount, dueDate: i.dueDate, status: 'pending' }));
+  assert.ok(anas.every((i: any) => JSON.stringify(i.group) === JSON.stringify(group)));
+  // El CSV dice qué cuota es cada fila
+  const csv = (await owner('GET', A('/commissions.csv'))).body;
+  assert.match(csv, /"Adelanto al ISSUE · cuota 1 de 4"/);
+  assert.match(csv, /"Resto · cuota 3 de 4 \(mes 11\)"/);
+  assert.match(csv, /"Resto · cuota 4 de 4 \(mes 12\)","Ana","Danielle Cardenas"/);
   // Ya no se edita ni se vuelve a hacer ISSUE
   assert.equal((await owner('PATCH', A(`/sales/${saleId}`), { amount: 1 })).status, 409);
   assert.equal((await owner('POST', A(`/sales/${saleId}/issue`), { issuedAt: '2026-10-16' })).status, 409);
@@ -189,23 +221,31 @@ test('ISSUE genera las cuotas con el nivel y la tabla vigentes a esa fecha', asy
 test('visibilidad: agente lo suyo, dueño también lo de sus agentes, otro agente nada', async () => {
   const mine = (await ana('GET', A('/commissions'))).body.items;
   assert.deepEqual([...new Set(mine.map((i: any) => i.beneficiaryUserId))], [anaId]);   // no ve el override de Carlos
-  assert.equal((await carlos('GET', A('/commissions'))).body.items.length, 4);
+  assert.equal((await carlos('GET', A('/commissions'))).body.items.length, 8);
   assert.equal((await carlos('GET', A('/sales'))).body.items.some((s: any) => s.id === saleId), true);
   assert.equal((await omar('GET', A('/commissions'))).body.items.length, 0);
   assert.equal((await omar('GET', A('/sales'))).body.items.some((s: any) => s.id === saleId), false);
   assert.equal((await ana('POST', A('/commissions/pay'), { ids: [randomUUID()], paidAt: '2026-10-20' })).status, 403);
 });
 
-test('cancelar con chargeback: anula lo no pagado y descuenta % de lo pagado', async () => {
-  const advances = (await owner('GET', A('/commissions'))).body.items.filter((i: any) => i.part === 'advance').map((i: any) => i.id);
-  assert.equal((await owner('POST', A('/commissions/pay'), { ids: advances, paidAt: '2026-10-20' })).status, 204);
+test('cancelar con chargeback: anula lo no pagado y descuenta % de lo pagado (cuotas pagadas a medias)', async () => {
+  // Pagados los adelantos y la primera cuota del resto de Ana (mes 10); las otras dos quedan por cobrar
+  const before = (await owner('GET', A('/commissions'))).body.items;
+  const paidIds = before.filter((i: any) => i.part === 'advance' || (i.beneficiaryUserId === anaId && i.seq === 1)).map((i: any) => i.id);
+  assert.equal((await owner('POST', A('/commissions/pay'), { ids: paidIds, paidAt: '2026-10-20' })).status, 204);
   assert.equal((await owner('POST', A(`/sales/${saleId}/decline`))).status, 409);
   const r = await owner('POST', A(`/sales/${saleId}/cancel`), { chargebackPercent: 50 });
   assert.equal(r.body.status, 'cancelled');
   const items = (await owner('GET', A('/commissions'))).body.items;
-  assert.deepEqual(items.filter((i: any) => i.part === 'remainder').map((i: any) => i.status), ['void', 'void']);
-  assert.deepEqual(items.filter((i: any) => i.part === 'chargeback').map((i: any) => [i.beneficiaryUserId, i.amount]).sort(),
-    [[anaId, -292.5], [carlosId, -112.5]].sort());
+  assert.deepEqual(items.filter((i: any) => i.part === 'remainder').map((i: any) => [i.beneficiaryUserId === anaId ? 'ana' : 'carlos', i.seq, i.status]).sort(), [
+    ['ana', 1, 'paid'], ['ana', 2, 'void'], ['ana', 3, 'void'], ['carlos', 1, 'void'], ['carlos', 2, 'void'], ['carlos', 3, 'void']].sort());
+  // Ana: 50 % de (585 + 65); Carlos: 50 % de 225. El chargeback va solo, sin grupo
+  const cb = items.filter((i: any) => i.part === 'chargeback');
+  assert.deepEqual(cb.map((i: any) => [i.beneficiaryUserId, i.amount, i.seq, i.of, i.group.length]).sort(),
+    [[anaId, -325, null, 1, 0], [carlosId, -112.5, null, 1, 0]].sort());
+  // El grupo de una cuota muestra el estado de cada una
+  const adv = items.find((i: any) => i.beneficiaryUserId === anaId && i.part === 'advance');
+  assert.deepEqual(adv.group.map((o: any) => o.status), ['paid', 'paid', 'void', 'void']);
 });
 
 test('ventas reales del Discord de VFS (8-9 oct 2026) con la guía FFL', async () => {
@@ -227,12 +267,14 @@ test('ventas reales del Discord de VFS (8-9 oct 2026) con la guía FFL', async (
     const items = (await owner('GET', A('/commissions'))).body.items.filter((i: any) => i.saleId === s.body.id);
     return items.map((i: any) => [i.kind, i.part, i.amount]).sort();
   };
+  const rest = (kind: string, amount: number) => [1, 2, 3].map(() => [kind, 'remainder', amount]);
   assert.deepEqual(await sell(anaId, flex, 1200, 'Danielle Cardenas'), [
-    ['direct', 'advance', 450], ['direct', 'remainder', 150], ['override', 'advance', 225], ['override', 'remainder', 75]].sort());
+    ['direct', 'advance', 450], ...rest('direct', 50), ['override', 'advance', 225], ...rest('override', 25)].sort());
   assert.deepEqual(await sell(omarId, iulId, 1199.88, 'Jose Gonzalez Valdez'), [
-    ['direct', 'advance', 629.94], ['direct', 'remainder', 209.98], ['override', 'advance', 179.99], ['override', 'remainder', 59.99]].sort());
+    ['direct', 'advance', 629.94], ['direct', 'remainder', 69.99], ['direct', 'remainder', 69.99], ['direct', 'remainder', 70],
+    ['override', 'advance', 179.99], ['override', 'remainder', 20], ['override', 'remainder', 20], ['override', 'remainder', 19.99]].sort());
   assert.deepEqual(await sell(omarId, iule, 960, 'Vilma'), [
-    ['direct', 'advance', 540], ['direct', 'remainder', 180], ['override', 'advance', 144], ['override', 'remainder', 48]].sort());
+    ['direct', 'advance', 540], ...rest('direct', 60), ['override', 'advance', 144], ...rest('override', 16)].sort());
 });
 
 test('CSV de ventas con nombres legibles', async () => {
@@ -267,22 +309,25 @@ test('nivel distinto por compañía: ISSUE y override usan el nivel de cada comp
     const items = (await owner('GET', A('/commissions'))).body.items.filter((i: any) => i.saleId === s.body.id);
     return { id: s.body.id as string, rows: items.map((i: any) => [i.beneficiaryUserId, i.kind, i.part, i.level, i.rate, i.amount]).sort() };
   };
-  // Alfa: Ana 80 → 65 % (650: 487.5 + 162.5); Carlos 100 → 85 %, override 20 % (200: 150 + 50)
+  // Alfa: Ana 80 → 65 % (650: 487.5 + 3 × 54.17 ≈ 162.5); Carlos 100 → 85 %, override 20 % (200: 150 + 16.67 + 16.67 + 16.66)
+  const rem = (r: any[]) => r.filter((x) => x[2] === 'remainder');
+  const sumRem = (r: any[], who: string) => Math.round(rem(r).filter((x) => x[0] === who).reduce((t, x) => t + x[5] * 100, 0)) / 100;
   const a = await sell(alfa.pid, 'Cliente Alfa');
-  assert.deepEqual(a.rows, [
-    [anaId, 'direct', 'advance', 80, 65, 487.5], [anaId, 'direct', 'remainder', 80, 65, 162.5],
-    [carlosId, 'override', 'advance', 100, 20, 150], [carlosId, 'override', 'remainder', 100, 20, 50]].sort());
+  assert.deepEqual(a.rows.filter((x: any) => x[2] === 'advance'), [
+    [anaId, 'direct', 'advance', 80, 65, 487.5], [carlosId, 'override', 'advance', 100, 20, 150]].sort());
+  assert.deepEqual(rem(a.rows).map((x) => x[5]).sort(), [16.66, 16.67, 16.67, 54.16, 54.17, 54.17].sort());
+  assert.deepEqual([sumRem(a.rows, anaId), sumRem(a.rows, carlosId)], [162.5, 50]);
   // Beta: Ana 100 → 70 % (700: 525 + 175); Carlos 105 → 75 %, override 5 % (50: 37.5 + 12.5)
   const b = await sell(beta.pid, 'Cliente Beta');
-  assert.deepEqual(b.rows, [
-    [anaId, 'direct', 'advance', 100, 70, 525], [anaId, 'direct', 'remainder', 100, 70, 175],
-    [carlosId, 'override', 'advance', 105, 5, 37.5], [carlosId, 'override', 'remainder', 105, 5, 12.5]].sort());
+  assert.deepEqual(b.rows.filter((x: any) => x[2] === 'advance'), [
+    [anaId, 'direct', 'advance', 100, 70, 525], [carlosId, 'override', 'advance', 105, 5, 37.5]].sort());
+  assert.deepEqual([sumRem(b.rows, anaId), sumRem(b.rows, carlosId)], [175, 12.5]);
 
   // Filtros por compañía y por agente vendedor (listado y CSV)
   const ids = (r: any) => new Set(r.body.items.map((i: any) => i.saleId));
   const byCarrier = await owner('GET', A(`/commissions?carrierId=${alfa.id}`));
   assert.deepEqual([...ids(byCarrier)], [a.id]);
-  assert.equal(byCarrier.body.items.length, 4);
+  assert.equal(byCarrier.body.items.length, 8);
   assert.ok(!ids(await owner('GET', A(`/commissions?carrierId=${beta.id}`))).has(a.id));
   const byAgent = await owner('GET', A(`/commissions?agentUserId=${omarId}`));
   assert.ok(byAgent.body.items.length > 0);

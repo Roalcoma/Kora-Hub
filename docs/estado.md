@@ -120,7 +120,7 @@ Pedido de VFS el 2026-10-10; producción espera a este módulo. Rama `feat/comis
 
 - **A · Datos, cálculo y API** — hecho. Migración 0007, contrato `shared/contracts/src/sales.ts`, `server/src/sales/`.
   % = nivel de contrato FFL del agente × tabla del producto (ambos con vigencia); override de un nivel (dueño de
-  agencia); 75 % al ISSUE y 25 % a los 12 meses; chargebacks como cuotas negativas. Verificado con las ventas reales.
+  agencia); 75 % al ISSUE y el 25 % en cuotas mensuales de 1/12 (meses 10-12, ADR 0008, migración 0012); chargebacks como cuotas negativas. Verificado con las ventas reales.
 - **B · Pantallas** — hecho. `web/src/sales/`: Ventas, Comisiones, Bandeja de Discord y Configuración.
   Agencia de prueba local: `node ops/seed-vfs.ts` (oficina@vfs.test, lendry.labrador@vfs.test, cesar.david@vfs.test;
   clave `demo-local-12345`).

@@ -11,8 +11,8 @@ Decisiones tomadas el 2026-10-10:
 |---|---|
 | Origen de las ventas | Canal `#ventas` del Discord de VFS (lo escribe el agente) **+** modal de carga manual |
 | Monto | El monto del mensaje es el **monto ISSUE**: la prima anual de la póliza. Base de toda comisión |
-| Pago | **75 %** (9 meses adelantados) en la fecha de ISSUE · **25 %** restante a los **12 meses** del ISSUE |
-| Override | **Un solo nivel**: el dueño de agencia cobra (su % − % del agente) × monto, con el mismo reparto 75/25 |
+| Pago | **75 %** (9 meses adelantados) en la fecha de ISSUE · el **25 %** restante en **cuotas mensuales de 1/12** en los meses 10, 11 y 12 del ISSUE (cambio del 2026-10-12, [ADR 0008](decisiones/0008-resto-en-cuotas-mensuales.md)) |
+| Override | **Un solo nivel**: el dueño de agencia cobra (su % − % del agente) × monto, con el mismo reparto (adelanto + cuotas mensuales) |
 | Porcentajes | **Nivel de contrato FFL** del agente (80, 85, 100, 105…) × **tabla de comisiones** del producto (guía IUL de FFL); ambos con fecha de vigencia (ajuste del 2026-10-10) |
 | Visibilidad | Agente: lo suyo · Dueño de agencia: lo suyo y lo de sus agentes directos · Owner/admin: todo, y son los únicos que cargan porcentajes y ventas a mano |
 
@@ -65,10 +65,16 @@ Registrada ──(admin confirma que la compañía la aprobó / el cliente pagó
 **Ejemplo** · venta de $1,200 de Ana (70 % en NLG IUL), dueña de agencia Carlos (90 % en NLG IUL), ISSUE el 15/10/2026
 (los % salen del nivel de cada uno en la tabla del producto):
 
-| Quién | Tipo | Base | Total | 15/10/2026 (75 %) | 15/10/2027 (25 %) |
-|---|---|---|---|---|---|
-| Ana | Directa | 70 % × 1,200 | 840 | 630 | 210 |
-| Carlos | Override | (90 − 70) % × 1,200 | 240 | 180 | 60 |
+| Quién | Tipo | Base | Total | 15/10/2026 (75 %) | 15/08/2027 | 15/09/2027 | 15/10/2027 |
+|---|---|---|---|---|---|---|---|
+| Ana | Directa | 70 % × 1,200 | 840 | 630 | 70 | 70 | 70 |
+| Carlos | Override | (90 − 70) % × 1,200 | 240 | 180 | 20 | 20 | 20 |
+
+**Regla de las cuotas (desde el 2026-10-12, [ADR 0008](decisiones/0008-resto-en-cuotas-mensuales.md)):** el adelanto
+(`advance_months` de 12 de la compañía) se paga al ISSUE; el resto, en cuotas de 1/12 del total en los meses
+`advance_months + 1 … 12` después del ISSUE (con 9: meses 10, 11 y 12). Todo en centavos: cada cuota es
+`round(total / 12)` y la última absorbe el redondeo para que la suma sea exactamente el total. Con 12 meses adelantados
+no hay resto. Ejemplo con redondeo: 869.91 → 652.43 + 72.49 + 72.49 + 72.50.
 
 Si el % del dueño es **menor o igual** al del agente, el override es 0 y la venta se marca con un aviso. Si al agente (o al dueño)
 le falta el nivel, o la tabla del producto no tiene ese nivel, la venta no pasa a ISSUED hasta cargarlo (aviso claro).
@@ -120,14 +126,14 @@ Exportación CSV de ventas y de comisiones del período, para que la oficina cua
 | D | Despliegue en producción (lo que ya estaba planeado) | — |
 
 Pruebas: el lector con los 4 mensajes reales y variantes con errores · el cálculo (directa, override, override en 0,
-75/25, % congelado) · permisos (agente no ve lo de otros, dueño solo ve a sus agentes directos) · aislamiento entre
+adelanto + cuotas mensuales y redondeo, % congelado) · permisos (agente no ve lo de otros, dueño solo ve a sus agentes directos) · aislamiento entre
 workspaces.
 
 ## 6. Chargebacks (confirmados 2026-10-10)
 
 Sí existen. Al **cancelar** una venta ya ISSUED, el admin indica qué porcentaje de lo adelantado descontó la compañía
 (por defecto 100 %; la pantalla sugiere el proporcional a los meses no ganados). Kora:
-- anula las cuotas que aún no se pagaron (la del mes 12 normalmente);
+- anula las cuotas que aún no se pagaron (normalmente las cuotas mensuales del resto);
 - crea una cuota **negativa** de chargeback para el agente y otra para el dueño de agencia, sobre lo que ya se les
   pagó, que se descuenta en el siguiente pago (se marca pagada igual que las demás).
 
