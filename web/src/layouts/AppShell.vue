@@ -4,7 +4,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen, ChevronsUpDown, BellRing, ShieldCheck, BadgeDollarSign, Landmark, ExternalLink } from 'lucide-vue-next';
+import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen, ChevronsUpDown, BellRing, ShieldCheck, BadgeDollarSign, Landmark, ExternalLink, X } from 'lucide-vue-next';
 import { useSession } from '@/stores/session.ts';
 import { useChat } from '@/chat/store.ts';
 import { canUseFinance } from '@/finance/store.ts';
@@ -60,14 +60,20 @@ const crmUrl = computed(() => s.workspace!.crmUrl);
 
 const dmUnread = computed(() => chat.channels.filter((c) => (c.kind === 'dm' || c.kind === 'group_dm') && c.isMember).reduce((n, c) => n + c.unreadCount, 0));
 const mentionUnread = computed(() => chat.channels.filter((c) => c.isMember && c.kind !== 'dm' && c.kind !== 'group_dm').reduce((n, c) => n + c.mentionCount, 0));
-// La pestaña «Tú» muestra el avatar: en el teléfono es la forma de saber quién está conectado
+// Barra inferior del teléfono: todo el menú vive aquí. Los mensajes directos están en la lista de Inicio;
+// lo que no cabe (Manuales, Ventas, Finanzas, Ajustes, cuenta) va en «Más», que muestra el avatar de quien está conectado.
 const tabs = computed(() => [
-  { to: base.value, icon: House, label: t('nav.home'), on: route.name === 'home', badge: 0, me: false },
-  { to: `${base.value}/dms`, icon: MessageCircle, label: t('nav.messages'), on: route.path.endsWith('/dms'), badge: dmUnread.value, me: false },
-  { to: `${base.value}/mentions`, icon: AtSign, label: t('nav.mentions'), on: route.path.endsWith('/mentions'), badge: mentionUnread.value, me: false },
-  { to: `${base.value}/tasks`, icon: SquareCheck, label: t('nav.tasks'), on: route.path.includes('/tasks'), badge: 0, me: false },
-  { to: `${base.value}/settings/profile`, icon: CircleUser, label: t('nav.you'), on: route.path.includes('/settings'), badge: 0, me: true },
+  { to: base.value, icon: House, label: t('nav.home'), on: route.name === 'home', badge: dmUnread.value },
+  { to: `${base.value}/mentions`, icon: AtSign, label: t('nav.mentions'), on: route.path.endsWith('/mentions'), badge: mentionUnread.value },
+  { to: `${base.value}/tasks`, icon: SquareCheck, label: t('nav.tasks'), on: route.path.includes('/tasks'), badge: 0 },
+  { to: `${base.value}/goals`, icon: Target, label: t('nav.goals'), on: route.path.includes('/goals'), badge: 0 },
 ]);
+const moreNav = computed(() => agencyNav.value.filter((n) => !/\/(tasks|goals)$/.test(n.to)));
+const moreOn = computed(() => ['/manuals', '/sales', '/finance', '/settings'].some((p) => route.path.includes(p)));
+const moreOpen = ref(false);
+watch(() => route.fullPath, () => { moreOpen.value = false; });
+const otherWorkspaces = computed(() => s.session!.workspaces.filter((w) => w.slug !== s.workspace!.slug));
+async function logout() { chat.disconnect(); await s.logout(); router.replace('/login'); }
 const onHome = computed(() => route.name === 'home');
 // Misma clave = la pantalla no se vuelve a montar (cambiar de canal, de manual o abrir una tarea)
 const viewKey = computed(() => (route.name === 'thread' || route.name === 'channel' ? 'conv' : (route.meta.view as string) ?? route.fullPath));
@@ -151,6 +157,7 @@ const railNav = computed(() => [
 ]);
 
 const onKey = (e: KeyboardEvent) => {
+  if (e.key === 'Escape' && moreOpen.value) { moreOpen.value = false; return; }
   const mod = e.ctrlKey || e.metaKey;
   if (mod && !e.shiftKey && e.key.toLowerCase() === 'k') { e.preventDefault(); switcher.value = true; }
   if (mod && e.shiftKey && e.key.toLowerCase() === 'd') { e.preventDefault(); collapsed.value = !collapsed.value; }
@@ -211,10 +218,6 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
           </Tooltip>
         </div>
       </Transition>
-      <div v-if="!isDesktop" class="rail-mobile">
-        <RouterLink v-for="n in agencyNav" :key="n.to" :to="n.to" class="rail-app"><span class="rail-ico"><component :is="n.icon" :size="21" /></span>{{ n.label }}</RouterLink>
-        <a v-if="crmUrl" :href="crmUrl" target="_blank" rel="noopener noreferrer" class="rail-app"><span class="rail-ico"><ExternalLink :size="21" /></span>{{ t('nav.crm') }}</a>
-      </div>
       <Tooltip v-if="sidebarHidden" :text="s.user!.name" side="right" class="rail-me">
         <button type="button" class="me-av" :aria-label="t('nav.account')" @click="openMe"><Avatar :name="s.user!.name" :size="34" presence="active" /></button>
       </Tooltip>
@@ -273,14 +276,41 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
     </div>
 
     <nav class="tabbar" :aria-label="t('nav.home')">
-      <RouterLink v-for="tb in tabs" :key="tb.label" :to="tb.to" :class="{ on: tb.on }">
-        <span class="tab-ico">
-          <Avatar v-if="tb.me" :name="s.user!.name" :size="24" presence="active" />
-          <component :is="tb.icon" v-else :size="22" />
-          <span v-if="tb.badge" class="tab-badge">{{ tb.badge }}</span>
-        </span>{{ tb.label }}
+      <RouterLink v-for="tb in tabs" :key="tb.label" :to="tb.to" :class="{ on: tb.on && !moreOpen }">
+        <span class="tab-ico"><component :is="tb.icon" :size="22" /><span v-if="tb.badge" class="tab-badge">{{ tb.badge }}</span></span>{{ tb.label }}
       </RouterLink>
+      <button type="button" :class="{ on: moreOn || moreOpen }" :aria-label="t('nav.moreMenu')" :aria-expanded="moreOpen" @click="moreOpen = !moreOpen">
+        <span class="tab-ico"><Avatar :name="s.user!.name" :size="24" presence="active" /></span>{{ t('nav.more') }}
+      </button>
     </nav>
+
+    <!-- Panel «Más» (teléfono): sube desde la barra inferior -->
+    <Transition name="sheet">
+      <div v-if="moreOpen && !isDesktop" class="sheet-wrap" @click.self="moreOpen = false">
+        <section class="sheet" role="dialog" :aria-label="t('nav.moreMenu')">
+          <header class="sheet-me">
+            <Avatar :name="s.user!.name" :size="44" presence="active" />
+            <span class="me-txt"><b>{{ s.user!.name }}</b><small>{{ meLabel }} · {{ s.workspace!.name }}</small></span>
+            <button type="button" class="sheet-x" :aria-label="t('nav.close')" @click="moreOpen = false"><X :size="20" /></button>
+          </header>
+          <div class="sheet-grid">
+            <RouterLink v-for="n in moreNav" :key="n.to" :to="n.to" class="tile" :class="{ active: route.path.startsWith(n.to) }">
+              <component :is="n.icon" :size="22" />{{ n.label }}
+            </RouterLink>
+            <a v-if="crmUrl" :href="crmUrl" target="_blank" rel="noopener noreferrer" class="tile"><ExternalLink :size="22" />{{ t('nav.crm') }}</a>
+          </div>
+          <div class="sheet-list">
+            <RouterLink :to="`${base}/settings/profile`" class="row"><CircleUser :size="19" />{{ t('nav.profile') }}</RouterLink>
+            <RouterLink v-if="s.platformAdmin && !s.impersonation" to="/admin" class="row"><ShieldCheck :size="19" />{{ t('nav.backoffice') }}</RouterLink>
+            <template v-if="otherWorkspaces.length">
+              <h4>{{ t('nav.agencies') }}</h4>
+              <RouterLink v-for="w in otherWorkspaces" :key="w.id" :to="`/w/${w.slug}`" class="row"><span class="ws-mini">{{ initials(w.name) }}</span>{{ w.name }}</RouterLink>
+            </template>
+            <button type="button" class="row danger" @click="logout"><LogOut :size="19" />{{ t('nav.logout') }}</button>
+          </div>
+        </section>
+      </div>
+    </Transition>
     <ContextMenu v-model="wsMenu" :items="wsMenuItems" :x="menuPos.x" :y="menuPos.y" />
     <ContextMenu v-model="meMenu" :items="meItems" :x="mePos.x" :y="mePos.y" />
     <QuickSwitcher v-model="switcher" />
@@ -349,31 +379,21 @@ h4 { margin: 16px 0 2px; padding: 0 16px; font-size: 12px; font-weight: 500; tex
 .layer { height: 100%; }
 .tabbar { display: none; }
 
-/* Teléfono, estilo Discord. Inicio: riel de agencias (más oscuro) + panel de canales. El resto de pantallas son capas
-   que cubren ese fondo, con scroll propio, y se deslizan desde/hacia la derecha. */
+/* Teléfono, estilo Discord. Inicio: lista de canales a todo el ancho; el menú completo vive en la barra inferior.
+   El resto de pantallas son capas que cubren la lista, con scroll propio, y se deslizan desde/hacia la derecha. */
 @media (max-width: 767px) {
-  .shell { position: relative; grid-template-columns: 72px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; background: #0B1729; }
-  .rail { grid-area: 1 / 1; gap: 10px; padding: calc(12px + var(--safe-top, env(safe-area-inset-top, 0px))) 0 12px; overflow-y: auto; scrollbar-width: none; background: #0B1729; box-shadow: none; }
-  .ws { width: 48px; height: 48px; flex: none; font-size: 16px; }
-  .ws.active::before { left: -12px; top: 10px; bottom: 10px; }
-  .rail-toggle, .rail-me, .rail-nav { display: none; }
-  /* Accesos de la agencia en el riel: ícono elevado + nombre corto debajo */
-  .rail-mobile { display: grid; gap: 8px; width: 100%; padding-top: 12px; margin-top: 2px; border-top: 1px solid rgb(255 255 255 / .08); }
-  .rail-app { display: grid; justify-items: center; gap: 4px; font-size: 10.5px; font-weight: 500; color: #8FA0B8; text-decoration: none; }
-  .rail-ico { width: 48px; height: 48px; display: grid; place-items: center; color: var(--color-sidebar-text); background: var(--color-ink-soft); box-shadow: 0 3px 8px rgb(0 0 0 / .35); transition: background var(--duration), color var(--duration); }
-  .rail-app:active .rail-ico { background: var(--color-primary); color: var(--color-ink); }
-  .sidebar { grid-area: 1 / 2; padding-top: var(--safe-top, env(safe-area-inset-top, 0px)); box-shadow: -6px 0 18px rgb(0 0 0 / .35); }
+  .shell { position: relative; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; background: #0B1729; }
+  .rail { display: none; }
+  .sidebar { grid-area: 1 / 1; padding-top: var(--safe-top, env(safe-area-inset-top, 0px)); box-shadow: none; }
   .sidebar > * { min-width: 0; }
-  .sb-head { padding: 14px 14px 12px; gap: 10px; }
-  .ws-txt b { font-size: 18px; }
-  .sb-search { min-height: 40px; font-size: 15px; }
+  .sb-head { padding: 14px 16px 12px; gap: 10px; }
+  .ws-txt b { font-size: 20px; }
+  .sb-search { min-height: 42px; font-size: 15px; }
   .sb-search :deep(kbd), .sb-search .ml-auto { display: none; }
   .sb-scroll { overscroll-behavior: contain; padding-bottom: 12px; }
-  .sb-item { min-height: var(--tap); font-size: 16px; }
-  /* En el teléfono quien está conectado se ve en la pestaña «Tú» (avatar) */
   .sb-me { display: none; }
 
-  .main-col { grid-area: 1 / 1 / 2 / 3; z-index: 7; padding-top: var(--safe-top, env(safe-area-inset-top, 0px)); pointer-events: none; }
+  .main-col { grid-area: 1 / 1; z-index: 7; padding-top: var(--safe-top, env(safe-area-inset-top, 0px)); pointer-events: none; }
   .main-col > * { pointer-events: auto; }
   .main { position: relative; overflow: hidden; background: transparent; touch-action: pan-y; }
   .layer { position: absolute; inset: 0; height: auto; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: var(--color-canvas); box-shadow: -14px 0 30px rgb(0 0 0 / .35); will-change: transform; }
@@ -381,16 +401,40 @@ h4 { margin: 16px 0 2px; padding: 0 16px; font-size: 12px; font-weight: 500; tex
   .layer-leave-active { transition: transform 220ms cubic-bezier(.4, 0, 1, 1); }
   .layer-enter-from, .layer-leave-to { transform: translateX(100%); }
 
-  .tabbar { grid-area: 2 / 1 / 3 / 3; position: relative; z-index: 8; display: grid; grid-template-columns: repeat(5, 1fr); padding-bottom: env(safe-area-inset-bottom, 0px); background: #0B1729; border-top: 1px solid rgb(255 255 255 / .06); box-shadow: 0 -8px 20px rgb(0 0 0 / .25); }
+  .tabbar { grid-area: 2 / 1; position: relative; z-index: 10; display: grid; grid-template-columns: repeat(5, 1fr); padding-bottom: env(safe-area-inset-bottom, 0px); background: #0B1729; border-top: 1px solid rgb(255 255 255 / .06); box-shadow: 0 -8px 20px rgb(0 0 0 / .25); }
   .in-conv { grid-template-rows: minmax(0, 1fr); }
   .in-conv .tabbar { display: none; }
-  .tabbar a { position: relative; display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 56px; font-size: 11px; color: #8FA0B8; text-decoration: none; transition: color var(--duration); }
-  .tabbar a.on { color: #fff; font-weight: 700; }
-  .tabbar a.on::before { content: ''; position: absolute; top: -1px; left: 26%; right: 26%; height: 3px; background: var(--color-primary); }
+  .tabbar > * { position: relative; display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 56px; padding: 0; font: inherit; font-size: 11px; color: #8FA0B8; text-decoration: none; background: none; border: 0; cursor: pointer; transition: color var(--duration); }
+  .tabbar > .on { color: #fff; font-weight: 700; }
+  .tabbar > .on::before { content: ''; position: absolute; top: -1px; left: 26%; right: 26%; height: 3px; background: var(--color-primary); }
   .tab-ico { position: relative; display: grid; place-items: center; height: 24px; }
   .tab-ico :deep(.presence) { border-color: #0B1729; }
-  .tabbar a:not(.on) .tab-ico :deep(.av) { opacity: .8; }
-  .tabbar a.on .tab-ico :deep(.av) { box-shadow: 0 0 0 2px var(--color-primary); }
+  .tabbar > :not(.on) .tab-ico :deep(.av) { opacity: .8; }
+  .tabbar > .on .tab-ico :deep(.av) { box-shadow: 0 0 0 2px var(--color-primary); }
   .tab-badge { position: absolute; top: -5px; left: 14px; min-width: 18px; padding: 0 4px; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; color: var(--color-ink); background: var(--color-primary); box-shadow: 0 2px 6px rgb(0 0 0 / .4); }
+
+  /* Panel «Más»: sube sobre el contenido y deja la barra visible (otro toque en «Más» lo cierra) */
+  .sheet-wrap { grid-area: 1 / 1; z-index: 9; display: flex; flex-direction: column; justify-content: flex-end; background: rgb(6 13 24 / .55); }
+  .sheet { max-height: calc(100% - 48px - var(--safe-top, env(safe-area-inset-top, 0px))); overflow-y: auto; overscroll-behavior: contain; padding: 0 0 8px; color: var(--color-sidebar-text); background: linear-gradient(180deg, #1A2E4C 0%, var(--color-ink) 100%); border-top: 3px solid var(--color-primary); box-shadow: 0 -16px 40px rgb(0 0 0 / .45); }
+  .sheet-me { display: flex; align-items: center; gap: 12px; padding: 16px 12px 16px 18px; border-bottom: 1px solid rgb(255 255 255 / .08); }
+  .sheet-me .me-txt b { color: #fff; font-size: 16px; }
+  .sheet-x { width: var(--tap); height: var(--tap); display: grid; place-items: center; flex: none; color: var(--color-sidebar-text); background: rgb(255 255 255 / .06); border: 0; cursor: pointer; }
+  .sheet-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 16px 18px 18px 16px; }
+  .tile { position: relative; display: grid; justify-items: start; align-content: space-between; gap: 10px; min-height: 76px; padding: 12px; font-size: 14px; font-weight: 600; color: #fff; text-decoration: none; background: var(--color-ink-soft); box-shadow: 0 6px 14px rgb(0 0 0 / .3); transition: background var(--duration), transform var(--duration); }
+  .tile:last-child:nth-child(odd) { grid-column: span 2; }
+  .tile :deep(svg) { color: var(--color-cta); }
+  .tile:active { transform: translateY(1px); background: #24406A; }
+  .tile.active { background: var(--color-primary); color: var(--color-ink); }
+  .tile.active :deep(svg) { color: var(--color-ink); }
+  .sheet-list { display: grid; padding: 4px 0; border-top: 1px solid rgb(255 255 255 / .08); }
+  .sheet-list h4 { margin: 12px 0 4px; padding: 0 18px; }
+  .row { display: flex; align-items: center; gap: 14px; min-height: 50px; padding: 0 18px; font: inherit; font-size: 16px; text-align: left; color: var(--color-sidebar-text); text-decoration: none; background: none; border: 0; cursor: pointer; }
+  .row:active { background: rgb(255 255 255 / .06); }
+  .row.danger { color: #F27A6E; }
+  .ws-mini { width: 26px; height: 26px; display: grid; place-items: center; font: 800 11px var(--font-display); color: #fff; background: #2B4467; }
+  .sheet-enter-active, .sheet-leave-active { transition: background 220ms; }
+  .sheet-enter-active .sheet, .sheet-leave-active .sheet { transition: transform 240ms cubic-bezier(.2, .8, .2, 1); }
+  .sheet-enter-from, .sheet-leave-to { background: transparent; }
+  .sheet-enter-from .sheet, .sheet-leave-to .sheet { transform: translateY(100%); }
 }
 </style>

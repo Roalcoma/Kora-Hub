@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "./design/tokens.css";
 
-html, body, #app { height: 100%; }
+html, body, #app { height: var(--app-h, 100%); }
 body {
   margin: 0;
   background: var(--color-canvas);

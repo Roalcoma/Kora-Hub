@@ -50,6 +50,7 @@ export default {
     home: 'Inicio', messages: 'Mensajes', mentions: 'Menciones', tasks: 'Tareas', you: 'Tú', manuals: 'Manuales', goals: 'Metas', sales: 'Ventas', finance: 'Finanzas',
     settings: 'Ajustes', search: 'Buscar', line: '{category}', allLines: 'Todo', addWorkspace: 'Agregar espacio de trabajo',
     logout: 'Cerrar sesión', collapse: 'Contraer barra lateral', expand: 'Mostrar barra lateral', agency: 'Agencia', announcements: 'Anuncios',
+    more: 'Más', moreMenu: 'Más opciones', agencies: 'Tus agencias', close: 'Cerrar',
   },
   home: {
     welcome: 'Hola, {name}', trial: 'Prueba gratis hasta el {date}.',
