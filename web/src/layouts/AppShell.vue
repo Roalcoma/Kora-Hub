@@ -60,12 +60,13 @@ const crmUrl = computed(() => s.workspace!.crmUrl);
 
 const dmUnread = computed(() => chat.channels.filter((c) => (c.kind === 'dm' || c.kind === 'group_dm') && c.isMember).reduce((n, c) => n + c.unreadCount, 0));
 const mentionUnread = computed(() => chat.channels.filter((c) => c.isMember && c.kind !== 'dm' && c.kind !== 'group_dm').reduce((n, c) => n + c.mentionCount, 0));
+// La pestaña «Tú» muestra el avatar: en el teléfono es la forma de saber quién está conectado
 const tabs = computed(() => [
-  { to: base.value, icon: House, label: t('nav.home'), on: route.name === 'home', badge: 0 },
-  { to: `${base.value}/dms`, icon: MessageCircle, label: t('nav.messages'), on: route.path.endsWith('/dms'), badge: dmUnread.value },
-  { to: `${base.value}/mentions`, icon: AtSign, label: t('nav.mentions'), on: route.path.endsWith('/mentions'), badge: mentionUnread.value },
-  { to: `${base.value}/tasks`, icon: SquareCheck, label: t('nav.tasks'), on: route.path.includes('/tasks'), badge: 0 },
-  { to: `${base.value}/settings/profile`, icon: CircleUser, label: t('nav.you'), on: route.path.includes('/settings'), badge: 0 },
+  { to: base.value, icon: House, label: t('nav.home'), on: route.name === 'home', badge: 0, me: false },
+  { to: `${base.value}/dms`, icon: MessageCircle, label: t('nav.messages'), on: route.path.endsWith('/dms'), badge: dmUnread.value, me: false },
+  { to: `${base.value}/mentions`, icon: AtSign, label: t('nav.mentions'), on: route.path.endsWith('/mentions'), badge: mentionUnread.value, me: false },
+  { to: `${base.value}/tasks`, icon: SquareCheck, label: t('nav.tasks'), on: route.path.includes('/tasks'), badge: 0, me: false },
+  { to: `${base.value}/settings/profile`, icon: CircleUser, label: t('nav.you'), on: route.path.includes('/settings'), badge: 0, me: true },
 ]);
 const onHome = computed(() => route.name === 'home');
 // Misma clave = la pantalla no se vuelve a montar (cambiar de canal, de manual o abrir una tarea)
@@ -85,6 +86,61 @@ const desktopMq = matchMedia('(min-width: 768px)');
 const isDesktop = ref(desktopMq.matches);
 desktopMq.addEventListener('change', (e) => { isDesktop.value = e.matches; });
 const sidebarHidden = computed(() => collapsed.value && isDesktop.value);
+
+// ─── Teléfono, estilo Discord: Inicio = riel + canales; cada pantalla es una capa que entra desde la derecha ───
+// y se descarta deslizándola hacia la derecha. La capa tiene su propio scroll.
+const mobileHome = computed(() => !isDesktop.value && onHome.value);
+const pageTrans = ref('none');
+let swiped = false;
+watch(() => route.name, (to, from) => {
+  pageTrans.value = !isDesktop.value && !swiped && (to === 'home' || from === 'home') ? 'layer' : 'none';
+  swiped = false;
+}, { flush: 'pre' });
+
+let sx = 0, sy = 0, dx = 0;
+let drag: 'idle' | 'maybe' | 'on' = 'idle';
+let layer: HTMLElement | null = null;
+// No se roba el gesto a lo que se desplaza en horizontal (fichas, tablas, tablero) ni a los campos de texto
+function claimsX(el: Element | null, stop: Element) {
+  for (; el && el !== stop; el = el.parentElement) {
+    if (el.matches('input, textarea, [contenteditable="true"]')) return true;
+    if (el.scrollWidth > el.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(el).overflowX)) return true;
+  }
+  return false;
+}
+function onTouchStart(e: TouchEvent) {
+  drag = 'idle';
+  if (isDesktop.value || onHome.value || e.touches.length > 1) return;
+  layer = (e.target as Element).closest('.layer');
+  if (!layer || claimsX(e.target as Element, layer)) return;
+  sx = e.touches[0]!.clientX; sy = e.touches[0]!.clientY; dx = 0;
+  drag = 'maybe';
+}
+function onTouchMove(e: TouchEvent) {
+  if (drag === 'idle' || !layer) return;
+  dx = e.touches[0]!.clientX - sx;
+  const dy = e.touches[0]!.clientY - sy;
+  if (drag === 'maybe') {
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+    if (dx <= 0 || dx < Math.abs(dy) * 1.5) { drag = 'idle'; return; }
+    drag = 'on';
+    layer.style.transition = 'none';
+  }
+  layer.style.transform = `translateX(${Math.max(0, dx)}px)`;
+}
+function onTouchEnd() {
+  if (drag !== 'on' || !layer) { drag = 'idle'; return; }
+  drag = 'idle';
+  const el = layer;
+  el.style.transition = 'transform 200ms cubic-bezier(.2, .8, .2, 1)';
+  if (dx > el.clientWidth * 0.28) {
+    el.style.transform = 'translateX(100%)';
+    setTimeout(() => { swiped = true; router.push(base.value); }, 190);
+  } else {
+    el.style.transform = '';
+    el.addEventListener('transitionend', () => { el.style.transition = ''; }, { once: true });
+  }
+}
 const announcement = computed(() => chat.channels.find((c) => c.kind === 'announcement'));
 // Con el sidebar contraído, el riel muestra los accesos principales
 const railNav = computed(() => [
@@ -136,12 +192,12 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
 
 <template>
   <div class="shell" :class="{ 'on-home': onHome, 'in-conv': inConversation, collapsed: sidebarHidden }">
-    <nav class="rail" :aria-label="t('nav.agency')">
+    <nav class="rail" :aria-label="t('nav.agency')" :inert="!isDesktop && !onHome">
       <Tooltip v-for="w in s.session!.workspaces" :key="w.id" :text="w.name" side="right">
         <RouterLink :to="`/w/${w.slug}`" class="ws" :class="{ active: w.slug === s.workspace!.slug }" :aria-label="w.name">{{ initials(w.name) }}</RouterLink>
       </Tooltip>
       <Transition name="rail-nav">
-        <div v-if="collapsed" class="rail-nav">
+        <div v-if="sidebarHidden" class="rail-nav">
           <Tooltip :text="`${t('nav.search')} · Ctrl K`" side="right">
             <button type="button" class="rail-btn" :aria-label="t('nav.search')" @click="switcher = true"><Search :size="19" /></button>
           </Tooltip>
@@ -155,6 +211,10 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
           </Tooltip>
         </div>
       </Transition>
+      <div v-if="!isDesktop" class="rail-mobile">
+        <RouterLink v-for="n in agencyNav" :key="n.to" :to="n.to" class="rail-app"><span class="rail-ico"><component :is="n.icon" :size="21" /></span>{{ n.label }}</RouterLink>
+        <a v-if="crmUrl" :href="crmUrl" target="_blank" rel="noopener noreferrer" class="rail-app"><span class="rail-ico"><ExternalLink :size="21" /></span>{{ t('nav.crm') }}</a>
+      </div>
       <Tooltip v-if="sidebarHidden" :text="s.user!.name" side="right" class="rail-me">
         <button type="button" class="me-av" :aria-label="t('nav.account')" @click="openMe"><Avatar :name="s.user!.name" :size="34" presence="active" /></button>
       </Tooltip>
@@ -166,7 +226,7 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
       </Tooltip>
     </nav>
 
-    <aside class="sidebar" :inert="sidebarHidden">
+    <aside class="sidebar" :inert="sidebarHidden || (!isDesktop && !onHome)">
       <div class="sb-head">
         <button class="sb-ws" type="button" :aria-label="`${s.workspace!.name} · ${t('nav.agencyMenu')}`" @click="openWsMenu">
           <span class="ws-txt"><b>{{ s.workspace!.name }}</b><small><span class="ws-dot" />{{ wsSub }}</small></span>
@@ -183,13 +243,15 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
       </div>
       <div class="sb-scroll">
         <ChannelList />
-        <h4>{{ t('nav.agency') }}</h4>
-        <RouterLink v-for="n in agencyNav" :key="n.to" :to="n.to" class="sb-item" :class="{ active: route.path.startsWith(n.to) }">
-          <component :is="n.icon" :size="16" />{{ n.label }}
-        </RouterLink>
-        <a v-if="crmUrl" :href="crmUrl" target="_blank" rel="noopener noreferrer" class="sb-item" :title="t('nav.crmHint')">
-          <ExternalLink :size="16" />{{ t('nav.crm') }}
-        </a>
+        <template v-if="isDesktop">
+          <h4>{{ t('nav.agency') }}</h4>
+          <RouterLink v-for="n in agencyNav" :key="n.to" :to="n.to" class="sb-item" :class="{ active: route.path.startsWith(n.to) }">
+            <component :is="n.icon" :size="16" />{{ n.label }}
+          </RouterLink>
+          <a v-if="crmUrl" :href="crmUrl" target="_blank" rel="noopener noreferrer" class="sb-item" :title="t('nav.crmHint')">
+            <ExternalLink :size="16" />{{ t('nav.crm') }}
+          </a>
+        </template>
       </div>
       <button type="button" class="sb-me" :aria-label="t('nav.account')" @click="openMe">
         <Avatar :name="s.user!.name" :size="36" presence="active" />
@@ -198,14 +260,25 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
       </button>
     </aside>
 
-    <div class="main-col">
-      <PlanBand />
-      <main class="main"><SuspendedView v-if="showSuspended" /><RouterView v-else :key="viewKey" /></main>
+    <div class="main-col" :inert="mobileHome">
+      <PlanBand v-if="!mobileHome" />
+      <main class="main" @touchstart.passive="onTouchStart" @touchmove.passive="onTouchMove" @touchend="onTouchEnd" @touchcancel="onTouchEnd">
+        <div v-if="showSuspended" class="layer"><SuspendedView /></div>
+        <RouterView v-else v-slot="{ Component }">
+          <Transition :name="pageTrans" :css="pageTrans !== 'none'">
+            <div v-if="!mobileHome" :key="viewKey" class="layer"><component :is="Component" /></div>
+          </Transition>
+        </RouterView>
+      </main>
     </div>
 
     <nav class="tabbar" :aria-label="t('nav.home')">
       <RouterLink v-for="tb in tabs" :key="tb.label" :to="tb.to" :class="{ on: tb.on }">
-        <span class="tab-ico"><component :is="tb.icon" :size="22" /><span v-if="tb.badge" class="tab-badge">{{ tb.badge }}</span></span>{{ tb.label }}
+        <span class="tab-ico">
+          <Avatar v-if="tb.me" :name="s.user!.name" :size="24" presence="active" />
+          <component :is="tb.icon" v-else :size="22" />
+          <span v-if="tb.badge" class="tab-badge">{{ tb.badge }}</span>
+        </span>{{ tb.label }}
       </RouterLink>
     </nav>
     <ContextMenu v-model="wsMenu" :items="wsMenuItems" :x="menuPos.x" :y="menuPos.y" />
@@ -273,25 +346,51 @@ h4 { margin: 16px 0 2px; padding: 0 16px; font-size: 12px; font-weight: 500; tex
 .sb-item.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--color-primary); }
 .main-col { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .main { flex: 1; min-width: 0; min-height: 0; overflow: auto; background: var(--color-canvas); }
+.layer { height: 100%; }
 .tabbar { display: none; }
 
+/* Teléfono, estilo Discord. Inicio: riel de agencias (más oscuro) + panel de canales. El resto de pantallas son capas
+   que cubren ese fondo, con scroll propio, y se deslizan desde/hacia la derecha. */
 @media (max-width: 767px) {
-  .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
-  .rail { display: none; }
+  .shell { position: relative; grid-template-columns: 72px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; background: #0B1729; }
+  .rail { grid-area: 1 / 1; gap: 10px; padding: calc(12px + var(--safe-top, env(safe-area-inset-top, 0px))) 0 12px; overflow-y: auto; scrollbar-width: none; background: #0B1729; box-shadow: none; }
+  .ws { width: 48px; height: 48px; flex: none; font-size: 16px; }
+  .ws.active::before { left: -12px; top: 10px; bottom: 10px; }
+  .rail-toggle, .rail-me, .rail-nav { display: none; }
+  /* Accesos de la agencia en el riel: ícono elevado + nombre corto debajo */
+  .rail-mobile { display: grid; gap: 8px; width: 100%; padding-top: 12px; margin-top: 2px; border-top: 1px solid rgb(255 255 255 / .08); }
+  .rail-app { display: grid; justify-items: center; gap: 4px; font-size: 10.5px; font-weight: 500; color: #8FA0B8; text-decoration: none; }
+  .rail-ico { width: 48px; height: 48px; display: grid; place-items: center; color: var(--color-sidebar-text); background: var(--color-ink-soft); box-shadow: 0 3px 8px rgb(0 0 0 / .35); transition: background var(--duration), color var(--duration); }
+  .rail-app:active .rail-ico { background: var(--color-primary); color: var(--color-ink); }
+  .sidebar { grid-area: 1 / 2; padding-top: var(--safe-top, env(safe-area-inset-top, 0px)); box-shadow: -6px 0 18px rgb(0 0 0 / .35); }
   .sidebar > * { min-width: 0; }
-  .sidebar { display: none; padding-top: var(--safe-top, env(safe-area-inset-top, 0px)); box-shadow: none; }
-  .on-home .sidebar { display: flex; }
-  .on-home .main-col { display: none; }
-  .main-col { padding-top: var(--safe-top, env(safe-area-inset-top, 0px)); }
-  .main { overflow: hidden; }
+  .sb-head { padding: 14px 14px 12px; gap: 10px; }
+  .ws-txt b { font-size: 18px; }
+  .sb-search { min-height: 40px; font-size: 15px; }
+  .sb-search :deep(kbd), .sb-search .ml-auto { display: none; }
+  .sb-scroll { overscroll-behavior: contain; padding-bottom: 12px; }
   .sb-item { min-height: var(--tap); font-size: 16px; }
-  .tabbar { position: relative; z-index: 6; display: grid; grid-template-columns: repeat(5, 1fr); background: var(--color-surface); border-top: 1px solid var(--color-line); padding-bottom: env(safe-area-inset-bottom, 0px); box-shadow: 0 -6px 18px rgb(19 36 61 / .10); }
+  /* En el teléfono quien está conectado se ve en la pestaña «Tú» (avatar) */
+  .sb-me { display: none; }
+
+  .main-col { grid-area: 1 / 1 / 2 / 3; z-index: 7; padding-top: var(--safe-top, env(safe-area-inset-top, 0px)); pointer-events: none; }
+  .main-col > * { pointer-events: auto; }
+  .main { position: relative; overflow: hidden; background: transparent; touch-action: pan-y; }
+  .layer { position: absolute; inset: 0; height: auto; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: var(--color-canvas); box-shadow: -14px 0 30px rgb(0 0 0 / .35); will-change: transform; }
+  .layer-enter-active { transition: transform 260ms cubic-bezier(.2, .8, .2, 1); }
+  .layer-leave-active { transition: transform 220ms cubic-bezier(.4, 0, 1, 1); }
+  .layer-enter-from, .layer-leave-to { transform: translateX(100%); }
+
+  .tabbar { grid-area: 2 / 1 / 3 / 3; position: relative; z-index: 8; display: grid; grid-template-columns: repeat(5, 1fr); padding-bottom: env(safe-area-inset-bottom, 0px); background: #0B1729; border-top: 1px solid rgb(255 255 255 / .06); box-shadow: 0 -8px 20px rgb(0 0 0 / .25); }
   .in-conv { grid-template-rows: minmax(0, 1fr); }
   .in-conv .tabbar { display: none; }
-  .tabbar a { position: relative; display: grid; justify-items: center; align-content: center; gap: 3px; min-height: 54px; font-size: 11px; color: var(--color-muted); text-decoration: none; }
-  .tabbar a.on { color: var(--color-ink); font-weight: 700; }
-  .tabbar a.on::before { content: ''; position: absolute; top: -1px; left: 22%; right: 22%; height: 3px; background: var(--color-primary); }
-  .tab-ico { position: relative; display: grid; }
-  .tab-badge { position: absolute; top: -5px; left: 14px; min-width: 18px; padding: 0 4px; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; color: var(--color-ink); background: var(--color-primary); box-shadow: var(--shadow-sm); }
+  .tabbar a { position: relative; display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 56px; font-size: 11px; color: #8FA0B8; text-decoration: none; transition: color var(--duration); }
+  .tabbar a.on { color: #fff; font-weight: 700; }
+  .tabbar a.on::before { content: ''; position: absolute; top: -1px; left: 26%; right: 26%; height: 3px; background: var(--color-primary); }
+  .tab-ico { position: relative; display: grid; place-items: center; height: 24px; }
+  .tab-ico :deep(.presence) { border-color: #0B1729; }
+  .tabbar a:not(.on) .tab-ico :deep(.av) { opacity: .8; }
+  .tabbar a.on .tab-ico :deep(.av) { box-shadow: 0 0 0 2px var(--color-primary); }
+  .tab-badge { position: absolute; top: -5px; left: 14px; min-width: 18px; padding: 0 4px; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; color: var(--color-ink); background: var(--color-primary); box-shadow: 0 2px 6px rgb(0 0 0 / .4); }
 }
 </style>
