@@ -5,7 +5,8 @@ export type Id = string;
 /** Fecha ISO 8601 tal como viaja en JSON */
 export type IsoDate = string;
 
-export const ROLES = ['owner', 'admin', 'lead', 'member', 'guest'] as const;
+// accountant (Contable): Miembro fuera de finanzas, Admin dentro (ADR 0007)
+export const ROLES = ['owner', 'admin', 'lead', 'member', 'guest', 'accountant'] as const;
 export const Role = z.enum(ROLES);
 export type Role = z.infer<typeof Role>;
 

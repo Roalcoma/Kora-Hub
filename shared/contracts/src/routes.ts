@@ -7,6 +7,7 @@ import type * as C from './chat.ts';
 import type * as F from './files.ts';
 import type * as M from './modules.ts';
 import type * as S from './sales.ts';
+import type * as Fi from './finance.ts';
 import type { Page, Id } from './common.ts';
 import type { WsTicketResponse } from './realtime.ts';
 
@@ -142,6 +143,66 @@ export type Routes = {
   'GET /w/:slug/discord-feed': R<never, S.DiscordFeed>;                                       // admin
   'PUT /w/:slug/discord-feed': R<In<typeof S.DiscordFeedBody>, S.DiscordFeed>;               // admin
   'DELETE /w/:slug/discord-feed': R<never, NoContent>;                                        // admin
+
+  // ── Finanzas (solo con settings.financeModule; Owner, Admin y Contable — el resto 403) ──
+  // "admin" = solo Owner/Admin (aprobar o rechazar lo cargado por un Contable).
+  'GET /w/:slug/finance/vendors': R<never, string[], { q?: string }>;                         // autocompletado de proveedores
+  'GET /w/:slug/finance/expense-categories': R<never, Fi.ExpenseCategory[]>;
+  'POST /w/:slug/finance/expense-categories': R<In<typeof Fi.ExpenseCategoryBody>, Fi.ExpenseCategory>;
+  'PATCH /w/:slug/finance/expense-categories/:id': R<In<typeof Fi.UpdateExpenseCategoryBody>, Fi.ExpenseCategory>;
+  'GET /w/:slug/finance/expense-schedules': R<never, Fi.ExpenseSchedule[]>;
+  'POST /w/:slug/finance/expense-schedules': R<In<typeof Fi.ExpenseScheduleBody>, Fi.ExpenseSchedule>;          // Contable → por aprobar
+  'PATCH /w/:slug/finance/expense-schedules/:id': R<In<typeof Fi.UpdateExpenseScheduleBody>, Fi.ExpenseSchedule>;  // Contable cambia monto → por aprobar
+  'POST /w/:slug/finance/expense-schedules/:id/approve': R<never, Fi.ExpenseSchedule>;        // admin; genera ocurrencias
+  'POST /w/:slug/finance/expense-schedules/:id/reject': R<never, Fi.ExpenseSchedule>;         // admin
+  'GET /w/:slug/finance/expenses': R<never, Fi.ExpensesList, In<typeof Fi.ExpensesQuery>>;
+  'GET /w/:slug/finance/expenses.csv': R<never, string, In<typeof Fi.ExpensesQuery>>;
+  'POST /w/:slug/finance/expenses': R<In<typeof Fi.ExpenseBody>, Fi.Expense>;                // Contable → por aprobar
+  'PATCH /w/:slug/finance/expenses/:id': R<In<typeof Fi.UpdateExpenseBody>, Fi.Expense>;     // Contable cambia monto de uno aprobado → por aprobar
+  'DELETE /w/:slug/finance/expenses/:id': R<never, NoContent>;                               // solo únicos no pagados; las ocurrencias se saltan
+  'POST /w/:slug/finance/expenses/:id/approve': R<never, Fi.Expense>;                        // admin
+  'POST /w/:slug/finance/expenses/:id/reject': R<never, Fi.Expense>;                         // admin
+  'POST /w/:slug/finance/expenses/:id/pay': R<In<typeof Fi.PayExpenseBody>, Fi.Expense>;    // solo aprobados
+  'POST /w/:slug/finance/expenses/:id/skip': R<never, Fi.Expense>;
+  'POST /w/:slug/finance/expenses/:id/reopen': R<never, Fi.Expense>;                         // pagado o saltado → pendiente
+
+  'GET /w/:slug/finance/payroll/calendars': R<never, Fi.PayrollCalendar[]>;
+  'POST /w/:slug/finance/payroll/calendars': R<In<typeof Fi.PayrollCalendarBody>, Fi.PayrollCalendar>;
+  'PATCH /w/:slug/finance/payroll/calendars/:id': R<In<typeof Fi.UpdatePayrollCalendarBody>, Fi.PayrollCalendar>;
+  'GET /w/:slug/finance/payroll/people': R<never, Fi.PayrollPerson[]>;
+  'POST /w/:slug/finance/payroll/people': R<In<typeof Fi.PayrollPersonBody>, Fi.PayrollPerson>;
+  'PATCH /w/:slug/finance/payroll/people/:id': R<In<typeof Fi.UpdatePayrollPersonBody>, Fi.PayrollPerson>;
+  'POST /w/:slug/finance/payroll/people/:id/components': R<In<typeof Fi.PayrollComponentBody>, Fi.PayrollPerson>;
+  'PATCH /w/:slug/finance/payroll/components/:id': R<In<typeof Fi.UpdatePayrollComponentBody>, Fi.PayrollPerson>;
+  'DELETE /w/:slug/finance/payroll/components/:id': R<never, Fi.PayrollPerson>;              // las corridas aprobadas no cambian
+  'GET /w/:slug/finance/payroll/runs': R<never, Fi.PayrollRun[], In<typeof Fi.PayrollRunsQuery>>;
+  'POST /w/:slug/finance/payroll/runs': R<In<typeof Fi.PayrollRunBody>, Fi.PayrollRunDetail>;       // borrador calculado
+  'GET /w/:slug/finance/payroll/runs/:id': R<never, Fi.PayrollRunDetail>;
+  'PATCH /w/:slug/finance/payroll/runs/:id': R<In<typeof Fi.UpdatePayrollRunBody>, Fi.PayrollRunDetail>;   // borrador
+  'DELETE /w/:slug/finance/payroll/runs/:id': R<never, NoContent>;                                      // borrador
+  'POST /w/:slug/finance/payroll/runs/:id/recalculate': R<never, Fi.PayrollRunDetail>;                  // borrador: relee componentes, comisiones y personas
+  'PATCH /w/:slug/finance/payroll/runs/:id/lines/:lineId': R<In<typeof Fi.UpdatePayrollLineBody>, Fi.PayrollRunDetail>;   // horas, borrador
+  'POST /w/:slug/finance/payroll/runs/:id/adjustments': R<In<typeof Fi.PayrollAdjustmentBody>, Fi.PayrollRunDetail>;      // borrador
+  'DELETE /w/:slug/finance/payroll/runs/:id/adjustments/:adjustmentId': R<never, Fi.PayrollRunDetail>;                    // borrador
+  'POST /w/:slug/finance/payroll/runs/:id/approve': R<never, Fi.PayrollRunDetail>;                      // congela líneas y desglose
+  'POST /w/:slug/finance/payroll/runs/:id/reopen': R<never, Fi.PayrollRunDetail>;                       // aprobada sin pagos → borrador
+  'POST /w/:slug/finance/payroll/runs/:id/pay': R<In<typeof Fi.PayPayrollBody>, Fi.PayrollRunDetail>;   // por línea o toda
+  'GET /w/:slug/finance/payroll/runs/:id/export.csv': R<never, string>;
+
+  'GET /w/:slug/finance/bank/accounts': R<never, Fi.BankAccount[]>;
+  'POST /w/:slug/finance/bank/accounts': R<In<typeof Fi.BankAccountBody>, Fi.BankAccount>;
+  'PATCH /w/:slug/finance/bank/accounts/:id': R<In<typeof Fi.UpdateBankAccountBody>, Fi.BankAccount>;
+  'GET /w/:slug/finance/bank/accounts/:id/csv-mapping': R<never, Fi.CsvMapping | null>;
+  'PUT /w/:slug/finance/bank/accounts/:id/csv-mapping': R<In<typeof Fi.CsvMapping>, Fi.CsvMapping>;
+  'GET /w/:slug/finance/bank/transactions': R<never, Fi.BankTransactionsList, In<typeof Fi.BankTransactionsQuery>>;
+  'GET /w/:slug/finance/bank/transactions.csv': R<never, string, In<typeof Fi.BankTransactionsQuery>>;
+  'POST /w/:slug/finance/bank/transactions': R<In<typeof Fi.BankTransactionBody>, Fi.BankTransaction & { possibleDuplicate: boolean }>;
+  'PATCH /w/:slug/finance/bank/transactions/:id': R<In<typeof Fi.UpdateBankTransactionBody>, Fi.BankTransaction>;
+  'DELETE /w/:slug/finance/bank/transactions/:id': R<never, NoContent>;                      // solo manuales; los de CSV se van deshaciendo el estado
+  'POST /w/:slug/finance/bank/import/preview': R<In<typeof Fi.ImportPreviewBody>, Fi.ImportPreview>;
+  'POST /w/:slug/finance/bank/import/commit': R<In<typeof Fi.ImportCommitBody>, Fi.BankStatement>;
+  'GET /w/:slug/finance/bank/statements': R<never, Fi.BankStatement[], In<typeof Fi.BankStatementsQuery>>;
+  'DELETE /w/:slug/finance/bank/statements/:id': R<never, NoContent>;                        // deshace la importación completa
 
   // ── Webhooks y superadmin (fuera de workspace) ──
   'POST /webhooks/stripe': R<unknown, NoContent>;                                             // firma verificada

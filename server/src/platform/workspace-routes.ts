@@ -10,6 +10,7 @@ import { HttpError, parse } from './http.ts';
 import { newToken, sha256 } from './auth.ts';
 import { tx, requireRole } from './workspace.ts';
 import { toWorkspace, toDepartment, toLine, listMembers, audit } from './model.ts';
+import { seedFinanceCategories } from './template.ts';
 import { disconnectUser } from '../realtime/hub.ts';
 import { enqueueSeatSync } from '../billing/lifecycle.ts';
 
@@ -38,11 +39,13 @@ workspaceRouter.patch('/', async (req, res) => {
   const settingsPatch = Object.fromEntries(Object.entries({
     max_file_mb: s.maxFileMb, require_2fa: s.require2fa, weekly_summary: s.weeklySummary,
     industry: s.industry, category_label: s.categoryLabel, sales_module: s.salesModule,
+    finance_module: s.financeModule,
   }).filter(([, v]) => v !== undefined));
   res.json(await tx(req, async (db) => {
     const { rows } = await db.query(
       'update workspaces set name = coalesce($1, name), settings = settings || $2 where id = app_ws() returning *',
       [body.name ?? null, settingsPatch]);
+    if (s.financeModule) await seedFinanceCategories(db, req.ws!.id);
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'workspace.updated', meta: body });
     return toWorkspace(rows[0]);
   }));

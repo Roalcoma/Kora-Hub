@@ -3,6 +3,7 @@ import { app } from './index.ts';
 import { attachRealtime } from './realtime/hub.ts';
 import { startWorker } from './jobs/worker.ts';
 import { startDiscordPoller } from './sales/discord.ts';
+import { startExpenseScheduler } from './finance/schedule.ts';
 import { ensureBucket } from './files/s3.ts';
 
 const port = Number(process.env.PORT ?? 4300);
@@ -11,4 +12,5 @@ attachRealtime(server);
 await ensureBucket().catch((err) => console.error(JSON.stringify({ level: 'error', msg: 'S3 no disponible', error: err.message })));
 startWorker();
 startDiscordPoller();
+startExpenseScheduler();
 server.listen(port, () => console.log(JSON.stringify({ level: 'info', msg: `API en http://localhost:${port}/api/v1 · WebSocket en /ws` })));

@@ -4,5 +4,6 @@ export * from './chat.ts';
 export * from './files.ts';
 export * from './modules.ts';
 export * from './sales.ts';
+export * from './finance.ts';
 export * from './realtime.ts';
 export * from './routes.ts';

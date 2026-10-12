@@ -5,7 +5,9 @@ import { onlineUserIds } from '../realtime/hub.ts';
 import { adminPool } from '../db.ts';
 import type { ImpClaim } from './auth.ts';
 
-export const ROLE_RANK: Record<Role, number> = { guest: 0, member: 1, lead: 2, admin: 3, owner: 4 };
+// accountant (Contable) vale lo mismo que member: fuera de finanzas es Miembro; su poder en finanzas lo da el guardián
+// de /finance (ADR 0007), nunca requireRole/isAdmin.
+export const ROLE_RANK: Record<Role, number> = { guest: 0, member: 1, accountant: 1, lead: 2, admin: 3, owner: 4 };
 
 export const toUser = (r: any): User => ({
   id: r.id, email: r.email, name: r.name, avatarUrl: null, // ponytail: URL prefirmada del avatar llega con files (Ola 2)
@@ -18,7 +20,7 @@ export const toWorkspace = (r: any): Workspace => ({
   settings: {
     maxFileMb: r.settings.max_file_mb, require2fa: r.settings.require_2fa, weeklySummary: r.settings.weekly_summary,
     industry: r.settings.industry ?? 'other', categoryLabel: r.settings.category_label ?? null,
-    salesModule: r.settings.sales_module ?? false,
+    salesModule: r.settings.sales_module ?? false, financeModule: r.settings.finance_module ?? false,
   },
 });
 

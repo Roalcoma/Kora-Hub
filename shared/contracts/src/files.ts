@@ -26,6 +26,6 @@ export const CreateUploadBody = z.object({
   size: z.number().int().positive(),       // el backend valida contra settings.maxFileMb y la cuota
   width: z.number().int().positive().optional(),   // imágenes: el navegador informa sus dimensiones
   height: z.number().int().positive().optional(),
-  context: z.enum(['message', 'document', 'avatar', 'logo', 'task']),
+  context: z.enum(['message', 'document', 'avatar', 'logo', 'task', 'expense', 'bank_statement']),   // expense = comprobante
 });
 export type CreateUploadResponse = { fileId: Id; uploadUrl: string; headers: Record<string, string> };

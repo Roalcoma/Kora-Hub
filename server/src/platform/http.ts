@@ -17,7 +17,8 @@ export class HttpError extends Error {
 export function sendCsv(res: Response, filename: string, lines: unknown[][]) {
   const cell = (v: unknown) => {
     const s = v == null ? '' : String(v);
-    return `"${(/^[=+\-@\t\r]/.test(s) ? `'${s}` : s).replace(/"/g, '""')}"`;
+    // Inyección de fórmulas: se neutraliza lo que empieza con = + - @, salvo un número (-230.00 sigue siendo número)
+    return `"${(/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s) ? `'${s}` : s).replace(/"/g, '""')}"`;
   };
   res.set({ 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="${filename}"` });
   res.send('\ufeff' + lines.map((l) => l.map(cell).join(',')).join('\r\n'));

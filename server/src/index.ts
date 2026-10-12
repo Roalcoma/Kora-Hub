@@ -11,6 +11,7 @@ import { docsRouter } from './docs/routes.ts';
 import { tasksRouter } from './tasks/routes.ts';
 import { goalsRouter } from './goals/routes.ts';
 import { salesRouter } from './sales/routes.ts';
+import { financeRouter } from './finance/routes.ts';
 import { billingRouter, stripeWebhook } from './billing/routes.ts';
 import { adminRouter } from './admin/routes.ts';
 import { staticSite } from './static.ts';
@@ -47,7 +48,7 @@ ws.use(workspaceRouter);
 ws.use(billingRouter);
 ws.use(chatRouter);
 ws.use('/files', filesRouter);
-ws.use(docsRouter, tasksRouter, goalsRouter, salesRouter);
+ws.use(docsRouter, tasksRouter, goalsRouter, salesRouter, financeRouter);
 api.use('/w/:slug', ws);
 api.use('/admin', adminRouter);
 
