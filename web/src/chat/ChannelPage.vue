@@ -79,7 +79,7 @@ const menuItems = computed(() => {
     { label: `${level === 'all' ? '● ' : ''}${t('chat.notifAll')}`, icon: Bell, action: () => run(chat.prefs(c.id, { notifLevel: 'all' })) },
     { label: `${level === 'mentions' || !level ? '● ' : ''}${t('chat.notifMentions')}`, icon: Bell, action: () => run(chat.prefs(c.id, { notifLevel: 'mentions' })) },
     { label: c.muted ? t('chat.unmute') : t('chat.mute'), icon: BellOff, action: () => run(chat.prefs(c.id, { muted: !c.muted })) },
-    ...(c.kind === 'public' || c.kind === 'private' ? [{ label: t('chat.leave'), icon: LogOut, danger: true, action: () => run(chat.leave(c.id).then(() => router.push(base.value))) }] : []),
+    ...((c.kind === 'public' || c.kind === 'private') && !(c.kind === 'private' && c.departmentId) ? [{ label: t('chat.leave'), icon: LogOut, danger: true, action: () => run(chat.leave(c.id).then(() => router.push(base.value))) }] : []),
   ];
 });
 

@@ -15,6 +15,7 @@ import { seedWorkspace } from './template.ts';
 import { disconnectUser } from '../realtime/hub.ts';
 import { enqueueSeatSync } from '../billing/lifecycle.ts';
 import { registrationOpen } from './config.ts';
+import { syncDepartmentChannels } from '../chat/department-channels.ts';
 
 export const authRouter = Router();
 const appUrl = () => process.env.APP_URL ?? 'http://localhost:5180';
@@ -227,6 +228,7 @@ authRouter.post('/invitations/accept', async (req, res) => {
          select $1, $2, id from departments where workspace_id = $1 and id = any($3)`,
         [inv.workspace_id, userId, inv.department_ids]);
       await joinDefaultChannels(db, inv.workspace_id, userId);
+      await syncDepartmentChannels(db, inv.workspace_id, { userId });
       await audit(db, { workspaceId: inv.workspace_id, actor: userId, action: 'member.joined', targetType: 'invitation', targetId: inv.id, ip: req.ip });
       if (inv.role !== 'guest') await enqueueSeatSync(inv.workspace_id, db);
     }

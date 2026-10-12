@@ -6,6 +6,7 @@ import {
 } from '@agencia-hub/contracts';
 import { adminPool } from '../db.ts';
 import { HttpError, parse } from '../platform/http.ts';
+import { syncDepartmentChannels, assertNotDepartmentChannel } from './department-channels.ts';
 import { newToken, sha256 } from '../platform/auth.ts';
 import { tx, requireRole } from '../platform/workspace.ts';
 import { ROLE_RANK } from '../platform/model.ts';
@@ -54,6 +55,7 @@ chatRouter.post('/channels', async (req, res) => {
       `insert into channel_members (workspace_id, channel_id, user_id)
        select app_ws(), $1, user_id from workspace_members where workspace_id = app_ws() and is_active and user_id = any($2)
        on conflict do nothing`, [id, [req.userId, ...body.memberIds]]);
+    if (body.kind === 'private' && body.departmentId) await syncDepartmentChannels(db, req.ws!.id, { channelId: id });
     const channel = await getChannel(db, id);
     // Los demás miembros reciben el canal nuevo (con mis contadores en cero, que también son los suyos)
     await publishToChannel(db, req.ws!.id, id, { type: 'channel.updated', channel }, req.userId);
@@ -81,6 +83,7 @@ chatRouter.patch('/channels/:id', async (req, res) => {
     if (body.lineId !== undefined) add('line_id', body.lineId);
     if (body.archived !== undefined) add('archived_at', body.archived ? new Date() : null);
     if (set.length) await db.query(`update channels set ${set.join(', ')} where id = $1 and workspace_id = app_ws()`, vals);
+    if (body.departmentId || body.archived === false) await syncDepartmentChannels(db, req.ws!.id, { channelId: id });
     const updated = await getChannel(db, id);
     await publishToChannel(db, req.ws!.id, id, { type: 'channel.updated', channel: updated });
     return updated;
@@ -102,6 +105,7 @@ chatRouter.post('/channels/:id/leave', async (req, res) => {
   await tx(req, async (db) => {
     const c = await readableChannel(db, id);
     if (['announcement', 'dm'].includes(c.kind)) throw new HttpError(400, 'cannot_leave', 'No puedes salir de este canal');
+    await assertNotDepartmentChannel(db, id);
     await db.query('delete from channel_members where channel_id = $1 and user_id = app_user()', [id]);
   });
   publish(req.ws!.id, [req.userId!], { type: 'channel.removed', channelId: id });
@@ -122,6 +126,7 @@ chatRouter.post('/channels/:id/members', async (req, res) => {
   await tx(req, async (db) => {
     const c = await writableChannel(db, id, req.ws!.role);
     if (['dm', 'announcement'].includes(c.kind)) throw new HttpError(400, 'invalid_channel', 'No se pueden agregar personas a este canal');
+    await assertNotDepartmentChannel(db, id);
     const { rows } = await db.query(
       `insert into channel_members (workspace_id, channel_id, user_id)
        select app_ws(), $1, user_id from workspace_members where workspace_id = app_ws() and is_active and user_id = any($2)
@@ -138,6 +143,7 @@ chatRouter.delete('/channels/:id/members/:userId', async (req, res) => {
   await tx(req, async (db) => {
     const c = await readableChannel(db, id);
     if (['announcement', 'dm'].includes(c.kind)) throw new HttpError(400, 'invalid_channel', 'No se puede sacar a nadie de este canal');
+    await assertNotDepartmentChannel(db, id);
     await db.query('delete from channel_members where channel_id = $1 and user_id = $2', [id, userId]);
   });
   publish(req.ws!.id, [userId], { type: 'channel.removed', channelId: id });

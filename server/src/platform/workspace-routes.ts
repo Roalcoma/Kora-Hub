@@ -12,6 +12,7 @@ import { tx, requireRole } from './workspace.ts';
 import { toWorkspace, toDepartment, toLine, listMembers, audit } from './model.ts';
 import { seedFinanceCategories } from './template.ts';
 import { disconnectUser } from '../realtime/hub.ts';
+import { syncDepartmentChannels } from '../chat/department-channels.ts';
 import { enqueueSeatSync } from '../billing/lifecycle.ts';
 
 // Montado en index.ts detrás de requireAuth + workspaceContext
@@ -108,6 +109,9 @@ workspaceRouter.patch('/members/:userId', async (req, res) => {
       for (const lineId of body.lineIds) {
         await db.query('insert into member_lines (workspace_id, user_id, line_id) values (app_ws(), $1, $2)', [targetId, lineId]);
       }
+    }
+    if (body.role || body.isActive !== undefined || body.departments) {
+      await syncDepartmentChannels(db, req.ws!.id, { userId: targetId });
     }
     if (body.role && body.role !== target.role) {
       await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'member.role_changed', targetType: 'user', targetId,

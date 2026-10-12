@@ -51,6 +51,8 @@ const filter = ref('');
 const loadMembers = async () => { memberIds.value = await api('GET /w/:slug/channels/:id/members', { params: { slug: slug(), id: props.channel.id } }); };
 watch(panel, (p) => { if (p === 'members') { filter.value = ''; loadMembers(); } });
 const match = (name: string) => name.toLowerCase().includes(filter.value.toLowerCase());
+// Canal de departamento: la membresía la decide el departamento (servidor), no se agrega gente a mano
+const managed = computed(() => props.channel.kind === 'private' && !!props.channel.departmentId);
 const inChannel = computed(() => chat.members.filter((m) => memberIds.value.includes(m.userId) && match(m.name)));
 const outside = computed(() => props.canWrite && props.channel.kind === 'private'
   ? chat.members.filter((m) => m.isActive && !memberIds.value.includes(m.userId) && match(m.name)) : []);
@@ -95,7 +97,8 @@ async function add(userId: string) {
         <span class="who"><b>{{ m.name }}</b><small>{{ m.title ?? t(`roles.${m.role}`) }}</small></span>
       </li>
     </ul>
-    <template v-if="outside.length">
+    <p v-if="managed" class="managed">{{ t('chat.departmentManaged') }}</p>
+    <template v-else-if="outside.length">
       <h3 class="add-h">{{ t('chat.addPeople') }}</h3>
       <ul class="people">
         <li v-for="m in outside" :key="m.userId">
@@ -109,6 +112,7 @@ async function add(userId: string) {
 </template>
 
 <style scoped>
+.managed { margin: 14px 0 0; padding: 10px 12px; font-size: 13px; line-height: 1.45; color: var(--color-muted); background: var(--color-canvas-deep); border-left: 3px solid var(--color-primary); }
 .people { margin: 8px 0 0; padding: 0; list-style: none; }
 .people li { display: flex; align-items: center; gap: 12px; padding: 8px 4px; border-bottom: 1px solid var(--color-line); }
 .people small { margin-left: auto; color: var(--color-muted); font-size: 12px; }

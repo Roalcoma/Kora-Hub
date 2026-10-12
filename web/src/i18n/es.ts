@@ -69,6 +69,7 @@ export default {
     notificationsHint: 'Recibe mensajes directos, menciones y anuncios aunque la app esté cerrada.', newDepartment: 'Nuevo departamento', newLine: 'Agregar {categoryLc}',
   },
   chat: {
+    departmentManaged: 'Canal del departamento: sus miembros son las personas del departamento, los Owners y los Admins. Se actualiza solo al cambiar el departamento o el rol de alguien.',
     announcements: 'Anuncios', starred: 'Destacados', channels: 'Canales', directMessages: 'Mensajes directos',
     addChannel: 'Agregar canal', newMessage: 'Nuevo mensaje', browse: 'Explorar canales', you: 'tú',
     messageTo: 'Mensaje a {name}', replyPlaceholder: 'Responder…', announcePlaceholder: 'Escribe un anuncio para toda la agencia…',

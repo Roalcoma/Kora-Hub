@@ -70,6 +70,7 @@ export default {
     notificationsHint: 'Get direct messages, mentions and announcements even when the app is closed.', newDepartment: 'New department', newLine: 'Add {categoryLc}',
   },
   chat: {
+    departmentManaged: 'Department channel: its members are the people in the department plus Owners and Admins. It updates on its own when someone’s department or role changes.',
     announcements: 'Announcements', starred: 'Starred', channels: 'Channels', directMessages: 'Direct messages',
     addChannel: 'Add channel', newMessage: 'New message', browse: 'Browse channels', you: 'you',
     messageTo: 'Message {name}', replyPlaceholder: 'Reply…', announcePlaceholder: 'Write an announcement for the whole agency…',
