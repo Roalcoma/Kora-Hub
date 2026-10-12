@@ -139,10 +139,15 @@ crontab -e
 ```
 
 ```cron
-# Kora: backup diario a las 03:15 y prueba de restauración el día 1 de cada mes a las 04:00
-15 3 * * *  cd $HOME/infra/kora && ./backup.sh >> backups/backup.log 2>&1
-0 4 1 * *   cd $HOME/infra/kora && ./restore-test.sh >> backups/backup.log 2>&1
+# Kora: backup diario a las 06:00 UTC (2:00 a. m. en Venezuela) y prueba de restauración el día 1 de cada mes.
+# Horas en la zona del servidor: si está en America/Caracas usa "0 2 * * *" y "0 3 1 * *".
+0 6 * * *   cd $HOME/infra/kora && ./backup.sh >> backups/backup.log 2>&1
+0 7 1 * *   cd $HOME/infra/kora && ./restore-test.sh >> backups/backup.log 2>&1
 ```
+
+La app avisa del respaldo con una franja arriba (`MAINTENANCE_DAILY_UTC`, `MAINTENANCE_MINUTES`,
+`MAINTENANCE_NOTICE_MINUTES` en `.env`): desde 30 min antes hasta el fin de la ventana. Si se mueve el cron, mover también
+`MAINTENANCE_DAILY_UTC` (siempre en UTC). El respaldo no corta el servicio; solo puede ir más lento unos minutos.
 
 Para abrir un backup a mano:
 

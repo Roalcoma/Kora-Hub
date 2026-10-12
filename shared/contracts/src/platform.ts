@@ -148,3 +148,10 @@ export const AdminStatusBody = z.object({ status: z.enum(['active', 'suspended']
 export const ImpersonateBody = z.object({ reason: z.string().trim().min(5).max(300) });
 /** Ajustes de la agencia que solo cambia el superadmin (no viajan en `settings`, que edita el Admin) */
 export const AdminWorkspaceBody = z.object({ crmLink: z.boolean() }).partial();
+
+// ─── Configuración pública (sin sesión) ───
+
+/** Ventana diaria del respaldo: la próxima, o la actual si está en curso. `noticeMinutes`: cuánto antes avisar. */
+export type MaintenanceWindow = { startsAt: IsoDate; endsAt: IsoDate; noticeMinutes: number };
+/** Lo que la web necesita saber antes de iniciar sesión: si hay registro abierto y cuándo es el respaldo. */
+export type PublicConfig = { registrationOpen: boolean; maintenance: MaintenanceWindow | null };

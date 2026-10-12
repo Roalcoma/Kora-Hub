@@ -8,6 +8,7 @@ import AuthLayout from './AuthLayout.vue';
 import Input from '@/design/Input.vue';
 import Button from '@/design/Button.vue';
 import { errorText } from './errors.ts';
+import { publicConfig } from './config.ts';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -53,6 +54,10 @@ async function submit() {
       <Button type="submit" variant="primary" size="lg" block :loading="busy">{{ t('auth.login') }}</Button>
       <RouterLink v-if="!needTotp" to="/forgot" class="text-sm">{{ t('auth.forgot') }}</RouterLink>
     </form>
-    <template #footer>{{ t('auth.noAccount') }} <RouterLink to="/register">{{ t('auth.createOne') }}</RouterLink></template>
+    <!-- Con el registro cerrado no se ofrece "Crear cuenta": solo se entra por invitación -->
+    <template #footer>
+      <template v-if="publicConfig?.registrationOpen === false">{{ t('auth.inviteOnly') }}</template>
+      <template v-else>{{ t('auth.noAccount') }} <RouterLink to="/register">{{ t('auth.createOne') }}</RouterLink></template>
+    </template>
   </AuthLayout>
 </template>

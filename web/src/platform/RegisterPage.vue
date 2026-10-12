@@ -10,8 +10,9 @@ import AuthLayout from './AuthLayout.vue';
 import Input from '@/design/Input.vue';
 import Button from '@/design/Button.vue';
 import { errorText } from './errors.ts';
+import { publicConfig } from './config.ts';
 
-const { t, locale } = useI18n();
+const { t, tm, rt, locale } = useI18n();
 const router = useRouter();
 const session = useSession();
 
@@ -22,6 +23,8 @@ const slugTouched = ref(false);
 const errors = ref<Record<string, string>>({});
 const error = ref<string | null>(null);
 const busy = ref(false);
+// Registro cerrado (producción): en vez del formulario se explica cómo entrar por invitación. El router ya cargó /config.
+const closed = computed(() => publicConfig.value?.registrationOpen === false);
 
 // La dirección se sugiere a partir del nombre de la agencia hasta que la persona la edite
 const toSlug = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
@@ -55,7 +58,16 @@ async function submit() {
 </script>
 
 <template>
-  <AuthLayout :title="t('auth.registerTitle')" :subtitle="t('auth.registerSubtitle')">
+  <AuthLayout v-if="closed" :title="t('auth.closedTitle')" :subtitle="t('auth.closedSubtitle')">
+    <div class="closed" role="status">
+      <p>{{ t('auth.closedText') }}</p>
+      <ol class="steps">
+        <li v-for="(x, i) in (tm('auth.closedSteps') as unknown as string[])" :key="i"><span class="n">{{ i + 1 }}</span>{{ rt(x) }}</li>
+      </ol>
+    </div>
+    <Button variant="primary" size="lg" block @click="router.push('/login')">{{ t('auth.closedLogin') }}</Button>
+  </AuthLayout>
+  <AuthLayout v-else :title="t('auth.registerTitle')" :subtitle="t('auth.registerSubtitle')">
     <form class="grid grid-cols-1 gap-4" novalidate @submit.prevent="submit">
       <Input v-model="f.name" :label="t('auth.yourName')" autocomplete="name" :error="errors.name" />
       <Input v-model="f.email" :label="t('common.email')" type="email" autocomplete="email" :error="errors.email" />
@@ -81,6 +93,12 @@ async function submit() {
 </template>
 
 <style scoped>
+/* Registro cerrado: explicación con acento lateral naranja y pasos numerados alineados a la izquierda */
+.closed { display: grid; gap: 14px; padding: 14px 14px 14px 18px; background: var(--color-primary-light); box-shadow: inset 4px 0 0 var(--color-primary), var(--shadow-sm); }
+.closed p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--color-ink); }
+.steps { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.steps li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.45; color: var(--color-ink); }
+.n { width: 24px; height: 24px; display: grid; place-items: center; flex: none; font-size: 12px; font-weight: 700; color: #fff; background: var(--color-ink); box-shadow: var(--shadow-sm); }
 .tpl { display: grid; grid-auto-rows: 1fr; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }   /* fieldset: sin min-width 0 no se encoge */
 legend { display: grid; gap: 2px; font-size: 13px; font-weight: 500; margin-bottom: 8px; }
 legend small { font-weight: 400; color: var(--color-muted); }

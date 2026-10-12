@@ -16,6 +16,7 @@ import { billingRouter, stripeWebhook } from './billing/routes.ts';
 import { adminRouter } from './admin/routes.ts';
 import { staticSite } from './static.ts';
 import { adminPool } from './db.ts';
+import { publicConfig } from './platform/config.ts';
 import { errorHandler, HttpError } from './platform/http.ts';
 
 export const app = express();
@@ -38,6 +39,8 @@ api.get('/health', async (_req, res) => {
   const db = await adminPool.query('select 1').then(() => true, () => false);
   res.status(db ? 200 : 503).json({ ok: true, db });
 });
+// Pública y sin sesión: la web la consulta al cargar y cada pocos minutos (registro abierto, aviso del respaldo)
+api.get('/config', (_req, res) => { res.json(publicConfig()); });
 api.use(authRouter);
 api.use(pushRouter);
 

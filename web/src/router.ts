@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useSession } from '@/stores/session.ts';
 import { onUnauthenticated, onWorkspaceBlocked } from '@/api.ts';
+import { publicConfig, loadConfig } from '@/platform/config.ts';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -42,8 +43,12 @@ export const router = createRouter({
 router.beforeEach(async (to) => {
   const s = useSession();
   if (!s.loaded) await s.load();
+  // Login y registro dependen de si el registro está abierto: se espera la configuración pública la primera vez
+  if ((to.path === '/login' || to.path === '/register') && !publicConfig.value) await loadConfig();
   if (!s.session) return to.meta.public ? true : { path: '/login', query: { next: to.fullPath } };
-  if (to.meta.guestOnly) return '/';
+  // Con sesión pero sin agencia (y sin backoffice), '/' manda a /register: dejarlo pasar evita el bucle con guestOnly
+  const homeless = !s.session.workspaces.length && !s.platformAdmin;
+  if (to.meta.guestOnly && !(to.path === '/register' && homeless)) return '/';
   if (to.meta.platformAdmin) {
     // La sesión impersonada no abre el backoffice: vuelve a la agencia que está viendo
     if (s.impersonation) return `/w/${s.impersonation.workspaceSlug}`;

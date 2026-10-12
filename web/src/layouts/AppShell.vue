@@ -279,10 +279,10 @@ h4 { margin: 16px 0 2px; padding: 0 16px; font-size: 12px; font-weight: 500; tex
   .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   .rail { display: none; }
   .sidebar > * { min-width: 0; }
-  .sidebar { display: none; padding-top: env(safe-area-inset-top, 0px); box-shadow: none; }
+  .sidebar { display: none; padding-top: var(--safe-top, env(safe-area-inset-top, 0px)); box-shadow: none; }
   .on-home .sidebar { display: flex; }
   .on-home .main-col { display: none; }
-  .main-col { padding-top: env(safe-area-inset-top, 0px); }
+  .main-col { padding-top: var(--safe-top, env(safe-area-inset-top, 0px)); }
   .main { overflow: hidden; }
   .sb-item { min-height: var(--tap); font-size: 16px; }
   .tabbar { position: relative; z-index: 6; display: grid; grid-template-columns: repeat(5, 1fr); background: var(--color-surface); border-top: 1px solid var(--color-line); padding-bottom: env(safe-area-inset-bottom, 0px); box-shadow: 0 -6px 18px rgb(19 36 61 / .10); }

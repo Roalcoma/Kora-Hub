@@ -10,6 +10,10 @@ export default {
   category: { singular: 'Category', plural: 'Categories' },
   roles: { owner: 'Owner', admin: 'Admin', lead: 'Lead', member: 'Member', guest: 'Guest', accountant: 'Accountant' },
   auth: {
+    closedTitle: 'Sign-up is closed', closedSubtitle: 'Kora works by invitation.',
+    closedText: 'To get in you need an invitation link. Ask whoever manages Kora at your agency: they create it in Settings → Invitations and send it to you by email or message.',
+    closedSteps: ['Open the invitation link you received.', 'Create your account with your name and a password, or sign in if you already have one.', "You land right in your agency's workspace."],
+    closedLogin: 'I already have an account', inviteOnly: "First time? Use your agency's invitation link.",
     pitch: 'Chat, announcements, manuals, tasks and goals for your agency, in one app.', pitchTags: ['Chat', 'Manuals', 'Tasks', 'Goals'],
     loginTitle: 'Sign in', loginSubtitle: "Go to your agency's workspace.",
     login: 'Sign in', forgot: 'Forgot your password?', noAccount: "Your agency isn't on Kora yet?", createOne: 'Create an account',
@@ -32,6 +36,7 @@ export default {
     inviteInvalid: "This invitation doesn't exist or has expired. Ask the person who invited you for a new one.",
     createAccount: 'Create your account to join', loginToAccept: 'That email already has an account. Sign in to accept.',
     errors: {
+      registration_closed: 'Sign-up is closed. Ask your agency for an invitation link.',
       billing_manual: 'Online payment is not available yet. Write to us and we will activate your plan.',
       admin_2fa_required: 'Turn on two-step verification in My profile to use the back office.',
       invalid_credentials: 'Wrong email or password.', email_taken: 'That email already has an account. Sign in.',
@@ -180,6 +185,11 @@ export default {
     impRules: 'It is audited. During the session you cannot change the password, 2FA or billing.',
     backToApp: 'Go to my agency',
     colCrm: 'Rocco CRM', crmSwitch: 'Rocco CRM button · {name}', crmOn: '{name} now sees the Rocco CRM button.', crmOff: '{name} no longer sees the Rocco CRM button.',
+  },
+  maintenance: {
+    before: "Today at {time} Kora's daily backup runs.", beforeHint: 'For a few minutes the app may be slower.',
+    startsIn: 'Starting now | Starts in 1 minute | Starts in {n} minutes',
+    during: 'Backup in progress:', duringHint: 'the app may be slower for a few minutes.', close: 'Dismiss notice',
   },
   plan: {
     trialEnds: 'The free trial ends today. | The free trial ends tomorrow. | The free trial ends in {n} days.',

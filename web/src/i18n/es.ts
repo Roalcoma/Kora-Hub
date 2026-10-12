@@ -9,6 +9,10 @@ export default {
   category: { singular: 'Categoría', plural: 'Categorías' },
   roles: { owner: 'Owner', admin: 'Admin', lead: 'Líder', member: 'Miembro', guest: 'Invitado', accountant: 'Contable' },
   auth: {
+    closedTitle: 'El registro está cerrado', closedSubtitle: 'Kora funciona por invitación.',
+    closedText: 'Para entrar necesitas un enlace de invitación. Pídeselo a quien administra Kora en tu agencia: lo genera en Ajustes → Invitaciones y te llega por email o mensaje.',
+    closedSteps: ['Abre el enlace de invitación que te enviaron.', 'Crea tu cuenta con tu nombre y una contraseña, o inicia sesión si ya tienes una.', 'Entras directo al espacio de trabajo de tu agencia.'],
+    closedLogin: 'Ya tengo cuenta', inviteOnly: '¿Primera vez? Entra con el enlace de invitación de tu agencia.',
     pitch: 'Chat, anuncios, manuales, tareas y metas de tu agencia, en una sola app.', pitchTags: ['Chat', 'Manuales', 'Tareas', 'Metas'],
     loginTitle: 'Inicia sesión', loginSubtitle: 'Entra al espacio de trabajo de tu agencia.',
     login: 'Entrar', forgot: '¿Olvidaste tu contraseña?', noAccount: '¿Tu agencia aún no usa Kora?', createOne: 'Crea una cuenta',
@@ -31,6 +35,7 @@ export default {
     inviteInvalid: 'Esta invitación no existe o ya expiró. Pide una nueva a quien te invitó.',
     createAccount: 'Crea tu cuenta para entrar', loginToAccept: 'Ya tienes cuenta con ese email. Inicia sesión para aceptar.',
     errors: {
+      registration_closed: 'El registro está cerrado. Pide a tu agencia un enlace de invitación.',
       billing_manual: 'El pago en línea todavía no está disponible. Escríbenos y activamos tu plan.',
       admin_2fa_required: 'Activa la verificación en dos pasos en Mi perfil para usar el backoffice.',
       invalid_credentials: 'Email o contraseña incorrectos.', email_taken: 'Ese email ya tiene cuenta. Inicia sesión.',
@@ -179,6 +184,11 @@ export default {
     impRules: 'Queda en la auditoría. Durante la sesión no se puede cambiar la contraseña, el 2FA ni la facturación.',
     backToApp: 'Ir a mi agencia',
     colCrm: 'Rocco CRM', crmSwitch: 'Botón de Rocco CRM · {name}', crmOn: '{name} ya ve el botón de Rocco CRM.', crmOff: '{name} ya no ve el botón de Rocco CRM.',
+  },
+  maintenance: {
+    before: 'Hoy a las {time} se hace el respaldo diario de Kora.', beforeHint: 'Durante unos minutos la app puede ir más lenta.',
+    startsIn: 'Empieza ahora | Empieza en 1 minuto | Empieza en {n} minutos',
+    during: 'Respaldo en curso:', duringHint: 'la app puede ir más lenta unos minutos.', close: 'Cerrar aviso',
   },
   plan: {
     trialEnds: 'La prueba gratis termina hoy. | La prueba gratis termina mañana. | La prueba gratis termina en {n} días.',

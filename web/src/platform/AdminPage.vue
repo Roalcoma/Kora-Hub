@@ -240,7 +240,7 @@ const meItems = computed(() => [
 <style scoped>
 .admin { min-height: 100%; background: var(--color-canvas); }
 /* Barra superior marina que proyecta sombra sobre el contenido */
-.bar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 16px; min-height: 60px; padding: 0 20px 0 24px; padding-top: env(safe-area-inset-top, 0px); color: #fff; background: linear-gradient(180deg, var(--color-ink) 0%, #0F1E34 100%); box-shadow: 0 6px 18px rgb(19 36 61 / .28); }
+.bar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 16px; min-height: 60px; padding: 0 20px 0 24px; padding-top: var(--safe-top, env(safe-area-inset-top, 0px)); color: #fff; background: linear-gradient(180deg, var(--color-ink) 0%, #0F1E34 100%); box-shadow: 0 6px 18px rgb(19 36 61 / .28); }
 .brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 18px; font-weight: 700; }
 .brand b { margin-left: 4px; padding: 2px 8px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--color-ink); background: var(--color-primary); vertical-align: 2px; }
 .mark { width: 34px; height: 34px; display: grid; place-items: center; background: var(--color-primary); color: var(--color-ink); font-size: 15px; box-shadow: 0 3px 8px rgb(0 0 0 / .3); }
@@ -296,7 +296,7 @@ tbody tr:hover { background: var(--color-canvas); box-shadow: inset 4px 0 0 var(
 
 @media (max-width: 1100px) { .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 767px) {
-  .bar { padding: env(safe-area-inset-top, 0px) 12px 0 16px; }
+  .bar { padding: var(--safe-top, env(safe-area-inset-top, 0px)) 12px 0 16px; }
   .me-txt { display: none; }
   .content { padding: 18px 16px 32px; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }

@@ -16,6 +16,9 @@ type In<S extends z.ZodType> = z.input<S>;
 type NoContent = 204;
 
 export type Routes = {
+  // ── Configuración pública (sin sesión) ──
+  'GET /config': R<never, P.PublicConfig>;
+
   // ── Autenticación (sin workspace) ──
   'POST /auth/register': R<In<typeof P.RegisterBody>, P.Session & { workspaceSlug: string }>;
   'POST /auth/login': R<In<typeof P.LoginBody>, P.Session | { totpRequired: true }>;

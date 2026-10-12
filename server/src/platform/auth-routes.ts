@@ -14,11 +14,16 @@ import { buildSession, audit, joinDefaultChannels } from './model.ts';
 import { seedWorkspace } from './template.ts';
 import { disconnectUser } from '../realtime/hub.ts';
 import { enqueueSeatSync } from '../billing/lifecycle.ts';
+import { registrationOpen } from './config.ts';
 
 export const authRouter = Router();
 const appUrl = () => process.env.APP_URL ?? 'http://localhost:5180';
 
 authRouter.post('/auth/register', async (req, res) => {
+  // Con el registro cerrado (producción) solo se entra por invitación; aceptar invitaciones sigue abierto
+  if (!registrationOpen()) {
+    throw new HttpError(403, 'registration_closed', 'El registro está cerrado. Pide a tu agencia un enlace de invitación.');
+  }
   const body = parse(RegisterBody, req.body);
   rateLimit(`register:${req.ip}`, 10, 3600_000);
   const passwordHash = await hashPassword(body.password);
