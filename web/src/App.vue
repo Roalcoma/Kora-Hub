@@ -5,6 +5,7 @@ import ToastHost from '@/design/ToastHost.vue';
 import ImpersonationBand from '@/layouts/ImpersonationBand.vue';
 import MaintenanceBand from '@/layouts/MaintenanceBand.vue';
 import UpdateBand from '@/layouts/UpdateBand.vue';
+import NotifBand from '@/layouts/NotifBand.vue';
 import { useSession } from '@/stores/session.ts';
 import { publicConfig } from '@/platform/config.ts';
 import { updateReady } from '@/platform/update.ts';
@@ -25,6 +26,8 @@ const showMaint = computed(() => inApp.value && !!publicConfig.value?.maintenanc
       <ImpersonationBand v-if="s.impersonation" />
       <MaintenanceBand v-if="showMaint" :edge="!s.impersonation" />
       <UpdateBand v-if="updateReady" :edge="!s.impersonation && !showMaint" />
+      <!-- Notificaciones: solo dentro de una agencia (no backoffice ni impersonando) -->
+      <NotifBand v-if="inApp && !s.impersonation && route.path.startsWith('/w/')" :edge="!showMaint && !updateReady" />
     </div>
     <div class="app-body"><RouterView /></div>
   </div>

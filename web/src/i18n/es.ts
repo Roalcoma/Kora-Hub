@@ -93,6 +93,8 @@ export default {
     createChannel: 'Crear canal', channelName: 'Nombre', channelNameHint: 'Minúsculas, sin espacios. Ej.: ventas-norte',
     topic: 'Tema', private: 'Privado', privateHint: 'Solo lo ven las personas que agregues.', create: 'Crear',
     parentChannel: 'Subcanal de', noParent: 'Ninguno: canal principal', onlyParentMembers: 'Solo gente de #{name}',
+    notifDeniedPc: 'El navegador bloqueó las notificaciones de Kora. Haz clic en el candado junto a la dirección → Notificaciones → Permitir, y recarga.',
+    notifBandTitle: 'Activa las notificaciones en este dispositivo.', notifBandHint: 'Cada computadora y teléfono se activa por separado.', notifEnabledHere: 'Notificaciones activadas en este dispositivo',
     expandGroup: 'Desplegar', collapseGroup: 'Contraer',
     linkDepartment: 'Ligar a un departamento', noDepartment: 'Ninguno: elijo personas', general: 'general',
     generalAllLines: 'General (todas las {categoriesLc})', allLines: 'Todas las {categoriesLc}', allDepartments: 'Todos los departamentos',

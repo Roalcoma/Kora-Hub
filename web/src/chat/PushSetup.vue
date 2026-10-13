@@ -5,7 +5,7 @@ import { Bell, BellRing, Send, ShieldAlert, Smartphone } from 'lucide-vue-next';
 import Button from '@/design/Button.vue';
 import { toast } from '@/design/toast.ts';
 import { errorText } from '@/platform/errors.ts';
-import { pushState, enablePush, sendTestPush, type PushState } from './push.ts';
+import { pushState, enablePush, sendTestPush, isIos, type PushState } from './push.ts';
 
 const { t } = useI18n();
 const state = ref<PushState | null>(null);
@@ -21,7 +21,7 @@ async function test() {
   try { await sendTestPush(); toast(t('chat.notifTestSent'), 'success'); } catch (e) { toast(errorText(e), 'error'); } finally { busy.value = false; }
 }
 const notes: Partial<Record<PushState, string>> = {
-  insecure: 'chat.notifInsecure', unsupported: 'chat.notifUnsupported', 'install-first': 'chat.notifInstallFirst', denied: 'chat.notifDenied',
+  insecure: 'chat.notifInsecure', unsupported: 'chat.notifUnsupported', 'install-first': 'chat.notifInstallFirst', denied: isIos() ? 'chat.notifDenied' : 'chat.notifDeniedPc',
 };
 </script>
 

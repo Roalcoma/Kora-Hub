@@ -39,6 +39,18 @@ export async function enablePush(): Promise<PushState> {
   return 'on';
 }
 
+/**
+ * Con el permiso ya dado, deja la suscripción de este dispositivo registrada en el servidor: la crea si el navegador la
+ * perdió (caducó o se borraron los datos) y la vuelve a enviar si ya existía (por si el servidor la descartó).
+ */
+export async function syncPush() {
+  try {
+    const st = await pushState();
+    if ((st !== 'on' && st !== 'off') || Notification.permission !== 'granted') return;
+    await enablePush();
+  } catch { /* sin red o sin claves: se reintenta en la próxima carga */ }
+}
+
 export const sendTestPush = () => api('POST /me/push-test');
 
 /** Limpia el contador del ícono al abrir la app */

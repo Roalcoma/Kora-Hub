@@ -280,7 +280,12 @@ export const useChat = defineStore('chat', () => {
     }
   }
 
-  const sendVisibility = () => socket?.readyState === WebSocket.OPEN && socket.send(JSON.stringify({ type: 'visibility', visible: document.visibilityState === 'visible' }));
+  // «Lo está viendo» = pestaña visible Y ventana con el foco. En la PC la pestaña sigue «visible» con la ventana detrás de
+  // otra aplicación; si solo contara eso, el servidor no mandaría el push a ningún dispositivo.
+  const sendVisibility = () => socket?.readyState === WebSocket.OPEN
+    && socket.send(JSON.stringify({ type: 'visibility', visible: document.visibilityState === 'visible' && document.hasFocus() }));
+  window.addEventListener('focus', () => sendVisibility());
+  window.addEventListener('blur', () => sendVisibility());
   document.addEventListener('visibilitychange', () => {
     sendVisibility();
     if (document.visibilityState === 'visible' && !connected.value) connect();
