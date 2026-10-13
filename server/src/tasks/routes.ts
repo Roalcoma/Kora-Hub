@@ -1,5 +1,5 @@
 // /w/:slug/tasks — tareas por departamento: kanban, "Mis tareas", comentarios, checklist y "crear desde mensaje" (§5.4).
-// Ver: todo el workspace (menos invitados). Crear: miembros del departamento, sus Líderes y Admin.
+// Ver: Admin todo; el resto, lo de sus departamentos y líneas (deptLineRule) más lo que creó o le asignaron. Crear: miembros del departamento, sus Líderes y Admin.
 // Gestionar (editar todo, borrar): Admin, Líder del depto o quien la creó. Responsables: estado, orden y checklist.
 import { Router, type Request } from 'express';
 import type pg from 'pg';
@@ -8,7 +8,7 @@ import {
 } from '@agencia-hub/contracts';
 import { adminPool } from '../db.ts';
 import { HttpError, parse } from '../platform/http.ts';
-import { tx, canManageDept, isAdmin, membersOnly } from '../platform/workspace.ts';
+import { tx, canManageDept, isAdmin, membersOnly, seesDeptLine, deptLineRule } from '../platform/workspace.ts';
 import { enqueue } from '../jobs/queue.ts';
 import { publish } from '../realtime/hub.ts';
 
@@ -33,6 +33,17 @@ const SELECT = `
 
 async function getTask(db: pg.PoolClient, id: string): Promise<Task> {
   const r = (await db.query(`${SELECT} where t.id = $1`, [id])).rows[0];
+  if (!r) throw new HttpError(404, 'task_not_found', 'Tarea no encontrada');
+  return toTask(r);
+}
+
+/** Tareas que ve quien pide: las de sus departamentos y líneas, las que creó y las que tiene asignadas */
+const visible = (req: Request) => `(${seesDeptLine(req, 't.department_id', 't.line_id')} or t.created_by = app_user()
+  or exists (select 1 from task_assignees a where a.task_id = t.id and a.user_id = app_user()))`;
+
+/** Igual que getTask, pero una tarea que no ve responde 404, como si no existiera */
+async function visibleTask(db: pg.PoolClient, req: Request, id: string): Promise<Task> {
+  const r = (await db.query(`${SELECT} where t.id = $1 and ${visible(req)}`, [id])).rows[0];
   if (!r) throw new HttpError(404, 'task_not_found', 'Tarea no encontrada');
   return toTask(r);
 }
@@ -83,7 +94,16 @@ async function broadcast(req: Request, event: ServerEvent) {
     "select user_id from workspace_members where workspace_id = $1 and is_active and role <> 'guest'", [req.ws!.id]);
   publish(req.ws!.id, rows.map((r) => r.user_id), event);
 }
-const changed = (req: Request, task: Task, type: 'task.created' | 'task.updated') => broadcast(req, { type, task });
+/** La tarea va solo a quien la ve; a los demás se les quita (por si dejó de verla al cambiar de línea o responsables) */
+async function changed(req: Request, task: Task, type: 'task.created' | 'task.updated') {
+  const { rows } = await adminPool.query(
+    `select m.user_id, (m.role in ('owner', 'admin') or m.user_id = $2 or m.user_id = any($3)
+       or ${deptLineRule('m.user_id', '$4::uuid', '$5::uuid')}) as sees
+     from workspace_members m where m.workspace_id = $1 and m.is_active and m.role <> 'guest'`,
+    [req.ws!.id, task.createdBy, task.assigneeIds, task.departmentId, task.lineId]);
+  publish(req.ws!.id, rows.filter((r) => r.sees).map((r) => r.user_id), { type, task });
+  if (type === 'task.updated') publish(req.ws!.id, rows.filter((r) => !r.sees).map((r) => r.user_id), { type: 'task.deleted', taskId: task.id });
+}
 
 // ─── Rutas ───
 
@@ -97,6 +117,7 @@ tasksRouter.get('/tasks', async (req, res) => {
          and ($3::text is null or t.status = $3)
          and (not $4 or exists (select 1 from task_assignees a where a.task_id = t.id and a.user_id = app_user()))
          and (t.status in ('todo', 'doing') or t.updated_at > now() - interval '30 days')
+         and ${visible(req)}
        order by t.position, t.created_at desc limit 1000`,
       [q.departmentId ?? null, q.lineId ?? null, q.status ?? null, q.mine ?? false]);
     return rows.map(toTask);
@@ -138,7 +159,7 @@ tasksRouter.post('/tasks', async (req, res) => {
 tasksRouter.get('/tasks/:id', async (req, res) => {
   const id = Id.parse(req.params.id);
   res.json(await tx(req, async (db) => {
-    const task = await getTask(db, id);
+    const task = await visibleTask(db, req, id);
     const { rows } = await db.query('select * from task_comments where task_id = $1 order by created_at', [id]);
     return { ...task, comments: rows.map((c) => ({ id: c.id, userId: c.user_id, body: c.body, createdAt: c.created_at.toISOString(), editedAt: c.edited_at?.toISOString() ?? null })) };
   }));
@@ -149,7 +170,7 @@ tasksRouter.patch('/tasks/:id', async (req, res) => {
   const body = parse(UpdateTaskBody, req.body);
   const before = { dueAt: null as string | null };
   const { task, assigned } = await tx(req, async (db) => {
-    const cur = await getTask(db, id);
+    const cur = await visibleTask(db, req, id);
     before.dueAt = cur.dueAt;
     const { manage, work } = await access(db, req, cur);
     const onlyWork = Object.keys(body).every((k) => k === 'status' || k === 'position');
@@ -186,7 +207,7 @@ tasksRouter.patch('/tasks/:id', async (req, res) => {
 tasksRouter.delete('/tasks/:id', async (req, res) => {
   const id = Id.parse(req.params.id);
   await tx(req, async (db) => {
-    if (!(await access(db, req, await getTask(db, id))).manage) throw new HttpError(403, 'forbidden', 'No puedes borrar esta tarea');
+    if (!(await access(db, req, await visibleTask(db, req, id))).manage) throw new HttpError(403, 'forbidden', 'No puedes borrar esta tarea');
     await db.query('delete from tasks where id = $1', [id]);
   });
   await broadcast(req, { type: 'task.deleted', taskId: id });
@@ -197,7 +218,7 @@ tasksRouter.post('/tasks/:id/comments', async (req, res) => {
   const id = Id.parse(req.params.id);
   const { body } = parse(TaskCommentBody, req.body);
   const { comment, task } = await tx(req, async (db) => {
-    await getTask(db, id);
+    await visibleTask(db, req, id);
     const { rows } = await db.query(
       'insert into task_comments (workspace_id, task_id, user_id, body) values (app_ws(), $1, app_user(), $2) returning *', [id, body]);
     await db.query('update tasks set updated_at = now() where id = $1', [id]);
@@ -212,7 +233,7 @@ tasksRouter.post('/tasks/:id/comments', async (req, res) => {
 // ─── Checklist ───
 
 async function workable(db: pg.PoolClient, req: Request, id: string) {
-  const task = await getTask(db, id);
+  const task = await visibleTask(db, req, id);
   if (!(await access(db, req, task)).work) throw new HttpError(403, 'forbidden', 'Solo responsables o quien gestiona la tarea');
 }
 

@@ -16,6 +16,7 @@ import Dropdown from '@/design/Dropdown.vue';
 import SlideOver from '@/design/SlideOver.vue';
 import Skeleton from '@/design/Skeleton.vue';
 import { toast } from '@/design/toast.ts';
+import { toneColor } from '@/design/types.ts';
 import StructureEditor from './StructureEditor.vue';
 import InvitePanel from './InvitePanel.vue';
 import BillingPanel from './BillingPanel.vue';
@@ -64,7 +65,7 @@ watch(tab, (v) => { if (v === 'members' && !members.value) loadMembers(); }, { i
 const roleOptions = computed(() => (['owner', 'admin', 'lead', 'member', 'accountant', 'guest'] as const).map((r) => ({ value: r, label: t(`roles.${r}`) })));
 const deptName = (id: string) => s.workspace!.departments.find((d) => d.id === id)?.name ?? '';
 
-const patchMember = (m: Member, body: { role?: Role; isActive?: boolean; departments?: { id: string; isLead: boolean }[] }, ok?: string) =>
+const patchMember = (m: Member, body: { role?: Role; isActive?: boolean; departments?: { id: string; isLead: boolean }[]; lineIds?: string[] }, ok?: string) =>
   guard(async () => {
     Object.assign(m, await api('PATCH /w/:slug/members/:userId', { params: { slug: slug.value, userId: m.userId }, body }));
   }, ok);
@@ -72,15 +73,21 @@ const patchMember = (m: Member, body: { role?: Role; isActive?: boolean; departm
 const editing = ref<Member | null>(null);
 const editOpen = computed({ get: () => !!editing.value, set: (v) => { if (!v) editing.value = null; } });
 const draftDepts = ref<Record<string, 'none' | 'member' | 'lead'>>({});
+// Líneas de la persona: dentro de sus departamentos solo ve tareas, metas y canales de esas líneas (ninguna = todas)
+const draftLines = ref<string[]>([]);
+const toggleLine = (id: string) => {
+  draftLines.value = draftLines.value.includes(id) ? draftLines.value.filter((x) => x !== id) : [...draftLines.value, id];
+};
 function editDepts(m: Member) {
   editing.value = m;
+  draftLines.value = m.lineIds.filter((id) => s.activeLines.some((l) => l.id === id));
   draftDepts.value = Object.fromEntries(s.workspace!.departments.map((d) => [d.id,
     m.leadOfDepartmentIds.includes(d.id) ? 'lead' : m.departmentIds.includes(d.id) ? 'member' : 'none']));
 }
 async function saveDepts() {
   const m = editing.value!;
   const departments = Object.entries(draftDepts.value).filter(([, v]) => v !== 'none').map(([id, v]) => ({ id, isLead: v === 'lead' }));
-  await patchMember(m, { departments }, t('common.saved'));
+  await patchMember(m, { departments, ...(s.activeLines.length ? { lineIds: draftLines.value } : {}) }, t('common.saved'));
   editing.value = null;
 }
 
@@ -183,6 +190,7 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
                 <Badge v-for="id in m.departmentIds" :key="id" :tone="m.leadOfDepartmentIds.includes(id) ? 'primary' : 'neutral'">
                   {{ deptName(id) }}{{ m.leadOfDepartmentIds.includes(id) ? ` · ${t('settings.lead')}` : '' }}
                 </Badge>
+                <Badge v-for="id in m.lineIds.filter((x) => s.lineOf(x))" :key="id" :tone="s.lineTone(id)">{{ s.lineOf(id)?.name }}</Badge>
                 <Badge v-if="!m.isActive" tone="danger">{{ t('settings.inactive') }}</Badge>
               </span>
             </div>
@@ -194,7 +202,7 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
             </Button>
           </li>
         </ul>
-        <SlideOver v-model="editOpen" :title="t('settings.departments')" :subtitle="editing?.name">
+        <SlideOver v-model="editOpen" :title="s.activeLines.length ? t('settings.deptsAndLines', s.cat) : t('settings.departments')" :subtitle="editing?.name">
           <div class="grid gap-2">
             <div v-for="dpt in s.workspace!.departments.filter((x) => !x.archivedAt)" :key="dpt.id" class="dept">
               <span class="flex-1">{{ dpt.name }}</span>
@@ -203,6 +211,15 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
                   @click="draftDepts[dpt.id] = v">{{ v === 'none' ? '—' : v === 'lead' ? t('settings.lead') : t('roles.member') }}</button>
               </div>
             </div>
+            <template v-if="s.activeLines.length">
+              <h3 class="lines-h">{{ s.cat.categories }}</h3>
+              <p class="hint">{{ t('settings.memberLinesHint', s.cat) }}</p>
+              <div class="line-picks">
+                <button v-for="l in s.activeLines" :key="l.id" type="button" role="checkbox" :aria-checked="draftLines.includes(l.id)" @click="toggleLine(l.id)">
+                  <span class="dot" :style="{ background: toneColor(s.lineTone(l.id), true) }" />{{ l.name }}
+                </button>
+              </div>
+            </template>
             <Button variant="primary" class="mt-3" @click="saveDepts">{{ t('common.save') }}</Button>
           </div>
         </SlideOver>
@@ -351,6 +368,11 @@ h2 { margin: 0; font-size: 17px; }
 .role { width: 150px; }
 .dept { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--color-line); }
 .seg { display: flex; border: 1px solid var(--color-line-strong); }
+.lines-h { margin: 18px 0 0; font-size: 14px; }
+.line-picks { display: flex; flex-wrap: wrap; gap: 8px; }
+.line-picks button { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 14px; font: inherit; font-size: 14px; color: var(--color-ink); background: var(--color-surface); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-sm); cursor: pointer; }
+.line-picks button[aria-checked="true"] { background: var(--color-ink); color: #fff; border-color: var(--color-ink); }
+.line-picks .dot { width: 8px; height: 8px; }
 .seg button { min-height: 36px; padding: 0 10px; font: inherit; font-size: 13px; color: var(--color-ink); background: var(--color-surface); border: 0; cursor: pointer; }
 .seg button[aria-checked="true"] { background: var(--color-ink); color: #fff; }
 .box { border-left: 4px solid var(--color-ink); }

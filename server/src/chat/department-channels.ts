@@ -1,8 +1,10 @@
 // Canales de departamento: un canal privado con departamento asignado lo integran siempre las personas activas de ese
-// departamento más los Owners y Admins activos. Se recalcula al cambiar departamentos, roles, estado, invitaciones o el canal.
+// departamento (y de su línea, si el canal tiene una) más los Owners y Admins activos.
+// Se recalcula al cambiar departamentos, líneas, roles, estado, invitaciones o el canal.
 import type pg from 'pg';
 import { publish } from '../realtime/hub.ts';
 import { HttpError } from '../platform/http.ts';
+import { deptLineRule } from '../platform/workspace.ts';
 import { getChannel } from './model.ts';
 
 export const isDepartmentChannel = (c: { kind: string; departmentId?: string | null; department_id?: string | null }) =>
@@ -21,8 +23,7 @@ export async function syncDepartmentChannels(db: pg.PoolClient, workspaceId: str
   const params = [workspaceId, scope.userId ?? null, scope.channelId ?? null];
   const managed = `c.workspace_id = $1 and c.kind = 'private' and c.department_id is not null and c.archived_at is null
     and ($3::uuid is null or c.id = $3)`;
-  const belongs = `m.is_active and (m.role in ('owner', 'admin') or exists (
-    select 1 from member_departments md where md.workspace_id = c.workspace_id and md.user_id = m.user_id and md.department_id = c.department_id))`;
+  const belongs = `m.is_active and (m.role in ('owner', 'admin') or ${deptLineRule('m.user_id', 'c.department_id', 'c.line_id')})`;
 
   const added = (await db.query(
     `insert into channel_members (workspace_id, channel_id, user_id)

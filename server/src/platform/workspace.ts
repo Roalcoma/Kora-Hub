@@ -56,6 +56,20 @@ export async function canManageDept(db: pg.PoolClient, req: Request, departmentI
   return !!rowCount;
 }
 
+/**
+ * Condición SQL «esta persona ve lo de este departamento y línea» (tareas, metas, canales privados de departamento):
+ * es del departamento y, o lo lidera, o lo visto no tiene línea, o ella no tiene líneas asignadas, o tiene esa línea.
+ * Owners y Admins ven todo: eso lo decide quien la usa. Sirve también fuera de RLS (adminPool): todo cuelga del departamento.
+ */
+export const deptLineRule = (user: string, dept: string, line: string) => `exists (
+  select 1 from member_departments md where md.user_id = ${user} and md.department_id = ${dept} and (md.is_lead
+    or ${line} is null
+    or not exists (select 1 from member_lines ml where ml.workspace_id = md.workspace_id and ml.user_id = md.user_id)
+    or exists (select 1 from member_lines ml where ml.workspace_id = md.workspace_id and ml.user_id = md.user_id and ml.line_id = ${line})))`;
+
+/** Lo que ve quien hace la petición: Admin todo; el resto según departamento y línea */
+export const seesDeptLine = (req: Request, dept: string, line: string) => isAdmin(req) ? 'true' : deptLineRule('app_user()', dept, line);
+
 /** Middleware: los módulos (manuales, tareas, metas) no son para invitados. */
 export function membersOnly(req: Request, _res: Response, next: NextFunction) {
   requireRole(req, 'member');

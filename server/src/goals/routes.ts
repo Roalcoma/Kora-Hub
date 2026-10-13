@@ -1,6 +1,7 @@
 // /w/:slug/goals y /reports — metas semanales, reportes de los Líderes y tablero de cumplimiento (§5.5).
 // El reporte copia el objetivo vigente al entregarse: si la meta cambia después, el histórico no se mueve.
 // Líder: su departamento, semana actual y la anterior (se reporta el lunes). Más atrás solo Admin, con auditoría.
+// Ver: Admin todo; el resto, las metas de sus departamentos y líneas (deptLineRule), también dentro de los reportes.
 import { Router, type Request } from 'express';
 import type pg from 'pg';
 import {
@@ -8,7 +9,7 @@ import {
   type Goal, type WeeklyReport, type GoalsDashboard,
 } from '@agencia-hub/contracts';
 import { HttpError, parse, sendCsv } from '../platform/http.ts';
-import { tx, canManageDept, isAdmin, requireRole, membersOnly } from '../platform/workspace.ts';
+import { tx, canManageDept, isAdmin, requireRole, membersOnly, seesDeptLine } from '../platform/workspace.ts';
 import { audit } from '../platform/model.ts';
 
 export const goalsRouter = Router({ mergeParams: true });
@@ -22,12 +23,15 @@ const toGoal = (r: any): Goal => ({
   weeklyTarget: Number(r.weekly_target), position: r.position, archivedAt: r.archived_at?.toISOString() ?? null,
 });
 
-async function listReports(db: pg.PoolClient, where: string, vals: unknown[]): Promise<WeeklyReport[]> {
+const seesGoal = (req: Request, g = 'g') => seesDeptLine(req, `${g}.department_id`, `${g}.line_id`);
+
+/** Reportes de los departamentos que ve; de cada uno, solo las metas que ve (las de otra línea no se cuelan) */
+async function listReports(db: pg.PoolClient, req: Request, where: string, vals: unknown[]): Promise<WeeklyReport[]> {
   const { rows } = await db.query(
     `select r.*, to_char(r.week_start, 'YYYY-MM-DD') as wk, coalesce(json_agg(json_build_object('goalId', i.goal_id, 'target', i.target, 'actual', i.actual, 'note', i.note))
-       filter (where i.goal_id is not null), '[]') as items
-     from weekly_reports r left join weekly_report_items i on i.report_id = r.id
-     where ${where} group by r.id order by r.week_start desc, r.department_id`, vals);
+       filter (where i.goal_id is not null and ${seesGoal(req)}), '[]') as items
+     from weekly_reports r left join weekly_report_items i on i.report_id = r.id left join goals g on g.id = i.goal_id
+     where ${where} and ${seesDeptLine(req, 'r.department_id', 'null')} group by r.id order by r.week_start desc, r.department_id`, vals);
   return rows.map((r) => ({
     id: r.id, departmentId: r.department_id, weekStart: r.wk, notes: r.notes, submittedBy: r.submitted_by,
     submittedAt: r.submitted_at.toISOString(),
@@ -40,7 +44,8 @@ async function listReports(db: pg.PoolClient, where: string, vals: unknown[]): P
 goalsRouter.get('/goals', async (req, res) => {
   const q = parse(GoalsQuery, req.query);
   res.json(await tx(req, async (db) => (await db.query(
-    `select * from goals where ($1::uuid is null or department_id = $1) and ($2 or archived_at is null) order by position, name`,
+    `select * from goals g where ($1::uuid is null or department_id = $1) and ($2 or archived_at is null) and ${seesGoal(req)}
+     order by position, name`,
     [q.departmentId ?? null, q.includeArchived ?? false])).rows.map(toGoal)));
 });
 
@@ -76,7 +81,7 @@ goalsRouter.patch('/goals/:id', async (req, res) => {
 
 goalsRouter.get('/reports', async (req, res) => {
   const q = parse(ReportsQuery, req.query);
-  res.json(await tx(req, (db) => listReports(db,
+  res.json(await tx(req, (db) => listReports(db, req,
     '($1::uuid is null or r.department_id = $1) and ($2::date is null or r.week_start = $2)',
     [q.departmentId ?? null, q.weekStart ?? null])));
 });
@@ -114,7 +119,7 @@ goalsRouter.put('/reports', async (req, res) => {
       await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'report.edited', targetType: 'weekly_report', targetId: reportId,
         meta: { weekStart: body.weekStart, items: body.items }, ip: req.ip });
     }
-    return (await listReports(db, 'r.id = $1', [reportId]))[0]!;
+    return (await listReports(db, req, 'r.id = $1', [reportId]))[0]!;
   }));
 });
 
@@ -131,9 +136,10 @@ async function dashboard(req: Request, q: ReturnType<typeof DashboardQuery.parse
          and (g.archived_at is null or exists (
            select 1 from weekly_report_items i join weekly_reports r on r.id = i.report_id
            where i.goal_id = g.id and r.week_start >= $3::date))
+         and ${seesGoal(req)}
        order by g.department_id, g.position, g.name`,
       [q.departmentId ?? null, q.lineId ?? null, weeks[0]])).rows;
-    const reports = await listReports(db, 'r.week_start >= $1::date and ($2::uuid is null or r.department_id = $2)', [weeks[0], q.departmentId ?? null]);
+    const reports = await listReports(db, req, 'r.week_start >= $1::date and ($2::uuid is null or r.department_id = $2)', [weeks[0], q.departmentId ?? null]);
     const byKey = new Map(reports.map((r) => [`${r.departmentId}|${r.weekStart}`, r]));
 
     const rows = goals.map((g) => ({

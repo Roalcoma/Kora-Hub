@@ -110,7 +110,7 @@ workspaceRouter.patch('/members/:userId', async (req, res) => {
         await db.query('insert into member_lines (workspace_id, user_id, line_id) values (app_ws(), $1, $2)', [targetId, lineId]);
       }
     }
-    if (body.role || body.isActive !== undefined || body.departments) {
+    if (body.role || body.isActive !== undefined || body.departments || body.lineIds) {
       await syncDepartmentChannels(db, req.ws!.id, { userId: targetId });
     }
     if (body.role && body.role !== target.role) {

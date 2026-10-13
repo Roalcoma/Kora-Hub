@@ -83,7 +83,7 @@ chatRouter.patch('/channels/:id', async (req, res) => {
     if (body.lineId !== undefined) add('line_id', body.lineId);
     if (body.archived !== undefined) add('archived_at', body.archived ? new Date() : null);
     if (set.length) await db.query(`update channels set ${set.join(', ')} where id = $1 and workspace_id = app_ws()`, vals);
-    if (body.departmentId || body.archived === false) await syncDepartmentChannels(db, req.ws!.id, { channelId: id });
+    if (body.departmentId || body.lineId !== undefined || body.archived === false) await syncDepartmentChannels(db, req.ws!.id, { channelId: id });
     const updated = await getChannel(db, id);
     await publishToChannel(db, req.ws!.id, id, { type: 'channel.updated', channel: updated });
     return updated;

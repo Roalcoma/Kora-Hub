@@ -570,7 +570,7 @@ export default {
     sessions: 'Sessions', sessionsHint: 'If you lost a phone or used someone else\'s computer, sign out everywhere.',
     inviteTitle: 'Invite to the agency', pendingEmpty: 'No pending invitations. The ones you create show here until used or expired.',
     billing: 'Billing', title: 'Settings', members: 'Members', invitations: 'Invitations', structure: 'Departments and {categoriesLc}', profile: 'My profile', workspace: 'Agency',
-    role: 'Role', departments: 'Departments', lead: 'Lead', active: 'Active', deactivate: 'Deactivate', reactivate: 'Reactivate', inactive: 'Inactive',
+    role: 'Role', departments: 'Departments', deptsAndLines: 'Departments and {categoriesLc}', memberLinesHint: 'Within their departments they will only see tasks, goals and channels for the checked {categoriesLc}. With none checked they see all. A Lead sees all of their department.', lead: 'Lead', active: 'Active', deactivate: 'Deactivate', reactivate: 'Reactivate', inactive: 'Inactive',
     inviteLink: 'Invite link', inviteLinkHint: 'Anyone with the link joins with the chosen role. Expires in 7 days.',
     createLink: 'Create link', inviteByEmail: 'Invite by email', emails: 'Emails', emailsHint: 'Separate several with commas.',
     sendInvites: 'Send invitations', invitesSent: 'Invitations created', pending: 'Pending', expires: 'Expires {date}',

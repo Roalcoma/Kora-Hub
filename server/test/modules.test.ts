@@ -176,29 +176,31 @@ test('tareas: crear en mi depto con responsables avisa; fuera de mi depto no', a
 test('tareas: el responsable cambia estado y checklist, pero no el título; los demás miran', async () => {
   const lucia = await lead('PATCH', A(`/tasks/${task}`), { status: 'doing' });
   assert.equal(lucia.body.status, 'doing');
-  assert.equal((await other('PATCH', A(`/tasks/${task}`), { status: 'done' })).status, 403);
-  assert.equal((await other('GET', A(`/tasks/${task}`))).status, 200);   // todo el workspace la ve
+  // Omar es de Servicio: una tarea de Ventas no existe para él
+  assert.equal((await other('PATCH', A(`/tasks/${task}`), { status: 'done' })).status, 404);
+  assert.equal((await other('GET', A(`/tasks/${task}`))).status, 404);
   assert.equal((await seller('PATCH', A(`/tasks/${task}`), { title: 'Otro título' })).status, 200); // la creó ella
 
   const item = (await lead('GET', A(`/tasks/${task}`))).body.checklist[0];
   assert.equal((await lead('PATCH', A(`/tasks/${task}/checklist/${item.id}`), { done: true })).body.done, true);
-  assert.equal((await other('POST', A(`/tasks/${task}/checklist`), { text: 'Intruso' })).status, 403);
+  assert.equal((await other('POST', A(`/tasks/${task}/checklist`), { text: 'Intruso' })).status, 404);
 
   const done = await lead('PATCH', A(`/tasks/${task}`), { status: 'done' });
   assert.ok(done.body.completedAt);
   const mine = (await lead('GET', A('/tasks?mine=true'))).body.map((t: any) => t.id);
   assert.ok(mine.includes(task));
   assert.ok(!(await other('GET', A('/tasks?mine=true'))).body.length);
-  assert.ok((await other('GET', A('/tasks?mine=false'))).body.length);
+  assert.ok(!(await other('GET', A('/tasks?mine=false'))).body.some((t: any) => t.id === task));
 });
 
 test('tareas: comentar avisa a responsables y a quien la creó; borrar solo quien gestiona', async () => {
-  const c = await other('POST', A(`/tasks/${task}/comments`), { body: 'La clienta pidió que la llamen mañana' });
+  const c = await owner('POST', A(`/tasks/${task}/comments`), { body: 'La clienta pidió que la llamen mañana' });
   assert.equal(c.status, 201);
   const job = (await adminPool.query("select payload from jobs where payload->>'taskId' = $1 and payload->>'event' = 'comment'", [task])).rows[0];
   assert.deepEqual(job.payload.userIds.sort(), [leadId, sellerId].sort());
   assert.equal((await lead('GET', A(`/tasks/${task}`))).body.comments.length, 1);
-  assert.equal((await other('DELETE', A(`/tasks/${task}`))).status, 403);
+  assert.equal((await other('POST', A(`/tasks/${task}/comments`), { body: 'Intruso' })).status, 404);
+  assert.equal((await other('DELETE', A(`/tasks/${task}`))).status, 404);
 });
 
 test('tareas: crear desde un mensaje que puedo leer', async () => {

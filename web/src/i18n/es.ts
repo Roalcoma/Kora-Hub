@@ -569,7 +569,7 @@ export default {
     sessions: 'Sesiones', sessionsHint: 'Si perdiste un teléfono o usaste una computadora ajena, cierra todas las sesiones.',
     inviteTitle: 'Invitar a la agencia', pendingEmpty: 'No hay invitaciones pendientes. Las que crees aparecen aquí hasta que se usen o venzan.',
     billing: 'Facturación', title: 'Ajustes', members: 'Miembros', invitations: 'Invitaciones', structure: 'Departamentos y {categoriesLc}', profile: 'Mi perfil', workspace: 'Agencia',
-    role: 'Rol', departments: 'Departamentos', lead: 'Líder', active: 'Activo', deactivate: 'Desactivar', reactivate: 'Reactivar', inactive: 'Inactivo',
+    role: 'Rol', departments: 'Departamentos', deptsAndLines: 'Departamentos y {categoriesLc}', memberLinesHint: 'Dentro de sus departamentos solo verá tareas, metas y canales de las {categoriesLc} marcadas. Sin ninguna marcada ve todas. Si es Líder, ve todas las de su departamento.', lead: 'Líder', active: 'Activo', deactivate: 'Desactivar', reactivate: 'Reactivar', inactive: 'Inactivo',
     inviteLink: 'Enlace de invitación', inviteLinkHint: 'Cualquiera con el enlace entra con el rol elegido. Vence en 7 días.',
     createLink: 'Crear enlace', inviteByEmail: 'Invitar por email', emails: 'Emails', emailsHint: 'Separa varios con comas.',
     sendInvites: 'Enviar invitaciones', invitesSent: 'Invitaciones creadas', pending: 'Pendientes', expires: 'Vence {date}',
