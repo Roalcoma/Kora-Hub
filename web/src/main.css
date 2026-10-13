@@ -2,6 +2,10 @@
 @import "./design/tokens.css";
 
 html, body, #app { height: var(--app-h, 100%); }
+/* Dentro de la agencia la app queda fija en pantalla como una nativa: el documento no se desplaza ni rebota; solo se
+   desplaza el contenido de cada pantalla (capas, listas y paneles tienen su propio scroll). Login y registro, que no
+   tienen scroll propio, siguen desplazándose con el documento. */
+html:has(.shell), html:has(.shell) body { overflow: hidden; overscroll-behavior: none; }
 /* Teléfono: lo que quede debajo de la app (alto mal informado por iOS, rebote del scroll) toma el color de la barra
    inferior; así nunca aparece una franja blanca */
 @media (max-width: 767px) { html { background: #0B1729; } }
@@ -42,7 +46,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 
 /* PDF del tablero de metas (Imprimir → Guardar como PDF): solo el contenido, sin el shell */
 @media print {
-  html, body, #app { height: auto; background: #fff; }
+  html, body, #app { height: auto; overflow: visible; background: #fff; }
   .rail, .sidebar, .tabbar, .no-print { display: none !important; }
   .shell { display: block !important; }
   .main, .layer { overflow: visible !important; height: auto !important; }
