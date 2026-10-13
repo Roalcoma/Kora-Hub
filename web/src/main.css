@@ -63,3 +63,9 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ─── Sin zoom al tocar un campo (iOS acerca la pantalla si la letra del campo es menor a 16 px) ni con doble toque ─── */
+html { touch-action: manipulation; }
+@media (hover: none) and (pointer: coarse) {
+  input, textarea, select, [contenteditable="true"] { font-size: max(16px, 1em) !important; }
+}

@@ -14,6 +14,11 @@ import './main.css';
 // volver de segundo plano, con una llamada en curso) y deja una franja abajo. Instalada en iPhone la app ocupa toda la
 // pantalla: se usa el mayor entre el alto de la ventana y el de la pantalla, y se vuelve a medir en cada cambio.
 // Lo que igual quede debajo tiene el color de la barra inferior (main.css), nunca blanco.
+// iPhone/iPad: además del tamaño de letra (main.css), maximum-scale=1 evita que Safari acerque la pantalla al enfocar un
+// campo. En iOS pellizcar para acercar sigue funcionando (Safari ignora el límite para el gesto del usuario).
+if (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+  document.querySelector('meta[name="viewport"]')?.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover');
+}
 const iosApp = /iPhone|iPod/.test(navigator.userAgent) && (navigator as { standalone?: boolean }).standalone === true;
 const setAppHeight = () => {
   const portrait = window.innerHeight >= window.innerWidth;
