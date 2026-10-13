@@ -1,6 +1,6 @@
 // /w/:slug — ventas y comisiones por agente (docs/plan-comisiones.md). Solo con settings.sales_module.
 // Los agentes son asociados (tabla agents), no usuarios; uno puede enlazarse a un usuario para entrar y ver lo suyo.
-// Visibilidad: Admin ve todo; un dueño de agencia ve lo suyo y lo de sus agentes directos; el resto, solo lo suyo.
+// Visibilidad: con «Editar» o más en Ventas se ve todo; un dueño de agencia ve lo suyo y lo de sus agentes directos; el resto, solo lo suyo.
 // El % sale del nivel de contrato del agente (FFL) cruzado con la tabla del producto, ambos vigentes a la fecha de ISSUE.
 // Al marcar ISSUED se congelan nivel, % y montos en commission_installments: un ascenso después no mueve lo generado.
 import { Router, type Request, type Response, type NextFunction } from 'express';
@@ -11,7 +11,7 @@ import {
   type Carrier, type Agent, type Sale, type SalesList, type Installment, type CommissionsList, type InboxItem, type DiscordFeed,
 } from '@agencia-hub/contracts';
 import { HttpError, parse, sendCsv } from '../platform/http.ts';
-import { tx, isAdmin, requireRole, membersOnly } from '../platform/workspace.ts';
+import { tx, hasModule, requireModule, moduleGate } from '../platform/workspace.ts';
 import { audit } from '../platform/model.ts';
 import { commissionShares, installments, chargebackCents, toCents } from './commissions.ts';
 import { discordConfigured, retryInbox, snowflakeAt } from './discord.ts';
@@ -19,7 +19,7 @@ import { discordConfigured, retryInbox, snowflakeAt } from './discord.ts';
 export const salesRouter = Router({ mergeParams: true });
 
 const PATHS = ['/carriers', '/products', '/agents', '/sales', '/sales.csv', '/commissions', '/commissions.csv', '/sales-inbox', '/discord-feed'];
-salesRouter.use(PATHS, membersOnly, async (req: Request, _res: Response, next: NextFunction) => {
+salesRouter.use(PATHS, moduleGate('sales'), async (req: Request, _res: Response, next: NextFunction) => {
   const on = await tx(req, async (db) => (await db.query("select settings->>'sales_module' = 'true' as on from workspaces where id = app_ws()")).rows[0]?.on);
   if (!on) throw new HttpError(404, 'module_disabled', 'El módulo de ventas no está activo en esta agencia');
   next();
@@ -61,7 +61,7 @@ salesRouter.get('/carriers', async (req, res) => {
 });
 
 salesRouter.post('/carriers', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'manage');
   const body = parse(CarrierBody, req.body);
   res.status(201).json(await tx(req, async (db) => {
     const { rows } = await db.query(
@@ -72,7 +72,7 @@ salesRouter.post('/carriers', async (req, res) => {
 });
 
 salesRouter.patch('/carriers/:id', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'manage');
   const id = Id.parse(req.params.id);
   const body = parse(UpdateCarrierBody, req.body);
   res.json(await tx(req, async (db) => {
@@ -89,7 +89,7 @@ salesRouter.patch('/carriers/:id', async (req, res) => {
 });
 
 salesRouter.post('/carriers/:id/products', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'manage');
   const id = Id.parse(req.params.id);
   const body = parse(ProductBody, req.body);
   res.status(201).json(await tx(req, async (db) => {
@@ -101,7 +101,7 @@ salesRouter.post('/carriers/:id/products', async (req, res) => {
 });
 
 salesRouter.patch('/products/:id', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'manage');
   const id = Id.parse(req.params.id);
   const body = parse(UpdateProductBody, req.body);
   res.json(await tx(req, async (db) => {
@@ -115,7 +115,7 @@ salesRouter.patch('/products/:id', async (req, res) => {
 });
 
 salesRouter.put('/products/:id/grid', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'manage');
   const id = Id.parse(req.params.id);
   const body = parse(GridBody, req.body);
   res.json(await tx(req, async (db) => {
@@ -133,12 +133,18 @@ salesRouter.put('/products/:id/grid', async (req, res) => {
 
 // ─── Agentes: nombre, enlace a usuario, dueño de agencia, Discord y nivel de contrato ───
 
+/**
+ * Permiso en Ventas: «Ver» = lo suyo y lo de su equipo (como agente enlazado); «Editar» = ve todo, registra ventas, hace
+ * ISSUE/cancela y resuelve la bandeja de Discord; «Gestionar» = además compañías, tablas, agentes, pagos y el canal.
+ */
+const seesAll = (req: Request) => hasModule(req, 'sales', 'edit');
+
 /** Agentes del usuario que pide (normalmente uno): el enlazado a su cuenta */
 const MY_AGENTS = `(select id from agents where user_id = app_user())`;
 
 async function listAgents(db: pg.PoolClient, req: Request, id?: string): Promise<Agent[]> {
   // Admin ve todos; el resto, su agente y los de su equipo (de los que es dueño de agencia)
-  const mine = isAdmin(req) ? 'true' : `(a.id in ${MY_AGENTS} or a.upline_agent_id in ${MY_AGENTS})`;
+  const mine = seesAll(req) ? 'true' : `(a.id in ${MY_AGENTS} or a.upline_agent_id in ${MY_AGENTS})`;
   const { rows } = await db.query(
     `select a.*, coalesce((select json_agg(json_build_object('carrierId', l.carrier_id, 'level', l.level, 'effectiveFrom', ${day('l.effective_from')})
                 order by l.effective_from desc) from agent_levels l where l.agent_id = a.id), '[]') as levels
@@ -186,7 +192,7 @@ salesRouter.get('/agents', async (req, res) => {
 });
 
 salesRouter.post('/agents', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'manage');
   const body = parse(AgentBody, req.body);
   res.status(201).json(await tx(req, async (db) => {
     const userId = await resolveUser(db, body.userId ?? undefined, body.email);
@@ -200,7 +206,7 @@ salesRouter.post('/agents', async (req, res) => {
 });
 
 salesRouter.patch('/agents/:id', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'manage');
   const id = Id.parse(req.params.id);
   const body = parse(UpdateAgentBody, req.body);
   if (body.uplineAgentId === id) throw new HttpError(400, 'self_upline', 'Un agente no puede ser su propio dueño de agencia');
@@ -225,7 +231,7 @@ salesRouter.patch('/agents/:id', async (req, res) => {
 });
 
 salesRouter.post('/agents/:id/levels', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'manage');
   const id = Id.parse(req.params.id);
   const body = parse(LevelBody, req.body);
   res.json(await tx(req, async (db) => {
@@ -245,7 +251,7 @@ salesRouter.post('/agents/:id/levels', async (req, res) => {
 // ─── Ventas ───
 
 /** Condición de visibilidad sobre el agente de la venta (alias `s`) */
-const visibleSale = (req: Request) => isAdmin(req) ? 'true' : `(s.agent_id in ${MY_AGENTS} or ag.upline_agent_id in ${MY_AGENTS})`;
+const visibleSale = (req: Request) => seesAll(req) ? 'true' : `(s.agent_id in ${MY_AGENTS} or ag.upline_agent_id in ${MY_AGENTS})`;
 
 const SALE_COLS = `s.*, p.carrier_id, ag.upline_agent_id, ${day('s.expected_issue_date')} as expected, ${day('s.issued_at')} as issued,
   (s.status = 'pending' and s.expected_issue_date < ${TODAY}) as overdue`;
@@ -299,7 +305,7 @@ salesRouter.get('/sales.csv', async (req, res) => {
 });
 
 salesRouter.post('/sales', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'edit');
   const body = parse(SaleBody, req.body);
   res.status(201).json(await tx(req, async (db) => {
     const inbox = body.inboxId ? (await db.query('select * from sale_inbox where id = $1 and resolved_at is null for update', [body.inboxId])).rows[0] : null;
@@ -316,7 +322,7 @@ salesRouter.post('/sales', async (req, res) => {
 });
 
 salesRouter.patch('/sales/:id', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'edit');
   const id = Id.parse(req.params.id);
   const body = parse(UpdateSaleBody, req.body);
   res.json(await tx(req, async (db) => {
@@ -355,7 +361,7 @@ async function rateAt(db: pg.PoolClient, agentId: string, productId: string, dat
 }
 
 salesRouter.post('/sales/:id/issue', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'edit');
   const id = Id.parse(req.params.id);
   const { issuedAt } = parse(IssueSaleBody, req.body);
   res.json(await tx(req, async (db) => {
@@ -378,7 +384,7 @@ salesRouter.post('/sales/:id/issue', async (req, res) => {
 });
 
 salesRouter.post('/sales/:id/decline', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'edit');
   const id = Id.parse(req.params.id);
   res.json(await tx(req, async (db) => {
     const sale = await oneSale(db, id, true);
@@ -390,7 +396,7 @@ salesRouter.post('/sales/:id/decline', async (req, res) => {
 });
 
 salesRouter.post('/sales/:id/cancel', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'edit');
   const id = Id.parse(req.params.id);
   const { chargebackPercent } = parse(CancelSaleBody, req.body);
   res.json(await tx(req, async (db) => {
@@ -419,7 +425,7 @@ salesRouter.post('/sales/:id/cancel', async (req, res) => {
 
 async function queryInstallments(req: Request, q: ReturnType<typeof CommissionsQuery.parse>): Promise<Installment[]> {
   // El agente ve solo sus cuotas (no el override que su venta le deja al dueño); el dueño ve además las de sus agentes
-  const visible = isAdmin(req) ? 'true' : `(i.beneficiary_agent_id in ${MY_AGENTS}
+  const visible = seesAll(req) ? 'true' : `(i.beneficiary_agent_id in ${MY_AGENTS}
     or exists (select 1 from agents ag where ag.id = s.agent_id and ag.upline_agent_id in ${MY_AGENTS}))`;
   return tx(req, async (db) => (await db.query(
     `select i.*, ${day('i.due_date')} as due, ${day('i.paid_at')} as paid, s.agent_id, s.product_id, p.carrier_id,
@@ -480,7 +486,7 @@ salesRouter.get('/commissions.csv', async (req, res) => {
 });
 
 salesRouter.post('/commissions/pay', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'manage');
   const body = parse(PayInstallmentsBody, req.body);
   await tx(req, async (db) => {
     const { rowCount } = await db.query(
@@ -494,7 +500,7 @@ salesRouter.post('/commissions/pay', async (req, res) => {
 // ─── Bandeja de Discord ───
 
 salesRouter.get('/sales-inbox', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'edit');
   res.json(await tx(req, async (db) => (await db.query(
     'select * from sale_inbox where resolved_at is null order by posted_at desc limit 500')).rows.map((r): InboxItem => ({
     id: r.id, discordUserId: r.discord_user_id, authorName: r.author_name, content: r.content, postedAt: r.posted_at.toISOString(),
@@ -503,7 +509,7 @@ salesRouter.get('/sales-inbox', async (req, res) => {
 });
 
 salesRouter.post('/sales-inbox/:id/dismiss', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'edit');
   const id = Id.parse(req.params.id);
   await tx(req, async (db) => {
     const { rowCount } = await db.query('update sale_inbox set resolved_at = now(), resolved_by = app_user() where id = $1 and resolved_at is null', [id]);
@@ -513,12 +519,12 @@ salesRouter.post('/sales-inbox/:id/dismiss', async (req, res) => {
 });
 
 salesRouter.post('/sales-inbox/retry', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'edit');
   res.json({ created: await tx(req, (db) => retryInbox(db)) });
 });
 
 salesRouter.post('/sales-inbox/:id/link', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'edit');
   const id = Id.parse(req.params.id);
   const { agentId } = parse(LinkInboxAuthorBody, req.body);
   res.json(await tx(req, async (db) => {
@@ -544,12 +550,12 @@ async function feedState(db: pg.PoolClient): Promise<DiscordFeed> {
 }
 
 salesRouter.get('/discord-feed', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'edit');   // el contador de la bandeja; conectar o cambiar el canal sigue siendo «Gestionar»
   res.json(await tx(req, feedState));
 });
 
 salesRouter.put('/discord-feed', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'manage');
   const body = parse(DiscordFeedBody, req.body);
   res.json(await tx(req, async (db) => {
     // Leer desde ese día: los mensajes ya procesados no se duplican (id de mensaje único)
@@ -563,7 +569,7 @@ salesRouter.put('/discord-feed', async (req, res) => {
 });
 
 salesRouter.delete('/discord-feed', async (req, res) => {
-  requireRole(req, 'admin');
+  requireModule(req, 'sales', 'manage');
   await tx(req, async (db) => {
     await db.query('delete from discord_feeds where workspace_id = app_ws()');
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'discord.disconnected' });

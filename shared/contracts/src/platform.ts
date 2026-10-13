@@ -1,6 +1,6 @@
 // Cuentas, workspaces, miembros, invitaciones, estructura de la agencia y facturación (§3, §4).
 import { z } from 'zod';
-import { Id, Role, Locale, Name, type IsoDate } from './common.ts';
+import { Id, Role, Locale, Name, MODULES, AccessLevel, type Module, type IsoDate } from './common.ts';
 
 // ─── Entidades ───
 
@@ -43,6 +43,10 @@ export type Member = {
   role: Role; title: string | null; statusText: string | null; statusUntil: IsoDate | null;
   isActive: boolean; departmentIds: Id[]; leadOfDepartmentIds: Id[]; lineIds: Id[];
   presence: 'active' | 'away';
+  /** Nivel efectivo por módulo y los ajustes propios de la persona (lo que no está, sale de su rol) */
+  modules: Record<Module, AccessLevel>; moduleOverrides: Partial<Record<Module, AccessLevel>>;
+  /** Solo para Admin: la cuenta también está en otra agencia (o es superadmin): nombre, email y clave no se cambian aquí */
+  sharedAccount?: boolean;
 };
 
 export type Department = { id: Id; name: string; position: number; archivedAt: IsoDate | null };
@@ -133,12 +137,16 @@ export const AcceptInvitationBody = z.object({
 export const UpdateMemberBody = z.object({
   role: Role, title: z.string().max(80).nullable(), isActive: z.boolean(),
   departments: z.array(z.object({ id: Id, isLead: z.boolean() })), lineIds: z.array(Id),
+  name: Name, email: z.email(),                                      // solo cuentas que son únicamente de esta agencia
+  /** Ajuste por módulo; null vuelve al valor por defecto del rol */
+  modules: z.partialRecord(z.enum(MODULES), AccessLevel.nullable()),
 }).partial();
 
 /** Admin crea la cuenta con contraseña (sin correo ni invitación). Si el email ya tiene cuenta, solo se agrega a la agencia. */
 export const CreateMemberBody = z.object({
   name: Name, email: z.email(), password: Password, role: Role.default('member'), title: z.string().max(80).nullable().default(null),
   departments: z.array(z.object({ id: Id, isLead: z.boolean() })).default([]), lineIds: z.array(Id).default([]),
+  modules: z.partialRecord(z.enum(MODULES), AccessLevel).default({}),
 });
 export const SetMemberPasswordBody = z.object({ password: Password });
 

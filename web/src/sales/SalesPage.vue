@@ -23,18 +23,16 @@ const router = useRouter();
 const s = useSession();
 const sales = useSales();
 
-/** Mensajes de Discord por revisar (solo Admin) */
+/** Mensajes de Discord por revisar (con «Editar» o más en Ventas) */
 const inboxCount = ref(0);
 const countInbox = async () => {
-  if (s.isAdmin) inboxCount.value = (await api('GET /w/:slug/discord-feed', { params: { slug: s.workspace!.slug } })).pendingInbox;
+  if (s.can('sales', 'edit')) inboxCount.value = (await api('GET /w/:slug/discord-feed', { params: { slug: s.workspace!.slug } })).pendingInbox;
 };
 const tabs = computed(() => [
   { value: 'sales' as const, label: t('sales.tabs.sales') },
   { value: 'commissions' as const, label: t('sales.tabs.commissions') },
-  ...(s.isAdmin ? [
-    { value: 'inbox' as const, label: t('sales.tabs.inbox'), count: inboxCount.value || undefined },
-    { value: 'setup' as const, label: t('sales.tabs.setup') },
-  ] : []),
+  ...(s.can('sales', 'edit') ? [{ value: 'inbox' as const, label: t('sales.tabs.inbox'), count: inboxCount.value || undefined }] : []),
+  ...(s.can('sales', 'manage') ? [{ value: 'setup' as const, label: t('sales.tabs.setup') }] : []),
 ]);
 const tab = computed<Tab>({
   get: () => (tabs.value.some((x) => x.value === route.params.tab) ? route.params.tab as Tab : 'sales'),

@@ -1,6 +1,7 @@
 // /w/:slug/tasks — tareas por departamento: kanban, "Mis tareas", comentarios, checklist y "crear desde mensaje" (§5.4).
 // Ver: Admin todo; el resto, lo de sus departamentos y líneas (deptLineRule) más lo que creó o le asignaron. Crear: miembros del departamento, sus Líderes y Admin.
-// Gestionar (editar todo, borrar): Admin, Líder del depto o quien la creó. Responsables: estado, orden y checklist.
+// Gestionar (editar todo, borrar): Admin, Líder del depto, permiso «Gestionar» en Tareas o quien la creó. Responsables:
+// estado, orden y checklist. Con permiso «Ver» en Tareas, solo lectura (ni crear ni trabajar).
 import { Router, type Request } from 'express';
 import type pg from 'pg';
 import {
@@ -8,12 +9,12 @@ import {
 } from '@agencia-hub/contracts';
 import { adminPool } from '../db.ts';
 import { HttpError, parse } from '../platform/http.ts';
-import { tx, canManageDept, isAdmin, membersOnly, seesDeptLine, deptLineRule } from '../platform/workspace.ts';
+import { tx, canManageDept, isAdmin, moduleGate, hasModule, inDept, seesDeptLine, deptLineRule } from '../platform/workspace.ts';
 import { enqueue } from '../jobs/queue.ts';
 import { publish } from '../realtime/hub.ts';
 
 export const tasksRouter = Router({ mergeParams: true });
-tasksRouter.use('/tasks', membersOnly);
+tasksRouter.use('/tasks', moduleGate('tasks'));
 
 const toTask = (r: any): Task => ({
   id: r.id, departmentId: r.department_id, lineId: r.line_id, title: r.title, description: r.description,
@@ -50,12 +51,13 @@ async function visibleTask(db: pg.PoolClient, req: Request, id: string): Promise
 
 /** Permisos del usuario sobre la tarea: gestionar todo o solo trabajarla (responsable). */
 async function access(db: pg.PoolClient, req: Request, t: Task) {
-  const manage = t.createdBy === req.userId || (await canManageDept(db, req, t.departmentId));
-  return { manage, work: manage || t.assigneeIds.includes(req.userId!) };
+  const edit = hasModule(req, 'tasks', 'edit');
+  const manage = hasModule(req, 'tasks', 'manage') || (edit && t.createdBy === req.userId) || (await canManageDept(db, req, t.departmentId));
+  return { manage, work: manage || (edit && t.assigneeIds.includes(req.userId!)) };
 }
 
 const canCreateIn = async (db: pg.PoolClient, req: Request, departmentId: string) =>
-  isAdmin(req) || !!(await db.query('select 1 from member_departments where user_id = app_user() and department_id = $1', [departmentId])).rowCount;
+  isAdmin(req) || (hasModule(req, 'tasks', 'edit') && (await inDept(db, departmentId)));
 
 /** Deja solo miembros activos del workspace (la FK compuesta ya rechaza los de otro). */
 async function activeMembers(db: pg.PoolClient, ids: string[]) {

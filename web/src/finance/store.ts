@@ -9,8 +9,7 @@ import { useSession } from '@/stores/session.ts';
 
 type SessionStore = ReturnType<typeof useSession>;
 /** Owner, Admin y Contable ven Finanzas (con el módulo activo); el resto ni el menú */
-export const canUseFinance = (s: SessionStore) =>
-  !!s.workspace?.settings.financeModule && ['owner', 'admin', 'accountant'].includes(s.workspace.me.role);
+export const canUseFinance = (s: SessionStore) => !!s.workspace?.settings.financeModule && s.can('finance', 'view');
 
 export const useFinance = defineStore('finance', () => {
   const s = useSession();
@@ -26,8 +25,9 @@ export const useFinance = defineStore('finance', () => {
 
   const params = () => ({ slug: s.workspace!.slug });
   /** Solo Owner/Admin aprueban o rechazan lo que carga un Contable (ADR 0007) */
-  const canApprove = computed(() => s.isAdmin);
-  const isAccountant = computed(() => s.workspace?.me.role === 'accountant');
+  const canApprove = computed(() => s.can('finance', 'manage'));
+  // Sin «Gestionar», lo que registra queda pendiente de aprobación (antes: el Contable)
+  const isAccountant = computed(() => !s.can('finance', 'manage'));
 
   const loadCategories = async () => { categories.value = await api('GET /w/:slug/finance/expense-categories', { params: params() }); };
   const loadAccounts = async () => { accounts.value = await api('GET /w/:slug/finance/bank/accounts', { params: params() }); };

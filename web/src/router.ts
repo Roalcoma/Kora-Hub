@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import type { Module } from '@agencia-hub/contracts';
 import { useSession } from '@/stores/session.ts';
 import { onUnauthenticated, onWorkspaceBlocked } from '@/api.ts';
 import { publicConfig, loadConfig } from '@/platform/config.ts';
@@ -29,11 +30,11 @@ export const router = createRouter({
         { path: 'dms', component: () => import('@/chat/InboxPage.vue') },
         { path: 'mentions', component: () => import('@/chat/InboxPage.vue') },
         { path: 'settings/:tab?', name: 'settings', component: () => import('@/platform/SettingsPage.vue') },
-        { path: 'manuals/:id?', component: () => import('@/docs/DocsPage.vue'), meta: { view: 'manuals' } },
-        { path: 'tasks', component: () => import('@/tasks/TasksPage.vue'), meta: { view: 'tasks' } },
-        { path: 'goals', component: () => import('@/goals/GoalsPage.vue'), meta: { view: 'goals' } },
-        { path: 'sales/:tab?', component: () => import('@/sales/SalesPage.vue'), meta: { view: 'sales' } },
-        { path: 'finance/:tab?', component: () => import('@/finance/FinancePage.vue'), meta: { view: 'finance' } },
+        { path: 'manuals/:id?', component: () => import('@/docs/DocsPage.vue'), meta: { view: 'manuals', module: 'manuals' } },
+        { path: 'tasks', component: () => import('@/tasks/TasksPage.vue'), meta: { view: 'tasks', module: 'tasks' } },
+        { path: 'goals', component: () => import('@/goals/GoalsPage.vue'), meta: { view: 'goals', module: 'goals' } },
+        { path: 'sales/:tab?', component: () => import('@/sales/SalesPage.vue'), meta: { view: 'sales', module: 'sales' } },
+        { path: 'finance/:tab?', component: () => import('@/finance/FinancePage.vue'), meta: { view: 'finance', module: 'finance' } },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
@@ -64,6 +65,8 @@ router.beforeEach(async (to) => {
     } catch {
       return '/';
     }
+    // Módulo sin acceso para esta persona (Ajustes → Miembros → Módulos): a Inicio de la agencia
+    if (to.meta.module && !s.can(to.meta.module as Module)) return `/w/${to.params.slug}`;
   }
   return true;
 });

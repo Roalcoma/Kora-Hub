@@ -4,13 +4,22 @@ import { Router, type Request } from 'express';
 import type pg from 'pg';
 import { Id, ListDocumentsQuery, CreateDocumentBody, UpdateDocumentBody, type Document, type DocumentNode } from '@agencia-hub/contracts';
 import { HttpError, parse } from '../platform/http.ts';
-import { tx, canManageDept, membersOnly } from '../platform/workspace.ts';
+import { tx, canManageDept, moduleGate, hasModule, inDept } from '../platform/workspace.ts';
 import { toFileRef } from '../files/routes.ts';
 import { highlight } from '../chat/highlight.ts';
 import { sanitizeDoc } from './content.ts';
 
 export const docsRouter = Router({ mergeParams: true });
-docsRouter.use('/documents', membersOnly);
+docsRouter.use('/documents', moduleGate('manuals'));
+
+/**
+ * Editar manuales de un departamento: Admin o su Líder; con permiso «Gestionar» en Manuales, los de cualquier
+ * departamento; con «Editar», los de sus departamentos. Con «Ver», solo lectura.
+ */
+async function canEditDocs(db: pg.PoolClient, req: Request, departmentId: string) {
+  if (hasModule(req, 'manuals', 'manage') || (await canManageDept(db, req, departmentId))) return true;
+  return hasModule(req, 'manuals', 'edit') && inDept(db, departmentId);
+}
 
 // Ediciones seguidas de la misma persona se juntan en una versión (el editor guarda a menudo)
 const VERSION_WINDOW_MIN = 10;
@@ -29,14 +38,14 @@ async function getDoc(db: pg.PoolClient, req: Request, id: string): Promise<Docu
     'select f.* from document_files df join files f on f.id = df.file_id where df.document_id = $1 order by f.created_at', [id])).rows;
   return {
     ...toNode(r), content: r.content, files: files.map((f) => toFileRef(req.ws!.slug, f)),
-    updatedBy: r.updated_by, canEdit: await canManageDept(db, req, r.department_id),
+    updatedBy: r.updated_by, canEdit: await canEditDocs(db, req, r.department_id),
   };
 }
 
 async function editableDoc(db: pg.PoolClient, req: Request, id: string) {
   const r = (await db.query('select * from documents where id = $1 and archived_at is null for update', [id])).rows[0];
   if (!r) throw new HttpError(404, 'document_not_found', 'Manual no encontrado');
-  if (!(await canManageDept(db, req, r.department_id))) throw new HttpError(403, 'forbidden', 'Solo Admin o Líder del departamento edita este manual');
+  if (!(await canEditDocs(db, req, r.department_id))) throw new HttpError(403, 'forbidden', 'No tienes permiso para editar los manuales de este departamento');
   return r;
 }
 
@@ -84,7 +93,7 @@ docsRouter.get('/documents', async (req, res) => {
 docsRouter.post('/documents', async (req, res) => {
   const body = parse(CreateDocumentBody, req.body);
   const doc = await tx(req, async (db) => {
-    if (!(await canManageDept(db, req, body.departmentId))) throw new HttpError(403, 'forbidden', 'Solo Admin o Líder del departamento crea manuales');
+    if (!(await canEditDocs(db, req, body.departmentId))) throw new HttpError(403, 'forbidden', 'No tienes permiso para crear manuales en este departamento');
     await checkParent(db, body.parentId, body.departmentId);
     const { content, text } = sanitizeDoc(body.content ?? { type: 'doc', content: [] }, filePrefix(req));
     const { rows } = await db.query(

@@ -9,11 +9,18 @@ import {
   type Goal, type WeeklyReport, type GoalsDashboard,
 } from '@agencia-hub/contracts';
 import { HttpError, parse, sendCsv } from '../platform/http.ts';
-import { tx, canManageDept, isAdmin, requireRole, membersOnly, seesDeptLine } from '../platform/workspace.ts';
+import { tx, canManageDept, isAdmin, moduleGate, hasModule, inDept, seesDeptLine } from '../platform/workspace.ts';
 import { audit } from '../platform/model.ts';
 
 export const goalsRouter = Router({ mergeParams: true });
-goalsRouter.use(['/goals', '/reports'], membersOnly);
+goalsRouter.use(['/goals', '/reports'], moduleGate('goals'));
+
+/** Crear o cambiar metas: Admin; con «Gestionar» en Metas, las de sus departamentos */
+async function canManageGoals(db: pg.PoolClient, req: Request, departmentId: string) {
+  if (isAdmin(req)) return true;
+  if (!hasModule(req, 'goals', 'manage') || !(await inDept(db, departmentId))) throw new HttpError(403, 'forbidden', 'No puedes gestionar las metas de este departamento');
+  return true;
+}
 
 // ponytail: semana en horario de Nueva York para todas las agencias; zona por workspace si llegan clientes de otra costa
 export const CURRENT_WEEK = `date_trunc('week', now() at time zone 'America/New_York')::date`;
@@ -50,9 +57,8 @@ goalsRouter.get('/goals', async (req, res) => {
 });
 
 goalsRouter.post('/goals', async (req, res) => {
-  requireRole(req, 'admin');
   const body = parse(GoalBody, req.body);
-  res.status(201).json(await tx(req, async (db) => toGoal((await db.query(
+  res.status(201).json(await tx(req, async (db) => (await canManageGoals(db, req, body.departmentId)) && toGoal((await db.query(
     `insert into goals (workspace_id, department_id, line_id, name, unit, weekly_target, position)
      values (app_ws(), $1, $2, $3, $4, $5, coalesce($6, (select coalesce(max(position) + 1, 0) from goals where department_id = $1)))
      returning *`,
@@ -60,10 +66,13 @@ goalsRouter.post('/goals', async (req, res) => {
 });
 
 goalsRouter.patch('/goals/:id', async (req, res) => {
-  requireRole(req, 'admin');
   const id = Id.parse(req.params.id);
   const body = parse(UpdateGoalBody, req.body);
   res.json(await tx(req, async (db) => {
+    const cur = (await db.query(`select department_id from goals g where id = $1 and ${seesGoal(req)}`, [id])).rows[0];
+    if (!cur) throw new HttpError(404, 'goal_not_found', 'Meta no encontrada');
+    await canManageGoals(db, req, cur.department_id);
+    if (body.departmentId) await canManageGoals(db, req, body.departmentId);
     const { rows } = await db.query(
       `update goals set department_id = coalesce($2, department_id), line_id = case when $3 then $4 else line_id end,
          name = coalesce($5, name), unit = coalesce($6, unit), weekly_target = coalesce($7, weekly_target),
@@ -89,12 +98,14 @@ goalsRouter.get('/reports', async (req, res) => {
 goalsRouter.put('/reports', async (req, res) => {
   const body = parse(SubmitReportBody, req.body);
   res.json(await tx(req, async (db) => {
-    if (!(await canManageDept(db, req, body.departmentId))) throw new HttpError(403, 'forbidden', 'Solo el Líder del departamento o un Admin reporta');
+    // Reporta el Líder del departamento, un Admin o quien tenga «Editar» en Metas y sea del departamento
+    const may = (await canManageDept(db, req, body.departmentId)) || (hasModule(req, 'goals', 'edit') && (await inDept(db, body.departmentId)));
+    if (!may) throw new HttpError(403, 'forbidden', 'No puedes reportar las metas de este departamento');
     // Fechas como texto: pg convierte `date` a medianoche local y puede correr el día
     const { cur } = (await db.query(`select to_char(${CURRENT_WEEK}, 'YYYY-MM-DD') as cur`)).rows[0];
     const weeksBack = Math.round((Date.parse(cur) - Date.parse(body.weekStart)) / (7 * 86400_000));
     if (weeksBack < 0) throw new HttpError(400, 'future_week', 'No se puede reportar una semana que no empezó');
-    if (weeksBack > 1 && !isAdmin(req)) throw new HttpError(403, 'report_locked', 'Esta semana ya cerró: solo un Admin puede corregirla');
+    if (weeksBack > 1 && !hasModule(req, 'goals', 'manage')) throw new HttpError(403, 'report_locked', 'Esta semana ya cerró: solo un Admin puede corregirla');
 
     const prev = (await db.query(
       'select id from weekly_reports where department_id = $1 and week_start = $2 for update', [body.departmentId, body.weekStart])).rows[0];

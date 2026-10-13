@@ -116,7 +116,7 @@ test('permisos: Miembro e Invitado reciben 404 en todo /finance; el Contable ent
     for (const p of FINANCE_GETS) {
       const r = await c('GET', A(p));
       assert.equal(r.status, 404, `${p} → ${r.status}`);
-      assert.equal(r.body.code, 'not_found');
+      assert.equal(r.body.code, 'module_not_found');
     }
     assert.equal((await c('POST', A('/expenses'), {})).status, 404);
     assert.equal((await c('POST', A('/bank/accounts'), { name: 'X' })).status, 404);

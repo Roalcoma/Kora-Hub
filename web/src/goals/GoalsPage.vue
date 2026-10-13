@@ -30,12 +30,13 @@ const s = useSession();
 const slug = () => s.workspace!.slug;
 
 type Tab = 'dashboard' | 'report' | 'goals';
-const canReport = computed(() => s.isAdmin || s.workspace!.me.leadOfDepartmentIds.length > 0);
+const canReportIn = (d: string) => s.isAdmin || s.workspace!.me.leadOfDepartmentIds.includes(d) || (s.can('goals', 'edit') && s.workspace!.me.departmentIds.includes(d));
+const canReport = computed(() => s.workspace!.departments.some((d) => !d.archivedAt && canReportIn(d.id)));
 const tab = ref<Tab>(route.query.report && canReport.value ? 'report' : 'dashboard');
 const tabs = computed(() => [
   { value: 'dashboard' as Tab, label: t('goals.dashboard') },
   ...(canReport.value ? [{ value: 'report' as Tab, label: t('goals.report') }] : []),
-  ...(s.isAdmin ? [{ value: 'goals' as Tab, label: t('goals.goals') }] : []),
+  ...(s.can('goals', 'manage') ? [{ value: 'goals' as Tab, label: t('goals.goals') }] : []),
 ]);
 
 // ─── Tablero ───
@@ -142,7 +143,7 @@ const afterSave = () => { loadGoals(); load(); };
           <div class="miss-list">
             <span v-for="m in missingRecent" :key="m.departmentId + m.weekStart" class="miss">
               {{ t('goals.missing', { dept: s.deptName(m.departmentId), date: week(m.weekStart) }) }}
-              <button v-if="s.isAdmin || s.workspace!.me.leadOfDepartmentIds.includes(m.departmentId)" type="button" class="no-print" @click="goReport(m.departmentId)">{{ t('goals.reportNow') }}</button>
+              <button v-if="canReportIn(m.departmentId)" type="button" class="no-print" @click="goReport(m.departmentId)">{{ t('goals.reportNow') }}</button>
             </span>
           </div>
         </div>

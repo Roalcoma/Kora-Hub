@@ -167,7 +167,7 @@ test('resumen: banco, gastos pagados, nómina, resultado, comisiones, próximos 
 test('resumen: Miembro y no miembros → 404', async () => {
   const r = await ana('GET', A('/summary'));
   assert.equal(r.status, 404);
-  assert.equal(r.body.code, 'not_found');
+  assert.equal(r.body.code, 'module_not_found');
   assert.equal((await outsider('GET', A('/summary'))).status, 404);
 });
 

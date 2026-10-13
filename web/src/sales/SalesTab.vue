@@ -141,7 +141,7 @@ const cancel = () => act(() => api('POST /w/:slug/sales/:id/cancel', { params: {
       <Dropdown v-model="f.status" :options="statusOptions" :aria-label="t('sales.statusLabel')" />
       <div class="acts">
         <a :href="csvUrl" download class="exp"><Download :size="16" />CSV</a>
-        <Button v-if="s.isAdmin" variant="primary" @click="openSale(null)"><Plus :size="17" />{{ t('sales.newSale') }}</Button>
+        <Button v-if="s.can('sales', 'edit')" variant="primary" @click="openSale(null)"><Plus :size="17" />{{ t('sales.newSale') }}</Button>
       </div>
     </div>
 
@@ -158,8 +158,8 @@ const cancel = () => act(() => api('POST /w/:slug/sales/:id/cancel', { params: {
     </div>
 
     <div v-if="!items" class="grid gap-3"><Skeleton v-for="n in 4" :key="n" height="52px" /></div>
-    <EmptyState v-else-if="!rows.length" :icon="Receipt" :title="t('sales.empty')" :text="s.isAdmin ? t('sales.emptyAdmin') : t('sales.emptyMember')">
-      <Button v-if="s.isAdmin" variant="primary" @click="openSale(null)"><Plus :size="16" />{{ t('sales.newSale') }}</Button>
+    <EmptyState v-else-if="!rows.length" :icon="Receipt" :title="t('sales.empty')" :text="s.can('sales', 'edit') ? t('sales.emptyAdmin') : t('sales.emptyMember')">
+      <Button v-if="s.can('sales', 'edit')" variant="primary" @click="openSale(null)"><Plus :size="16" />{{ t('sales.newSale') }}</Button>
     </EmptyState>
     <div v-else class="table-wrap">
       <table>
@@ -167,7 +167,7 @@ const cancel = () => act(() => api('POST /w/:slug/sales/:id/cancel', { params: {
           <tr>
             <th scope="col">{{ t('sales.expectedIssue') }}</th><th scope="col">{{ t('sales.client') }}</th><th scope="col">{{ t('sales.agent') }}</th>
             <th scope="col">{{ t('sales.product') }}</th><th scope="col" class="num">{{ t('sales.amount') }}</th><th scope="col">{{ t('sales.statusLabel') }}</th>
-            <th v-if="s.isAdmin" scope="col"><span class="sr-only">{{ t('sales.actions') }}</span></th>
+            <th v-if="s.can('sales', 'edit')" scope="col"><span class="sr-only">{{ t('sales.actions') }}</span></th>
           </tr>
         </thead>
         <tbody>
@@ -183,7 +183,7 @@ const cancel = () => act(() => api('POST /w/:slug/sales/:id/cancel', { params: {
               </Badge>
               <small v-if="x.source === 'discord'" class="src">Discord</small>
             </td>
-            <td v-if="s.isAdmin" class="row-acts">
+            <td v-if="s.can('sales', 'edit')" class="row-acts">
               <template v-if="x.status === 'pending'">
                 <Button size="sm" variant="primary" @click="openIssue(x)"><CircleCheck :size="15" />ISSUE</Button>
                 <button type="button" class="ico" :title="t('sales.editSale')" :aria-label="t('sales.editSale')" @click="openSale(x)"><Pencil :size="16" /></button>

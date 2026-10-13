@@ -1,5 +1,6 @@
 // /w/:slug — configuración del workspace, miembros, invitaciones, departamentos y líneas. Todo con RLS (tx).
-import { Router } from 'express';
+import { Router, type Request } from 'express';
+import type pg from 'pg';
 import { z } from 'zod';
 import {
   Id, UpdateWorkspaceBody, UpdateMyMembershipBody, UpdateMemberBody, CreateMemberBody, SetMemberPasswordBody, CreateInvitationBody, DepartmentBody, BusinessLineBody,
@@ -8,9 +9,9 @@ import {
 import { enqueue } from '../jobs/queue.ts';
 import { HttpError, parse } from './http.ts';
 import { newToken, sha256, hashPassword } from './auth.ts';
-import { tx, requireRole } from './workspace.ts';
+import { tx, requireRole, isAdmin } from './workspace.ts';
 import { toWorkspace, toDepartment, toLine, listMembers, audit, joinDefaultChannels } from './model.ts';
-import { withAdmin } from '../db.ts';
+import { withAdmin, adminPool } from '../db.ts';
 import { seedFinanceCategories } from './template.ts';
 import { disconnectUser } from '../realtime/hub.ts';
 import { syncDepartmentChannels } from '../chat/department-channels.ts';
@@ -74,13 +75,48 @@ workspaceRouter.patch('/me', async (req, res) => {
 // ─── Miembros ───
 
 workspaceRouter.get('/members', async (req, res) => {
-  res.json(await tx(req, (db) => listMembers(db)));
+  const members = await tx(req, (db) => listMembers(db));
+  if (!isAdmin(req)) return res.json(members);
+  // Al Admin se le dice qué cuentas también están en otra agencia (o son superadmin): esas no se editan aquí
+  const { rows } = await adminPool.query(
+    `select user_id from workspace_members where user_id = any($1) and workspace_id <> $2
+     union select user_id from platform_admins where user_id = any($1)`, [members.map((m) => m.userId), req.ws!.id]);
+  const shared = new Set(rows.map((r) => r.user_id));
+  res.json(members.map((m) => ({ ...m, sharedAccount: shared.has(m.userId) })));
 });
+
+/**
+ * Cuenta que un Admin puede tocar a fondo (nombre, email, contraseña, enlace de recuperación): la persona está en esta
+ * agencia, no es Owner (salvo que quien pide lo sea) y su cuenta no está en otra agencia ni es superadmin. Si no, un Admin
+ * de una agencia podría quedarse con la cuenta de alguien que es Owner en otra.
+ */
+async function ownAccount(db: pg.PoolClient, req: Request, targetId: string) {
+  const t = (await db.query('select role from workspace_members where workspace_id = $1 and user_id = $2', [req.ws!.id, targetId])).rows[0];
+  if (!t) throw new HttpError(404, 'member_not_found', 'Miembro no encontrado');
+  if (t.role === 'owner' && req.ws!.role !== 'owner') throw new HttpError(403, 'forbidden', 'Solo un Owner cambia la cuenta de otro Owner');
+  const elsewhere = await db.query(
+    'select 1 from workspace_members where user_id = $1 and workspace_id <> $2 union all select 1 from platform_admins where user_id = $1', [targetId, req.ws!.id]);
+  if (elsewhere.rowCount) throw new HttpError(409, 'shared_account', 'Esta cuenta también está en otra agencia: estos datos los cambia la persona');
+  return t as { role: string };
+}
 
 workspaceRouter.patch('/members/:userId', async (req, res) => {
   requireRole(req, 'admin');
   const targetId = Id.parse(req.params.userId);
   const body = parse(UpdateMemberBody, req.body);
+  // Nombre y email viven en la cuenta (tabla users, fuera de la agencia): solo cuentas que son únicamente de aquí
+  if (body.name !== undefined || body.email !== undefined) {
+    await withAdmin(async (db) => {
+      await ownAccount(db, req, targetId);
+      const email = body.email?.toLowerCase();
+      if (email && (await db.query('select 1 from users where email = $1 and id <> $2', [email, targetId])).rowCount) {
+        throw new HttpError(409, 'email_taken', 'Ese email ya es de otra cuenta');
+      }
+      await db.query('update users set name = coalesce($2, name), email = coalesce($3, email) where id = $1', [targetId, body.name ?? null, email ?? null]);
+      await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'member.account_changed', targetType: 'user', targetId,
+        meta: { name: body.name, email }, ip: req.ip });
+    });
+  }
   const member = await tx(req, async (db) => {
     const target = (await db.query(
       'select role from workspace_members where workspace_id = app_ws() and user_id = $1 for update', [targetId])).rows[0];
@@ -98,6 +134,14 @@ workspaceRouter.patch('/members/:userId', async (req, res) => {
            is_active = coalesce($5, is_active)
          where workspace_id = app_ws() and user_id = $1`,
         [targetId, body.role ?? null, body.title !== undefined, body.title ?? null, body.isActive ?? null]);
+    }
+    if (body.modules) {
+      // Se fusiona con lo que ya tenía; null quita el ajuste y vuelve al valor por defecto del rol
+      const cur = (await db.query('select module_access from workspace_members where workspace_id = app_ws() and user_id = $1', [targetId])).rows[0].module_access;
+      const next = Object.fromEntries(Object.entries({ ...cur, ...body.modules }).filter(([, v]) => v != null));
+      await db.query('update workspace_members set module_access = $2 where workspace_id = app_ws() and user_id = $1', [targetId, next]);
+      await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'member.modules_changed', targetType: 'user', targetId,
+        meta: { from: cur, to: next }, ip: req.ip });
     }
     if (body.departments) {
       await db.query('delete from member_departments where workspace_id = app_ws() and user_id = $1', [targetId]);
@@ -153,7 +197,8 @@ workspaceRouter.post('/members', async (req, res) => {
       user = (await db.query('insert into users (email, name, password_hash, locale) values ($1, $2, $3, $4) returning id',
         [email, body.name, passwordHash, 'es'])).rows[0];
     }
-    await db.query('insert into workspace_members (workspace_id, user_id, role, title) values ($1, $2, $3, $4)', [wsId, user.id, body.role, body.title]);
+    await db.query('insert into workspace_members (workspace_id, user_id, role, title, module_access) values ($1, $2, $3, $4, $5)',
+      [wsId, user.id, body.role, body.title, body.modules]);
     // FK compuestas: un departamento o una línea de otra agencia hace fallar el insert
     for (const d of body.departments) {
       await db.query('insert into member_departments (workspace_id, user_id, department_id, is_lead) values ($1, $2, $3, $4)', [wsId, user.id, d.id, d.isLead]);
@@ -183,15 +228,43 @@ workspaceRouter.put('/members/:userId/password', async (req, res) => {
   const wsId = req.ws!.id;
   const passwordHash = await hashPassword(password);
   await withAdmin(async (db) => {
-    const t = (await db.query('select role from workspace_members where workspace_id = $1 and user_id = $2', [wsId, targetId])).rows[0];
-    if (!t) throw new HttpError(404, 'member_not_found', 'Miembro no encontrado');
-    if (t.role === 'owner' && req.ws!.role !== 'owner') throw new HttpError(403, 'forbidden', 'Solo un Owner cambia la contraseña de otro Owner');
-    const elsewhere = await db.query('select 1 from workspace_members where user_id = $1 and workspace_id <> $2 union all select 1 from platform_admins where user_id = $1', [targetId, wsId]);
-    if (elsewhere.rowCount) throw new HttpError(409, 'shared_account', 'Esta cuenta también está en otra agencia: la contraseña la cambia la persona');
+    await ownAccount(db, req, targetId);
     await db.query('update users set password_hash = $2, token_version = token_version + 1 where id = $1', [targetId, passwordHash]);
     await audit(db, { workspaceId: wsId, actor: req.userId!, action: 'member.password_set', targetType: 'user', targetId, ip: req.ip });
   });
   disconnectUser(targetId, wsId);
+  res.status(204).end();
+});
+
+// Enlace de recuperación generado por el Admin (todavía no hay correo saliente): se lo pasa a la persona por WhatsApp y
+// ella elige su clave en /reset. Mismas reglas que poner la contraseña. Vence en 24 h y sirve una sola vez.
+workspaceRouter.post('/members/:userId/recovery-link', async (req, res) => {
+  requireRole(req, 'admin');
+  const targetId = Id.parse(req.params.userId);
+  const token = newToken();
+  const out = await withAdmin(async (db) => {
+    await ownAccount(db, req, targetId);
+    const { rows } = await db.query(
+      "insert into password_resets (token_hash, user_id, expires_at) values ($1, $2, now() + interval '24 hours') returning expires_at",
+      [sha256(token), targetId]);
+    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'member.recovery_link', targetType: 'user', targetId, ip: req.ip });
+    return { url: `${appUrl()}/reset/${token}`, expiresAt: rows[0].expires_at.toISOString() };
+  });
+  res.status(201).json(out);
+});
+
+// Cerrar todas sus sesiones (teléfono perdido, salida de la agencia). Un Admin no lo hace con un Owner.
+workspaceRouter.post('/members/:userId/logout-all', async (req, res) => {
+  requireRole(req, 'admin');
+  const targetId = Id.parse(req.params.userId);
+  await withAdmin(async (db) => {
+    const t = (await db.query('select role from workspace_members where workspace_id = $1 and user_id = $2', [req.ws!.id, targetId])).rows[0];
+    if (!t) throw new HttpError(404, 'member_not_found', 'Miembro no encontrado');
+    if (t.role === 'owner' && req.ws!.role !== 'owner') throw new HttpError(403, 'forbidden', 'Solo un Owner cierra las sesiones de otro Owner');
+    await db.query('update users set token_version = token_version + 1 where id = $1', [targetId]);
+    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'member.logged_out', targetType: 'user', targetId, ip: req.ip });
+  });
+  disconnectUser(targetId);
   res.status(204).end();
 });
 

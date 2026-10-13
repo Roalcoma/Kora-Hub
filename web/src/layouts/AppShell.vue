@@ -46,11 +46,12 @@ const wsSub = computed(() => {
   return t('nav.trialDays', { n: days }, days);
 });
 
+// Cada módulo aparece solo si la persona tiene acceso (Ajustes → Miembros → Módulos)
 const agencyNav = computed(() => [
-  { to: `${base.value}/manuals`, icon: BookOpen, label: t('nav.manuals') },
-  { to: `${base.value}/tasks`, icon: SquareKanban, label: t('nav.tasks') },
-  { to: `${base.value}/goals`, icon: Target, label: t('nav.goals') },
-  ...(s.workspace!.settings.salesModule ? [{ to: `${base.value}/sales`, icon: BadgeDollarSign, label: t('nav.sales') }] : []),
+  ...(s.can('manuals') ? [{ to: `${base.value}/manuals`, icon: BookOpen, label: t('nav.manuals') }] : []),
+  ...(s.can('tasks') ? [{ to: `${base.value}/tasks`, icon: SquareKanban, label: t('nav.tasks') }] : []),
+  ...(s.can('goals') ? [{ to: `${base.value}/goals`, icon: Target, label: t('nav.goals') }] : []),
+  ...(s.workspace!.settings.salesModule && s.can('sales') ? [{ to: `${base.value}/sales`, icon: BadgeDollarSign, label: t('nav.sales') }] : []),
   ...(canUseFinance(s) ? [{ to: `${base.value}/finance`, icon: Landmark, label: t('nav.finance') }] : []),
   ...(s.isAdmin ? [{ to: `${base.value}/settings`, icon: Settings, label: t('nav.settings') }] : []),
 ]);
@@ -65,8 +66,8 @@ const mentionUnread = computed(() => chat.channels.filter((c) => c.isMember && c
 const tabs = computed(() => [
   { to: base.value, icon: House, label: t('nav.home'), on: route.name === 'home', badge: dmUnread.value },
   { to: `${base.value}/mentions`, icon: AtSign, label: t('nav.mentions'), on: route.path.endsWith('/mentions'), badge: mentionUnread.value },
-  { to: `${base.value}/tasks`, icon: SquareCheck, label: t('nav.tasks'), on: route.path.includes('/tasks'), badge: 0 },
-  { to: `${base.value}/goals`, icon: Target, label: t('nav.goals'), on: route.path.includes('/goals'), badge: 0 },
+  ...(s.can('tasks') ? [{ to: `${base.value}/tasks`, icon: SquareCheck, label: t('nav.tasks'), on: route.path.includes('/tasks'), badge: 0 }] : []),
+  ...(s.can('goals') ? [{ to: `${base.value}/goals`, icon: Target, label: t('nav.goals'), on: route.path.includes('/goals'), badge: 0 }] : []),
 ]);
 const moreNav = computed(() => agencyNav.value.filter((n) => !/\/(tasks|goals)$/.test(n.to)));
 const moreOn = computed(() => ['/manuals', '/sales', '/finance', '/settings'].some((p) => route.path.includes(p)));
@@ -415,7 +416,7 @@ h4 { margin: 16px 0 2px; padding: 0 16px; font-size: 12px; font-weight: 500; tex
   .fade-leave-to { opacity: 0; }
   .fade-enter-active, .fade-leave-active { box-shadow: none; }
 
-  .tabbar { grid-area: 2 / 1; position: relative; z-index: 10; display: grid; grid-template-columns: repeat(5, 1fr); padding-bottom: env(safe-area-inset-bottom, 0px); background: #0B1729; border-top: 1px solid rgb(255 255 255 / .06); box-shadow: 0 -8px 20px rgb(0 0 0 / .25); }
+  .tabbar { grid-area: 2 / 1; position: relative; z-index: 10; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding-bottom: env(safe-area-inset-bottom, 0px); background: #0B1729; border-top: 1px solid rgb(255 255 255 / .06); box-shadow: 0 -8px 20px rgb(0 0 0 / .25); }
   .in-conv { grid-template-rows: minmax(0, 1fr); }
   .in-conv .tabbar { display: none; }
   .tabbar > * { position: relative; display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 56px; padding: 0; font: inherit; font-size: 11px; color: #8FA0B8; text-decoration: none; background: none; border: 0; cursor: pointer; transition: color var(--duration); }

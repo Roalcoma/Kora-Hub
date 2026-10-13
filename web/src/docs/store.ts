@@ -43,7 +43,9 @@ export const useDocs = defineStore('docs', () => {
     nodes.value = nodes.value.filter((n) => !gone.has(n.id));
   }
 
-  const canEditDept = (deptId: string) => s.isAdmin || !!s.workspace?.me.leadOfDepartmentIds.includes(deptId);
+  // Igual que el servidor: «Gestionar» en Manuales = cualquier departamento; «Editar» = los suyos; el Líder, el suyo
+  const canEditDept = (deptId: string) => s.can('manuals', 'manage') || !!s.workspace?.me.leadOfDepartmentIds.includes(deptId)
+    || (s.can('manuals', 'edit') && !!s.workspace?.me.departmentIds.includes(deptId));
   const byId = (id: string) => nodes.value.find((n) => n.id === id);
   /** Ruta de ancestros (para las migas de pan) */
   function trail(id: string): DocumentNode[] {

@@ -55,10 +55,11 @@ export const useTasks = defineStore('tasks', () => {
 
   // ─── Permisos (los mismos que aplica el servidor) ───
   const isAdmin = () => s.isAdmin;
-  const canCreateIn = (deptId: string) => isAdmin() || !!s.workspace?.me.departmentIds.includes(deptId);
+  const edit = () => s.can('tasks', 'edit');
+  const canCreateIn = (deptId: string) => isAdmin() || (edit() && !!s.workspace?.me.departmentIds.includes(deptId));
   const creatableDepts = computed(() => (s.workspace?.departments ?? []).filter((d) => !d.archivedAt && canCreateIn(d.id)));
-  const canManage = (t: Task) => isAdmin() || t.createdBy === me() || !!s.workspace?.me.leadOfDepartmentIds.includes(t.departmentId);
-  const canWork = (t: Task) => canManage(t) || t.assigneeIds.includes(me());
+  const canManage = (t: Task) => s.can('tasks', 'manage') || (edit() && t.createdBy === me()) || !!s.workspace?.me.leadOfDepartmentIds.includes(t.departmentId);
+  const canWork = (t: Task) => canManage(t) || (edit() && t.assigneeIds.includes(me()));
 
   // ─── Acciones ───
   async function create(body: Routes['POST /w/:slug/tasks']['body']) {

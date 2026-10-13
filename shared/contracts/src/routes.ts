@@ -47,6 +47,8 @@ export type Routes = {
   'PATCH /w/:slug/members/:userId': R<In<typeof P.UpdateMemberBody>, P.Member>;              // admin
   'POST /w/:slug/members': R<In<typeof P.CreateMemberBody>, P.Member & { existingAccount: boolean }>;   // admin
   'PUT /w/:slug/members/:userId/password': R<In<typeof P.SetMemberPasswordBody>, NoContent>;    // admin
+  'POST /w/:slug/members/:userId/recovery-link': R<never, { url: string; expiresAt: string }>;  // admin: enlace para que elija su clave
+  'POST /w/:slug/members/:userId/logout-all': R<never, NoContent>;                             // admin: cierra sus sesiones
   'GET /w/:slug/invitations': R<never, P.Invitation[]>;                                      // admin
   'POST /w/:slug/invitations': R<In<typeof P.CreateInvitationBody>, P.Invitation & { url: string }>;
   'DELETE /w/:slug/invitations/:id': R<never, NoContent>;

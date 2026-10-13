@@ -1,7 +1,7 @@
 // Sesión del usuario y workspace activo.
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { Session, Routes, CategoryColor } from '@agencia-hub/contracts';
+import { ACCESS_RANK, type Session, type Routes, type CategoryColor, type Module, type AccessLevel } from '@agencia-hub/contracts';
 import { api } from '@/api.ts';
 import { i18n, setLocale } from '@/i18n/index.ts';
 
@@ -17,6 +17,8 @@ export const useSession = defineStore('session', () => {
   const user = computed(() => session.value?.user ?? null);
   const isAdmin = computed(() => ['owner', 'admin'].includes(workspace.value?.me.role ?? ''));
   const isOwner = computed(() => workspace.value?.me.role === 'owner');
+  /** ¿Tiene al menos ese nivel en el módulo? (Ajustes → Miembros → Módulos; el servidor aplica lo mismo) */
+  const can = (m: Module, min: AccessLevel = 'view') => ACCESS_RANK[workspace.value?.me.modules?.[m] ?? 'none'] >= ACCESS_RANK[min];
   const platformAdmin = computed(() => !!session.value?.platformAdmin);
   const impersonation = computed(() => session.value?.impersonation ?? null);
   const lineOf = (id: string | null) => (id ? workspace.value?.lines.find((l) => l.id === id) : undefined);
@@ -74,7 +76,7 @@ export const useSession = defineStore('session', () => {
   }
 
   return {
-    session, workspace, loaded, lineId, user, isAdmin, isOwner, platformAdmin, impersonation, lineOf, deptName, lineTone, activeLines,
+    session, workspace, loaded, can, lineId, user, isAdmin, isOwner, platformAdmin, impersonation, lineOf, deptName, lineTone, activeLines,
     industry, isInsurance, categoryLabel, cat, set, load, openWorkspace, refreshWorkspace, logout,
   };
 });

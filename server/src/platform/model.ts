@@ -1,6 +1,6 @@
 // Consultas y conversiones fila → contrato compartidas por las rutas de plataforma.
 import type pg from 'pg';
-import type { User, Workspace, Member, Department, BusinessLine, Session, Role } from '@agencia-hub/contracts';
+import { effectiveModules, type User, type Workspace, type Member, type Department, type BusinessLine, type Session, type Role } from '@agencia-hub/contracts';
 import { onlineUserIds } from '../realtime/hub.ts';
 import { adminPool } from '../db.ts';
 import type { ImpClaim } from './auth.ts';
@@ -44,12 +44,13 @@ const toMember = (r: any, online: Set<string>): Member => ({
   statusText: r.status_text, statusUntil: r.status_until?.toISOString() ?? null, isActive: r.is_active,
   departmentIds: r.dept_ids, leadOfDepartmentIds: r.lead_ids, lineIds: r.line_ids,
   presence: online.has(r.user_id) ? 'active' : 'away',
+  modules: effectiveModules(r.role, r.module_access), moduleOverrides: r.module_access ?? {},
 });
 
 /** Miembros del workspace activo (corre dentro de withWorkspace). */
 export async function listMembers(db: pg.PoolClient, userId?: string): Promise<Member[]> {
   const { rows } = await db.query(
-    `select m.workspace_id, m.user_id, u.name, u.email, m.role, m.title, m.status_text, m.status_until, m.is_active,
+    `select m.workspace_id, m.user_id, u.name, u.email, m.role, m.title, m.status_text, m.status_until, m.is_active, m.module_access,
        coalesce(array_agg(distinct md.department_id) filter (where md.department_id is not null), '{}') as dept_ids,
        coalesce(array_agg(distinct md.department_id) filter (where md.is_lead), '{}') as lead_ids,
        coalesce(array_agg(distinct ml.line_id) filter (where ml.line_id is not null), '{}') as line_ids
@@ -58,7 +59,7 @@ export async function listMembers(db: pg.PoolClient, userId?: string): Promise<M
      left join member_departments md on md.workspace_id = m.workspace_id and md.user_id = m.user_id
      left join member_lines ml on ml.workspace_id = m.workspace_id and ml.user_id = m.user_id
      where m.workspace_id = app_ws() and ($1::uuid is null or m.user_id = $1)
-     group by m.workspace_id, m.user_id, u.id
+     group by m.workspace_id, m.user_id, m.module_access, u.id
      order by u.name`,
     [userId ?? null],
   );

@@ -23,11 +23,13 @@ const s = useSession();
 const chat = useChat();
 const slug = () => s.workspace!.slug;
 
-const myDepts = computed(() => s.workspace!.departments.filter((x) => !x.archivedAt && (s.isAdmin || s.workspace!.me.leadOfDepartmentIds.includes(x.id))));
+// Reporta el Líder, un Admin o quien tenga «Editar» en Metas y sea del departamento (igual que el servidor)
+const myDepts = computed(() => s.workspace!.departments.filter((x) => !x.archivedAt && (s.isAdmin || s.workspace!.me.leadOfDepartmentIds.includes(x.id)
+  || (s.can('goals', 'edit') && s.workspace!.me.departmentIds.includes(x.id)))));
 const dept = ref(props.initialDept && myDepts.value.some((x) => x.id === props.initialDept) ? props.initialDept : myDepts.value[0]?.id ?? '');
 const deptOptions = computed(() => myDepts.value.map((x) => ({ value: x.id, label: x.name })));
 // Líder: esta semana y la anterior. Admin: las 12 del tablero.
-const weekOptions = computed(() => [...props.weeks].reverse().slice(0, s.isAdmin ? 12 : 2).map((w, i) => ({
+const weekOptions = computed(() => [...props.weeks].reverse().slice(0, s.can('goals', 'manage') ? 12 : 2).map((w, i) => ({
   value: w, label: i === 0 ? t('goals.thisWeekOf', { date: label(w) }) : i === 1 ? t('goals.lastWeekOf', { date: label(w) }) : t('goals.weekOf', { date: label(w) }),
 })));
 const week = ref(props.weeks.at(-1) ?? '');

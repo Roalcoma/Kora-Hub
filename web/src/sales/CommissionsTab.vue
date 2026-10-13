@@ -179,7 +179,7 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
         </div>
       </div>
 
-      <div v-if="s.isAdmin && selected.size" class="bulk">
+      <div v-if="s.can('sales', 'manage') && selected.size" class="bulk">
         <span>{{ t('sales.selected', { n: selected.size }, selected.size) }}</span>
         <label class="date">{{ t('sales.paidOn') }}<input v-model="payDate" type="date"></label>
         <Button variant="primary" :loading="busy" :disabled="!payDate" @click="pay(true)"><CircleCheck :size="16" />{{ t('sales.markPaid') }}</Button>
@@ -189,7 +189,7 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th v-if="s.isAdmin" scope="col"><input type="checkbox" :checked="allOn" :aria-label="t('sales.selectAll', { n: payable.length })" :title="t('sales.selectAll', { n: payable.length })" @change="toggleAll"></th>
+            <th v-if="s.can('sales', 'manage')" scope="col"><input type="checkbox" :checked="allOn" :aria-label="t('sales.selectAll', { n: payable.length })" :title="t('sales.selectAll', { n: payable.length })" @change="toggleAll"></th>
             <th scope="col">{{ t('sales.dueDate') }}</th><th scope="col">{{ t('sales.beneficiary') }}</th><th scope="col">{{ t('sales.concept') }}</th>
             <th scope="col">{{ t('sales.client') }}</th><th scope="col">{{ t('sales.product') }}</th>
             <th scope="col" class="num">{{ t('sales.saleAmount') }}</th><th scope="col" class="num">{{ t('sales.levelRate') }}</th>
@@ -197,7 +197,7 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
           </tr></thead>
           <tbody>
             <tr v-for="i in pageRows" :id="`inst-${i.id}`" :key="i.id" :class="{ off: i.status === 'void', flash: flash === i.id }">
-              <td v-if="s.isAdmin"><input v-if="i.status !== 'void'" type="checkbox" :checked="selected.has(i.id)" :aria-label="i.sale.clientName" @change="toggle(i.id)"></td>
+              <td v-if="s.can('sales', 'manage')"><input v-if="i.status !== 'void'" type="checkbox" :checked="selected.has(i.id)" :aria-label="i.sale.clientName" @change="toggle(i.id)"></td>
               <td class="nowrap">{{ day(i.dueDate) }}</td>
               <td>{{ ref_.agentName(i.beneficiaryAgentId) }}</td>
               <td class="concept">
