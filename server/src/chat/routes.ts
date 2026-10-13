@@ -8,7 +8,7 @@ import { adminPool } from '../db.ts';
 import { HttpError, parse } from '../platform/http.ts';
 import { syncDepartmentChannels, assertNotDepartmentChannel } from './department-channels.ts';
 import { newToken, sha256 } from '../platform/auth.ts';
-import { tx, requireRole } from '../platform/workspace.ts';
+import { tx, requireRole, canManageDept } from '../platform/workspace.ts';
 import { ROLE_RANK } from '../platform/model.ts';
 import { enqueue } from '../jobs/queue.ts';
 import { publish, publishToChannel, channelMemberIds, limitTicket } from '../realtime/hub.ts';
@@ -43,6 +43,10 @@ chatRouter.post('/channels', async (req, res) => {
   if (req.ws!.role === 'guest') throw new HttpError(403, 'forbidden', 'Los invitados no crean canales');
   const body = parse(CreateChannelBody, req.body);
   const channel = await tx(req, async (db) => {
+    // Un canal de departamento decide quién entra: lo crea un Admin o el Líder de ese departamento
+    if (body.departmentId && !(await canManageDept(db, req, body.departmentId))) {
+      throw new HttpError(403, 'forbidden', 'Solo un Admin o el Líder del departamento crea sus canales');
+    }
     const exists = await db.query('select 1 from channels where workspace_id = app_ws() and lower(name) = $1', [body.name]);
     if (exists.rowCount) throw new HttpError(409, 'channel_name_taken', 'Ya existe un canal con ese nombre');
     const { rows } = await db.query(
@@ -73,6 +77,11 @@ chatRouter.patch('/channels/:id', async (req, res) => {
     const canEdit = isAdmin(req.ws!.role) || (c.kind !== 'announcement' && c.createdBy === req.userId);
     if (!canEdit) throw new HttpError(403, 'forbidden', 'Solo quien creó el canal o un Admin puede cambiarlo');
     if (body.archived && c.kind === 'announcement') throw new HttpError(400, 'cannot_archive', 'No se puede archivar #anuncios');
+    if (body.departmentId !== undefined || body.lineId !== undefined) {
+      const dept = body.departmentId !== undefined ? body.departmentId
+        : (await db.query('select department_id from channels where id = $1', [id])).rows[0].department_id;
+      if (dept && !(await canManageDept(db, req, dept))) throw new HttpError(403, 'forbidden', 'Solo un Admin o el Líder del departamento cambia sus canales');
+    }
     const set: string[] = [];
     const vals: unknown[] = [id];
     const add = (col: string, v: unknown) => { vals.push(v); set.push(`${col} = $${vals.length}`); };

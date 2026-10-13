@@ -1,5 +1,6 @@
 <script setup lang="ts">
 // Secciones del sidebar: Anuncios, Destacados, Canales y Mensajes directos. Filtra por la línea de negocio activa.
+// Canales en cascada: bajo el canal general de un departamento (sin línea) cuelgan los de sus líneas.
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -23,7 +24,29 @@ const byLine = (c: Channel) => !s.lineId || !c.lineId || c.lineId === s.lineId;
 const isDm = (c: Channel) => c.kind === 'dm' || c.kind === 'group_dm';
 const announcement = computed(() => mine.value.find((c) => c.kind === 'announcement'));
 const starred = computed(() => mine.value.filter((c) => c.starred && c.kind !== 'announcement' && byLine(c)));
-const channels = computed(() => mine.value.filter((c) => !c.starred && !isDm(c) && c.kind !== 'announcement' && byLine(c)));
+const tree = computed(() => {
+  const flat = mine.value.filter((c) => !c.starred && !isDm(c) && c.kind !== 'announcement' && byLine(c));
+  // Un solo canal general por departamento (el privado, si hay público y privado): de él cuelgan los de línea
+  const general = new Map<string, Channel>();
+  for (const c of flat) {
+    if (c.departmentId && !c.lineId && (!general.has(c.departmentId) || c.kind === 'private')) general.set(c.departmentId, c);
+  }
+  const linePos = (c: Channel) => s.workspace!.lines.findIndex((l) => l.id === c.lineId);
+  const sub = new Set<string>();
+  const out: Channel[] = [];
+  for (const c of flat) {
+    if (c.lineId && c.departmentId && general.has(c.departmentId)) continue;   // va debajo de su canal general
+    out.push(c);
+    if (c.departmentId && general.get(c.departmentId) === c) {
+      for (const k of flat.filter((x) => x.departmentId === c.departmentId && x.lineId).sort((a, b) => linePos(a) - linePos(b))) {
+        sub.add(k.id);
+        out.push(k);
+      }
+    }
+  }
+  return { out, sub };
+});
+const channels = computed(() => tree.value.out);
 const dms = computed(() => mine.value.filter((c) => isDm(c) && !c.starred)
   .sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? '')).slice(0, 15));
 
@@ -54,7 +77,7 @@ const sections = computed(() => [
       </h4>
       <template v-if="!collapsed[sec.key]">
         <RouterLink v-for="c in sec.items" :key="c.id" :to="`${base}/c/${c.id}`" class="item"
-          :class="{ active: active(c), unread: c.unreadCount && !c.muted, muted: c.muted }">
+          :class="{ active: active(c), unread: c.unreadCount && !c.muted, muted: c.muted, sub: sec.key === 'channels' && tree.sub.has(c.id) }">
           <template v-if="isDm(c)">
             <Avatar v-if="c.kind === 'dm'" :name="peer(c)?.name ?? '?'" :size="20" :presence="peer(c)?.presence" />
             <span v-else class="grp"><Users :size="13" /></span>
@@ -90,6 +113,9 @@ h4:hover .plus, .plus:focus-visible { opacity: 1; }
 .item.active { background: var(--color-ink-soft); color: #fff; font-weight: 500; box-shadow: 0 6px 16px rgb(0 0 0 / .28); z-index: 1; }
 .item.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--color-primary); }
 .item.ann { margin-top: 4px; }
+/* Canal de una línea bajo el general de su departamento: sangría y guía vertical */
+.item.sub { padding-left: 38px; font-size: 14px; }
+.item.sub::after { content: ''; position: absolute; left: 23px; top: 0; bottom: 0; width: 1px; background: rgb(255 255 255 / .14); }
 .item.add { color: #8FA0B8; font-size: 14px; }
 .item.add:hover { color: var(--color-cta); }
 .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

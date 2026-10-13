@@ -190,7 +190,7 @@ export const useChat = defineStore('chat', () => {
     if (i >= 0) channels.value[i] = { ...channels.value[i], ...c };
     else channels.value.push(c);
   }
-  async function createChannel(body: { kind: 'public' | 'private'; name: string; topic?: string; memberIds: string[] }) {
+  async function createChannel(body: { kind: 'public' | 'private'; name: string; topic?: string; departmentId?: string; lineId?: string; memberIds: string[] }) {
     const c = await api('POST /w/:slug/channels', { params: { slug: slug() }, body });
     upsertChannel(c);
     return c;

@@ -156,6 +156,27 @@ test('canal privado de departamento con línea: lo integran los de esa línea, l
   assert.deepEqual(await members(), [id.owner, id.ana, id.beto, id.carla].sort());
 });
 
+test('cascada: el canal general del departamento junta a todos; el de la línea, solo a los suyos', async () => {
+  const general = (await owner('POST', `/w/${slugA}/channels`, { kind: 'private', name: 'ventas-general', departmentId: id.ventas })).body.id;
+  const salud = (await carla('POST', `/w/${slugA}/channels`, { kind: 'private', name: 'ventas-salud', departmentId: id.ventas, lineId: id.salud })).body.id;
+  const of = async (ch: string) => ((await owner('GET', `/w/${slugA}/channels/${ch}/members`)).body as string[]).sort();
+  assert.deepEqual(await of(general), [id.owner, id.ana, id.beto, id.carla].sort());
+  assert.deepEqual(await of(salud), [id.owner, id.beto, id.carla].sort());   // Ana es de Vida: fuera
+  assert.ok(!(await ana('GET', `/w/${slugA}/channels`)).body.some((c: any) => c.id === salud));
+});
+
+test('permiso: solo un Admin o el Líder de ese departamento crea o cambia sus canales', async () => {
+  const r = await ana('POST', `/w/${slugA}/channels`, { kind: 'private', name: 'ventas-ana', departmentId: id.ventas });
+  assert.equal(r.status, 403);
+  // Carla lidera Ventas, no Servicio
+  assert.equal((await carla('POST', `/w/${slugA}/channels`, { kind: 'private', name: 'servicio-x', departmentId: id.servicio })).status, 403);
+  // Ana crea un privado sin departamento (elige personas) y no puede ligarlo después
+  const mine = await ana('POST', `/w/${slugA}/channels`, { kind: 'private', name: 'equipo-ana', memberIds: [id.beto] });
+  assert.equal(mine.status, 201);
+  assert.equal((await ana('PATCH', `/w/${slugA}/channels/${mine.body.id}`, { departmentId: id.ventas })).status, 403);
+  assert.equal((await ana('PATCH', `/w/${slugA}/channels/${mine.body.id}`, { topic: 'Seguimiento' })).status, 200);
+});
+
 test('permiso: un Miembro no puede cambiarse las líneas para ver más', async () => {
   assert.equal((await ana('PATCH', `/w/${slugA}/members/${id.ana}`, { lineIds: [id.salud, id.vida] })).status, 403);
   assert.deepEqual(await seen(ana), ['ventas', 'vida']);
