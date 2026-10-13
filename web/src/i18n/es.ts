@@ -92,6 +92,7 @@ export default {
     notifMentions: 'Solo menciones', notifNone: 'Nada', mute: 'Silenciar canal', unmute: 'Quitar silencio', muted: 'Silenciado',
     createChannel: 'Crear canal', channelName: 'Nombre', channelNameHint: 'Minúsculas, sin espacios. Ej.: ventas-norte',
     topic: 'Tema', private: 'Privado', privateHint: 'Solo lo ven las personas que agregues.', create: 'Crear',
+    expandGroup: 'Desplegar', collapseGroup: 'Contraer',
     linkDepartment: 'Ligar a un departamento', noDepartment: 'Ninguno: elijo personas', general: 'general',
     generalAllLines: 'General (todas las {categoriesLc})', allLines: 'Todas las {categoriesLc}', allDepartments: 'Todos los departamentos',
     filterDepartment: 'Filtrar por departamento', selectAll: 'Elegir todos ({n})', unselectAll: 'Quitar todos',
