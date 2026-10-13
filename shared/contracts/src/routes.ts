@@ -45,6 +45,8 @@ export type Routes = {
   'POST /w/:slug/ws-ticket': R<never, WsTicketResponse>;
   'GET /w/:slug/members': R<never, P.Member[]>;
   'PATCH /w/:slug/members/:userId': R<In<typeof P.UpdateMemberBody>, P.Member>;              // admin
+  'POST /w/:slug/members': R<In<typeof P.CreateMemberBody>, P.Member & { existingAccount: boolean }>;   // admin
+  'PUT /w/:slug/members/:userId/password': R<In<typeof P.SetMemberPasswordBody>, NoContent>;    // admin
   'GET /w/:slug/invitations': R<never, P.Invitation[]>;                                      // admin
   'POST /w/:slug/invitations': R<In<typeof P.CreateInvitationBody>, P.Invitation & { url: string }>;
   'DELETE /w/:slug/invitations/:id': R<never, NoContent>;

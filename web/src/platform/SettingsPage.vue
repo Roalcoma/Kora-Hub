@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { Building2, ShieldCheck, LogOut, UserPlus, BadgeDollarSign, Landmark } from 'lucide-vue-next';
+import { Building2, ShieldCheck, LogOut, UserPlus, BadgeDollarSign, Landmark, KeyRound, UserRoundPlus } from 'lucide-vue-next';
 import { INDUSTRIES, type Industry, type Member, type Role } from '@agencia-hub/contracts';
 import { api } from '@/api.ts';
 import { useSession } from '@/stores/session.ts';
@@ -14,6 +14,7 @@ import Button from '@/design/Button.vue';
 import Input from '@/design/Input.vue';
 import Dropdown from '@/design/Dropdown.vue';
 import SlideOver from '@/design/SlideOver.vue';
+import Modal from '@/design/Modal.vue';
 import Skeleton from '@/design/Skeleton.vue';
 import { toast } from '@/design/toast.ts';
 import { toneColor } from '@/design/types.ts';
@@ -84,11 +85,59 @@ function editDepts(m: Member) {
   draftDepts.value = Object.fromEntries(s.workspace!.departments.map((d) => [d.id,
     m.leadOfDepartmentIds.includes(d.id) ? 'lead' : m.departmentIds.includes(d.id) ? 'member' : 'none']));
 }
+const pickedDepts = () => Object.entries(draftDepts.value).filter(([, v]) => v !== 'none').map(([id, v]) => ({ id, isLead: v === 'lead' }));
 async function saveDepts() {
   const m = editing.value!;
-  const departments = Object.entries(draftDepts.value).filter(([, v]) => v !== 'none').map(([id, v]) => ({ id, isLead: v === 'lead' }));
+  const departments = pickedDepts();
   await patchMember(m, { departments, ...(s.activeLines.length ? { lineIds: draftLines.value } : {}) }, t('common.saved'));
   editing.value = null;
+}
+
+// ─── Crear usuario: el Admin define la contraseña (no hace falta correo ni enlace) ───
+const newOpen = ref(false);
+const nu = reactive({ name: '', email: '', password: '', role: 'member' as Role, title: '' });
+const nuError = ref<string | null>(null);
+const nuBusy = ref(false);
+const newRoleOptions = computed(() => roleOptions.value.filter((o) => o.value !== 'owner' || s.isOwner));
+function openNew() {
+  Object.assign(nu, { name: '', email: '', password: '', role: 'member', title: '' });
+  nuError.value = null;
+  draftDepts.value = Object.fromEntries(s.workspace!.departments.map((d) => [d.id, 'none']));
+  draftLines.value = [];
+  newOpen.value = true;
+}
+async function createUser() {
+  nuBusy.value = true;
+  nuError.value = null;
+  try {
+    const { existingAccount, ...m } = await api('POST /w/:slug/members', { params: { slug: slug.value }, body: {
+      name: nu.name.trim(), email: nu.email.trim(), password: nu.password, role: nu.role, title: nu.title.trim() || null,
+      departments: pickedDepts(), lineIds: draftLines.value } });
+    members.value?.push(m);
+    toast(existingAccount ? t('settings.userExisting', { name: m.name }) : t('settings.userCreated', { name: m.name }), 'success');
+    newOpen.value = false;
+  } catch (e) {
+    nuError.value = errorText(e);
+  } finally {
+    nuBusy.value = false;
+  }
+}
+
+// ─── Contraseña nueva para alguien de la agencia ───
+const pwFor = ref<Member | null>(null);
+const pwOpen = computed({ get: () => !!pwFor.value, set: (v) => { if (!v) pwFor.value = null; } });
+const newPw = ref('');
+const pwError = ref<string | null>(null);
+function openPw(m: Member) { pwFor.value = m; newPw.value = ''; pwError.value = null; }
+async function savePw() {
+  pwError.value = null;
+  try {
+    await api('PUT /w/:slug/members/:userId/password', { params: { slug: slug.value, userId: pwFor.value!.userId }, body: { password: newPw.value } });
+    toast(t('settings.passwordSet', { name: pwFor.value!.name }), 'success');
+    pwFor.value = null;
+  } catch (e) {
+    pwError.value = errorText(e);
+  }
 }
 
 // ─── Agencia ───
@@ -178,7 +227,8 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
           <span><b>{{ members.filter((m) => m.isActive).length }}</b> {{ t('settings.activeMembers') }}</span>
           <span><b>{{ members.filter((m) => ['owner', 'admin'].includes(m.role)).length }}</b> {{ t('settings.admins') }}</span>
           <span><b>{{ members.filter((m) => m.leadOfDepartmentIds.length).length }}</b> {{ t('settings.leads') }}</span>
-          <Button variant="primary" class="ml-auto" @click="tab = 'invitations'"><UserPlus :size="16" />{{ t('settings.invitePeople') }}</Button>
+          <Button class="ml-auto" @click="tab = 'invitations'"><UserPlus :size="16" />{{ t('settings.invitePeople') }}</Button>
+          <Button variant="primary" @click="openNew"><UserRoundPlus :size="16" />{{ t('settings.createUser') }}</Button>
         </div>
         <div v-if="!members" class="grid gap-3"><Skeleton v-for="n in 4" :key="n" height="52px" /></div>
         <ul v-else class="list">
@@ -197,6 +247,7 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
             <Dropdown :model-value="m.role" :options="roleOptions" class="role" :disabled="m.userId === s.user!.id"
               @update:model-value="(r) => r && r !== m.role && patchMember(m, { role: r }, t('settings.roleChanged'))" />
             <Button size="sm" @click="editDepts(m)"><Building2 :size="15" />{{ t('settings.departments') }}</Button>
+            <Button v-if="m.userId !== s.user!.id" size="sm" variant="ghost" :aria-label="t('settings.setPassword')" @click="openPw(m)"><KeyRound :size="15" /></Button>
             <Button v-if="m.userId !== s.user!.id" size="sm" variant="ghost" @click="patchMember(m, { isActive: !m.isActive }, t('common.saved'))">
               {{ m.isActive ? t('settings.deactivate') : t('settings.reactivate') }}
             </Button>
@@ -223,6 +274,54 @@ onMounted(() => { if (!route.params.tab) tab.value = tabs.value[0]!.value; });
             <Button variant="primary" class="mt-3" @click="saveDepts">{{ t('common.save') }}</Button>
           </div>
         </SlideOver>
+
+        <Modal v-model="newOpen" :title="t('settings.createUser')" :subtitle="t('settings.createUserHint')" width="560px">
+          <form id="new-user" class="grid gap-4" @submit.prevent="createUser">
+            <div class="pair2">
+              <Input v-model="nu.name" :label="t('settings.fullName')" required />
+              <Input v-model="nu.email" type="email" label="Email" autocomplete="off" required />
+            </div>
+            <div class="pair2">
+              <Input v-model="nu.password" type="text" :label="t('settings.password')" :hint="t('settings.passwordHint')" autocomplete="new-password" required />
+              <Dropdown v-model="nu.role" :options="newRoleOptions" :label="t('settings.role')" />
+            </div>
+            <Input v-model="nu.title" :label="t('settings.jobTitle')" />
+            <div class="grid gap-2">
+              <h3 class="lines-h">{{ t('settings.departments') }}</h3>
+              <div v-for="dpt in s.workspace!.departments.filter((x) => !x.archivedAt)" :key="dpt.id" class="dept">
+                <span class="flex-1">{{ dpt.name }}</span>
+                <div class="seg" role="radiogroup" :aria-label="dpt.name">
+                  <button v-for="v in (['none', 'member', 'lead'] as const)" :key="v" type="button" role="radio" :aria-checked="draftDepts[dpt.id] === v"
+                    @click="draftDepts[dpt.id] = v">{{ v === 'none' ? '—' : v === 'lead' ? t('settings.lead') : t('roles.member') }}</button>
+                </div>
+              </div>
+              <template v-if="s.activeLines.length">
+                <h3 class="lines-h">{{ s.cat.categories }}</h3>
+                <p class="hint">{{ t('settings.memberLinesHint', s.cat) }}</p>
+                <div class="line-picks">
+                  <button v-for="l in s.activeLines" :key="l.id" type="button" role="checkbox" :aria-checked="draftLines.includes(l.id)" @click="toggleLine(l.id)">
+                    <span class="dot" :style="{ background: toneColor(s.lineTone(l.id), true) }" />{{ l.name }}
+                  </button>
+                </div>
+              </template>
+            </div>
+            <p v-if="nuError" class="text-sm text-danger">{{ nuError }}</p>
+          </form>
+          <template #footer>
+            <Button @click="newOpen = false">{{ t('common.cancel') }}</Button>
+            <Button type="submit" form="new-user" variant="primary" :loading="nuBusy" :disabled="!nu.name.trim() || !nu.email.trim() || nu.password.length < 10">{{ t('settings.createUser') }}</Button>
+          </template>
+        </Modal>
+
+        <Modal v-model="pwOpen" :title="t('settings.setPassword')" :subtitle="pwFor?.name" width="440px">
+          <form id="set-pw" class="grid gap-3" @submit.prevent="savePw">
+            <Input v-model="newPw" type="text" :label="t('settings.newPassword')" :hint="t('settings.setPasswordHint')" autocomplete="new-password" :error="pwError" />
+          </form>
+          <template #footer>
+            <Button @click="pwFor = null">{{ t('common.cancel') }}</Button>
+            <Button type="submit" form="set-pw" variant="primary" :disabled="newPw.length < 10">{{ t('common.save') }}</Button>
+          </template>
+        </Modal>
       </section>
 
       <InvitePanel v-else-if="tab === 'invitations'" />
@@ -369,6 +468,7 @@ h2 { margin: 0; font-size: 17px; }
 .dept { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--color-line); }
 .seg { display: flex; border: 1px solid var(--color-line-strong); }
 .lines-h { margin: 18px 0 0; font-size: 14px; }
+.pair2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
 .line-picks { display: flex; flex-wrap: wrap; gap: 8px; }
 .line-picks button { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 14px; font: inherit; font-size: 14px; color: var(--color-ink); background: var(--color-surface); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-sm); cursor: pointer; }
 .line-picks button[aria-checked="true"] { background: var(--color-ink); color: #fff; border-color: var(--color-ink); }

@@ -2,14 +2,15 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import {
-  Id, UpdateWorkspaceBody, UpdateMyMembershipBody, UpdateMemberBody, CreateInvitationBody, DepartmentBody, BusinessLineBody,
+  Id, UpdateWorkspaceBody, UpdateMyMembershipBody, UpdateMemberBody, CreateMemberBody, SetMemberPasswordBody, CreateInvitationBody, DepartmentBody, BusinessLineBody,
   type Invitation,
 } from '@agencia-hub/contracts';
 import { enqueue } from '../jobs/queue.ts';
 import { HttpError, parse } from './http.ts';
-import { newToken, sha256 } from './auth.ts';
+import { newToken, sha256, hashPassword } from './auth.ts';
 import { tx, requireRole } from './workspace.ts';
-import { toWorkspace, toDepartment, toLine, listMembers, audit } from './model.ts';
+import { toWorkspace, toDepartment, toLine, listMembers, audit, joinDefaultChannels } from './model.ts';
+import { withAdmin } from '../db.ts';
 import { seedFinanceCategories } from './template.ts';
 import { disconnectUser } from '../realtime/hub.ts';
 import { syncDepartmentChannels } from '../chat/department-channels.ts';
@@ -129,6 +130,67 @@ workspaceRouter.patch('/members/:userId', async (req, res) => {
   }
   if (body.isActive === false) disconnectUser(req.params.userId as string, req.ws!.id);
   res.json(member);
+});
+
+// Crear la cuenta desde Ajustes (Admin), con contraseña, departamentos y líneas: sin correo ni enlace de invitación.
+// La tabla users no es de la agencia (sin grant para agencia_app): va por adminPool, con el workspace fijado a mano.
+workspaceRouter.post('/members', async (req, res) => {
+  requireRole(req, 'admin');
+  const body = parse(CreateMemberBody, req.body);
+  if (body.role === 'owner' && req.ws!.role !== 'owner') throw new HttpError(403, 'forbidden', 'Solo un Owner crea otro Owner');
+  const wsId = req.ws!.id;
+  const passwordHash = await hashPassword(body.password);
+  const out = await withAdmin(async (db) => {
+    await db.query(`select set_config('app.workspace_id', $1, true)`, [wsId]);
+    const email = body.email.toLowerCase();
+    let user = (await db.query('select id from users where email = $1', [email])).rows[0];
+    const existingAccount = !!user;
+    if (user) {
+      const member = await db.query('select 1 from workspace_members where workspace_id = $1 and user_id = $2', [wsId, user.id]);
+      if (member.rowCount) throw new HttpError(409, 'already_member', 'Esa persona ya está en la agencia');
+    } else {
+      user = (await db.query('insert into users (email, name, password_hash, locale) values ($1, $2, $3, $4) returning id',
+        [email, body.name, passwordHash, 'es'])).rows[0];
+    }
+    await db.query('insert into workspace_members (workspace_id, user_id, role, title) values ($1, $2, $3, $4)', [wsId, user.id, body.role, body.title]);
+    // FK compuestas: un departamento o una línea de otra agencia hace fallar el insert
+    for (const d of body.departments) {
+      await db.query('insert into member_departments (workspace_id, user_id, department_id, is_lead) values ($1, $2, $3, $4)', [wsId, user.id, d.id, d.isLead]);
+    }
+    for (const l of body.lineIds) await db.query('insert into member_lines (workspace_id, user_id, line_id) values ($1, $2, $3)', [wsId, user.id, l]);
+    await joinDefaultChannels(db, wsId, user.id);
+    await syncDepartmentChannels(db, wsId, { userId: user.id });
+    await audit(db, { workspaceId: wsId, actor: req.userId!, action: 'member.created', targetType: 'user', targetId: user.id,
+      meta: { role: body.role, existingAccount }, ip: req.ip });
+    return { ...(await listMembers(db, user.id))[0]!, existingAccount };
+  }).catch((e) => {
+    if (e?.code === '23503') throw new HttpError(400, 'invalid_reference', 'Departamento o línea no válidos');
+    throw e;
+  });
+  if (body.role !== 'guest') await enqueueSeatSync(wsId);
+  res.status(201).json(out);
+});
+
+// Poner una contraseña nueva a alguien de la agencia (Admin). Solo cuentas que no están en otra agencia: así un Admin no
+// toma la cuenta de alguien que también es Owner en otro lado. Cierra todas sus sesiones.
+workspaceRouter.put('/members/:userId/password', async (req, res) => {
+  requireRole(req, 'admin');
+  const targetId = Id.parse(req.params.userId);
+  const { password } = parse(SetMemberPasswordBody, req.body);
+  if (targetId === req.userId) throw new HttpError(400, 'use_profile', 'Tu contraseña se cambia desde Mi perfil');
+  const wsId = req.ws!.id;
+  const passwordHash = await hashPassword(password);
+  await withAdmin(async (db) => {
+    const t = (await db.query('select role from workspace_members where workspace_id = $1 and user_id = $2', [wsId, targetId])).rows[0];
+    if (!t) throw new HttpError(404, 'member_not_found', 'Miembro no encontrado');
+    if (t.role === 'owner' && req.ws!.role !== 'owner') throw new HttpError(403, 'forbidden', 'Solo un Owner cambia la contraseña de otro Owner');
+    const elsewhere = await db.query('select 1 from workspace_members where user_id = $1 and workspace_id <> $2 union all select 1 from platform_admins where user_id = $1', [targetId, wsId]);
+    if (elsewhere.rowCount) throw new HttpError(409, 'shared_account', 'Esta cuenta también está en otra agencia: la contraseña la cambia la persona');
+    await db.query('update users set password_hash = $2, token_version = token_version + 1 where id = $1', [targetId, passwordHash]);
+    await audit(db, { workspaceId: wsId, actor: req.userId!, action: 'member.password_set', targetType: 'user', targetId, ip: req.ip });
+  });
+  disconnectUser(targetId, wsId);
+  res.status(204).end();
 });
 
 // ─── Invitaciones ───

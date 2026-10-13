@@ -135,6 +135,13 @@ export const UpdateMemberBody = z.object({
   departments: z.array(z.object({ id: Id, isLead: z.boolean() })), lineIds: z.array(Id),
 }).partial();
 
+/** Admin crea la cuenta con contraseña (sin correo ni invitación). Si el email ya tiene cuenta, solo se agrega a la agencia. */
+export const CreateMemberBody = z.object({
+  name: Name, email: z.email(), password: Password, role: Role.default('member'), title: z.string().max(80).nullable().default(null),
+  departments: z.array(z.object({ id: Id, isLead: z.boolean() })).default([]), lineIds: z.array(Id).default([]),
+});
+export const SetMemberPasswordBody = z.object({ password: Password });
+
 export const DepartmentBody = z.object({ name: Name, position: z.number().int().optional() });
 export const BusinessLineBody = z.object({ name: Name, color: CategoryColor.nullable().optional(), position: z.number().int().optional() });
 
