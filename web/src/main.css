@@ -2,6 +2,9 @@
 @import "./design/tokens.css";
 
 html, body, #app { height: var(--app-h, 100%); }
+/* Teléfono: lo que quede debajo de la app (alto mal informado por iOS, rebote del scroll) toma el color de la barra
+   inferior; así nunca aparece una franja blanca */
+@media (max-width: 767px) { html { background: #0B1729; } }
 body {
   margin: 0;
   background: var(--color-canvas);

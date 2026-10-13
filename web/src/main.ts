@@ -10,11 +10,22 @@ import { setNavigating } from './design/progress.ts';
 import { installPress } from './design/press.ts';
 import './main.css';
 
-// iOS con la app instalada y la barra de estado translúcida calcula el 100 % sin la barra de estado y deja una franja
-// vacía abajo; la altura real de la ventana sí es correcta
-const setAppHeight = () => document.documentElement.style.setProperty('--app-h', `${window.innerHeight}px`);
+// iOS con la app instalada y la barra de estado translúcida a veces informa un alto menor que la pantalla (al abrir, al
+// volver de segundo plano, con una llamada en curso) y deja una franja abajo. Instalada en iPhone la app ocupa toda la
+// pantalla: se usa el mayor entre el alto de la ventana y el de la pantalla, y se vuelve a medir en cada cambio.
+// Lo que igual quede debajo tiene el color de la barra inferior (main.css), nunca blanco.
+const iosApp = /iPhone|iPod/.test(navigator.userAgent) && (navigator as { standalone?: boolean }).standalone === true;
+const setAppHeight = () => {
+  const portrait = window.innerHeight >= window.innerWidth;
+  // Con el teclado abierto (un campo con foco) manda el alto de la ventana: si no, el compositor quedaría bajo el teclado
+  const typing = document.activeElement?.matches('input, textarea, [contenteditable="true"]');
+  const full = iosApp && !typing ? (portrait ? Math.max(screen.height, screen.width) : Math.min(screen.height, screen.width)) : 0;
+  document.documentElement.style.setProperty('--app-h', `${Math.max(window.innerHeight, full)}px`);
+};
 setAppHeight();
-window.addEventListener('resize', setAppHeight);
+document.addEventListener('focusout', () => setTimeout(setAppHeight, 300));
+for (const ev of ['resize', 'orientationchange', 'pageshow', 'focus']) window.addEventListener(ev, () => { setAppHeight(); setTimeout(setAppHeight, 300); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(setAppHeight, 100); });
 
 // Barra de progreso mientras se resuelve una pantalla (guardas + carga del código de la ruta)
 router.beforeEach(() => { setNavigating(true); });
