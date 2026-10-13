@@ -41,9 +41,10 @@ function onKey(e: KeyboardEvent) {
 
 <style scoped>
 .scrim { position: fixed; inset: 0; z-index: 60; }
-.menu { position: fixed; z-index: 61; min-width: 200px; padding: 4px 0; background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-lg); display: grid; }
+.menu { animation: menu-in 160ms cubic-bezier(.2, .8, .2, 1); transform-origin: top left; position: fixed; z-index: 61; min-width: 200px; padding: 4px 0; background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-lg); display: grid; }
 button { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 14px; font: inherit; font-size: 14px; text-align: left; color: var(--color-ink); background: none; border: 0; cursor: pointer; }
 button:hover, button:focus-visible { background: var(--color-ink); color: #fff; outline: none; }
 .danger { color: var(--color-danger); }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-4px) scale(.97); } }
 .danger:hover, .danger:focus-visible { background: var(--color-danger); color: #fff; }
 </style>

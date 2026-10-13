@@ -98,8 +98,14 @@ const sidebarHidden = computed(() => collapsed.value && isDesktop.value);
 const mobileHome = computed(() => !isDesktop.value && onHome.value);
 const pageTrans = ref('none');
 let swiped = false;
-watch(() => route.name, (to, from) => {
-  pageTrans.value = !isDesktop.value && !swiped && (to === 'home' || from === 'home') ? 'layer' : 'none';
+let lastHome = route.name === 'home';
+// Se mira la pantalla (viewKey), no el nombre de la ruta: Tareas, Metas o Ventas no tienen nombre y el cambio entre
+// ellas no se detectaba
+watch(viewKey, () => {
+  const to = route.name === 'home', from = lastHome;
+  lastHome = to;
+  // Teléfono: Inicio ↔ pantalla entra de lado (capa); entre pestañas, un fundido corto con leve subida
+  pageTrans.value = isDesktop.value || swiped ? 'none' : to || from ? 'layer' : 'fade';
   swiped = false;
 }, { flush: 'pre' });
 
@@ -403,13 +409,21 @@ h4 { margin: 16px 0 2px; padding: 0 16px; font-size: 12px; font-weight: 500; tex
   .layer-enter-active { transition: transform 260ms cubic-bezier(.2, .8, .2, 1); }
   .layer-leave-active { transition: transform 220ms cubic-bezier(.4, 0, 1, 1); }
   .layer-enter-from, .layer-leave-to { transform: translateX(100%); }
+  .fade-enter-active { transition: opacity 200ms ease-out, transform 240ms cubic-bezier(.2, .8, .2, 1); }
+  .fade-leave-active { transition: opacity 120ms ease-in; }
+  .fade-enter-from { opacity: 0; transform: translateY(10px); }
+  .fade-leave-to { opacity: 0; }
+  .fade-enter-active, .fade-leave-active { box-shadow: none; }
 
   .tabbar { grid-area: 2 / 1; position: relative; z-index: 10; display: grid; grid-template-columns: repeat(5, 1fr); padding-bottom: env(safe-area-inset-bottom, 0px); background: #0B1729; border-top: 1px solid rgb(255 255 255 / .06); box-shadow: 0 -8px 20px rgb(0 0 0 / .25); }
   .in-conv { grid-template-rows: minmax(0, 1fr); }
   .in-conv .tabbar { display: none; }
   .tabbar > * { position: relative; display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 56px; padding: 0; font: inherit; font-size: 11px; color: #8FA0B8; text-decoration: none; background: none; border: 0; cursor: pointer; transition: color var(--duration); }
   .tabbar > .on { color: #fff; font-weight: 700; }
-  .tabbar > .on::before { content: ''; position: absolute; top: -1px; left: 26%; right: 26%; height: 3px; background: var(--color-primary); }
+  .tabbar > .on::before { content: ''; position: absolute; top: -1px; left: 26%; right: 26%; height: 3px; background: var(--color-primary); animation: tab-line 260ms cubic-bezier(.2, .8, .2, 1); }
+  .tabbar > .on .tab-ico { animation: tab-pop 320ms cubic-bezier(.3, 1.6, .5, 1); }
+  @keyframes tab-line { from { transform: scaleX(0); } }
+  @keyframes tab-pop { 40% { transform: translateY(-3px) scale(1.12); } }
   .tab-ico { position: relative; display: grid; place-items: center; height: 24px; }
   .tab-ico :deep(.presence) { border-color: #0B1729; }
   .tabbar > :not(.on) .tab-ico :deep(.av) { opacity: .8; }

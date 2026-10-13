@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import ToastHost from '@/design/ToastHost.vue';
+import TopProgress from '@/design/TopProgress.vue';
 import ImpersonationBand from '@/layouts/ImpersonationBand.vue';
 import MaintenanceBand from '@/layouts/MaintenanceBand.vue';
 import UpdateBand from '@/layouts/UpdateBand.vue';
@@ -32,6 +33,7 @@ const showMaint = computed(() => inApp.value && !!publicConfig.value?.maintenanc
     <div class="app-body"><RouterView /></div>
   </div>
   <ToastHost />
+  <TopProgress />
 </template>
 
 <style scoped>

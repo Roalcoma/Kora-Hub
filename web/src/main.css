@@ -44,3 +44,19 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   .shell { display: block !important; }
   .main, .layer { overflow: visible !important; height: auto !important; }
 }
+
+/* ─── Respuesta al toque (design/press.ts): onda que sale del dedo, en el color del texto del control ─── */
+.press-box { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; border-radius: inherit; transition: opacity 320ms; }
+.press-box.out { opacity: 0; }
+.press-wave { position: absolute; border-radius: 50% !important; background: currentColor; opacity: .14; transform: scale(0); animation: press-wave 420ms cubic-bezier(.2, .8, .2, 1) forwards; }
+@keyframes press-wave { to { transform: scale(1); } }
+/* Pantallas táctiles: lo que se toca se hunde un poco; los controles chicos además se achican */
+@media (hover: none) {
+  button:not(:disabled), a[href], [role="button"], [role="option"], [role="menuitem"], [role="tab"], [role="checkbox"], [role="radio"] {
+    transition-property: background, color, border-color, box-shadow, opacity, transform; transition-duration: var(--duration);
+  }
+  button:not(:disabled):active, [role="button"]:active, [role="tab"]:active { transform: scale(.97); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

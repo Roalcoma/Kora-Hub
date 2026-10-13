@@ -16,7 +16,23 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Roboto:wght@400;500;700&display=swap">
   </head>
   <body>
-    <div id="app"></div>
+    <!-- Splash: queda hasta que la primera pantalla está lista (main.ts monta la app recién entonces) -->
+    <div id="app">
+      <div class="splash" role="status" aria-label="Cargando Kora">
+        <div class="splash-mark">K</div>
+        <div class="splash-name">Kora</div>
+        <div class="splash-bar"><span></span></div>
+      </div>
+    </div>
+    <style>
+      .splash { position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; background: #13243D; color: #fff; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+      .splash-mark { width: 64px; height: 64px; display: grid; place-items: center; font-size: 34px; font-weight: 800; color: #13243D; background: #F69008; box-shadow: 0 14px 34px rgb(0 0 0 / .45); animation: splash-in 520ms cubic-bezier(.2, .8, .2, 1) both; }
+      .splash-name { font-size: 22px; font-weight: 800; letter-spacing: .02em; animation: splash-in 520ms 80ms cubic-bezier(.2, .8, .2, 1) both; }
+      .splash-bar { position: relative; width: 120px; height: 3px; overflow: hidden; background: rgb(255 255 255 / .12); animation: splash-in 520ms 160ms both; }
+      .splash-bar span { position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; background: #F69008; animation: splash-run 1s cubic-bezier(.4, 0, .2, 1) infinite; }
+      @keyframes splash-in { from { opacity: 0; transform: translateY(10px) scale(.96); } }
+      @keyframes splash-run { to { left: 100%; } }
+    </style>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

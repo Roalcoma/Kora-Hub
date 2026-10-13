@@ -36,6 +36,10 @@ withDefaults(defineProps<{
 .danger { background: var(--color-danger); color: #fff; }
 .danger:hover:not(:disabled) { background: #8F1C13; }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn { transition: background var(--duration), border-color var(--duration), box-shadow var(--duration), transform 120ms; }
+.btn:active:not(:disabled) { transform: scale(.97); }
+/* Cargando: el spinner entra con un pequeño giro en vez de aparecer de golpe */
+.btn[aria-busy="true"] { cursor: progress; opacity: .85; }
 .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50% !important; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
