@@ -93,6 +93,7 @@ export default {
     notifMentions: 'Mentions only', notifNone: 'Nothing', mute: 'Mute channel', unmute: 'Unmute', muted: 'Muted',
     createChannel: 'Create channel', channelName: 'Name', channelNameHint: 'Lowercase, no spaces. E.g. sales-north',
     topic: 'Topic', private: 'Private', privateHint: 'Only people you add can see it.', create: 'Create',
+    parentChannel: 'Subchannel of', noParent: 'None: top-level channel', onlyParentMembers: 'Only people in #{name}',
     expandGroup: 'Expand', collapseGroup: 'Collapse',
     linkDepartment: 'Link to a department', noDepartment: 'None: I pick people', general: 'general',
     generalAllLines: 'General (all {categoriesLc})', allLines: 'All {categoriesLc}', allDepartments: 'All departments',

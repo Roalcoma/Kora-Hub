@@ -47,12 +47,20 @@ chatRouter.post('/channels', async (req, res) => {
     if (body.departmentId && !(await canManageDept(db, req, body.departmentId))) {
       throw new HttpError(403, 'forbidden', 'Solo un Admin o el Líder del departamento crea sus canales');
     }
+    // Subcanal: el superior debe poder leerlo, no ser un DM ni #anuncios, no ser a su vez subcanal (un nivel)
+    // y, si es privado, el subcanal también lo es (no se publica lo que cuelga de algo privado)
+    if (body.parentId) {
+      const p = await readableChannel(db, body.parentId);
+      const nested = (await db.query('select parent_id from channels where id = $1', [p.id])).rows[0].parent_id;
+      if (!['public', 'private'].includes(p.kind) || p.archived || nested) throw new HttpError(400, 'invalid_parent', 'Ese canal no puede tener subcanales');
+      if (p.kind === 'private' && body.kind === 'public') throw new HttpError(400, 'parent_private', 'Un subcanal de un canal privado debe ser privado');
+    }
     const exists = await db.query('select 1 from channels where workspace_id = app_ws() and lower(name) = $1', [body.name]);
     if (exists.rowCount) throw new HttpError(409, 'channel_name_taken', 'Ya existe un canal con ese nombre');
     const { rows } = await db.query(
-      `insert into channels (workspace_id, kind, name, topic, description, department_id, line_id, created_by)
-       values (app_ws(), $1, $2, $3, $4, $5, $6, app_user()) returning id`,
-      [body.kind, body.name, body.topic ?? null, body.description ?? null, body.departmentId ?? null, body.lineId ?? null]);
+      `insert into channels (workspace_id, kind, name, topic, description, department_id, line_id, parent_id, created_by)
+       values (app_ws(), $1, $2, $3, $4, $5, $6, $7, app_user()) returning id`,
+      [body.kind, body.name, body.topic ?? null, body.description ?? null, body.departmentId ?? null, body.lineId ?? null, body.parentId ?? null]);
     const id = rows[0].id;
     // FK compuesta: solo entran miembros del workspace
     await db.query(

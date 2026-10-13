@@ -10,6 +10,7 @@ export type ChannelKind = 'public' | 'private' | 'dm' | 'group_dm' | 'announceme
 export type Channel = {
   id: Id; kind: ChannelKind; name: string | null; topic: string | null; description: string | null;
   departmentId: Id | null; lineId: Id | null; archivedAt: IsoDate | null;
+  parentId: Id | null;            // subcanal: cuelga de este canal en el sidebar
   memberIds?: Id[];               // solo en dm / group_dm
   // Estado del usuario actual
   isMember: boolean; muted: boolean; starred: boolean; notifLevel: 'all' | 'mentions' | 'none' | null;
@@ -48,7 +49,7 @@ export const CreateChannelBody = z.object({
   kind: z.enum(['public', 'private']),
   name: z.string().trim().toLowerCase().regex(/^[a-z0-9áéíóúñü][a-z0-9áéíóúñü_-]{0,79}$/),
   topic: z.string().max(250).optional(), description: z.string().max(1000).optional(),
-  departmentId: Id.optional(), lineId: Id.optional(),
+  departmentId: Id.optional(), lineId: Id.optional(), parentId: Id.optional(),
   memberIds: z.array(Id).max(500).default([]),
 });
 export const UpdateChannelBody = z.object({

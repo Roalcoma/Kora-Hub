@@ -177,6 +177,24 @@ test('permiso: solo un Admin o el Líder de ese departamento crea o cambia sus c
   assert.equal((await ana('PATCH', `/w/${slugA}/channels/${mine.body.id}`, { topic: 'Seguimiento' })).status, 200);
 });
 
+test('subcanales: cuelgan de otro canal; un nivel; privado bajo privado; el superior debe poder leerse', async () => {
+  const pub = (await ana('POST', `/w/${slugA}/channels`, { kind: 'public', name: 'clientes' })).body.id;
+  const sub = await ana('POST', `/w/${slugA}/channels`, { kind: 'public', name: 'clientes-nuevos', parentId: pub });
+  assert.equal(sub.status, 201);
+  assert.equal(sub.body.parentId, pub);
+  // Un nivel: no se cuelga nada de un subcanal
+  assert.equal((await ana('POST', `/w/${slugA}/channels`, { kind: 'public', name: 'clientes-x', parentId: sub.body.id })).body.code, 'invalid_parent');
+  // De un privado solo cuelgan privados
+  const priv = (await owner('POST', `/w/${slugA}/channels`, { kind: 'private', name: 'direccion', memberIds: [id.beto] })).body.id;
+  assert.equal((await beto('POST', `/w/${slugA}/channels`, { kind: 'public', name: 'direccion-pub', parentId: priv })).body.code, 'parent_private');
+  assert.equal((await beto('POST', `/w/${slugA}/channels`, { kind: 'private', name: 'direccion-sub', parentId: priv })).status, 201);
+  // Permiso: Ana no está en el privado; para ella no existe
+  assert.equal((await ana('POST', `/w/${slugA}/channels`, { kind: 'private', name: 'direccion-ana', parentId: priv })).status, 404);
+  // Aislamiento: un canal de otra agencia no sirve de superior
+  const ajeno = (await outsider('POST', `/w/${slugB}/channels`, { kind: 'public', name: 'ajeno' })).body.id;
+  assert.equal((await owner('POST', `/w/${slugA}/channels`, { kind: 'public', name: 'cuelga-ajeno', parentId: ajeno })).status, 404);
+});
+
 test('permiso: un Miembro no puede cambiarse las líneas para ver más', async () => {
   assert.equal((await ana('PATCH', `/w/${slugA}/members/${id.ana}`, { lineIds: [id.salud, id.vida] })).status, 403);
   assert.deepEqual(await seen(ana), ['ventas', 'vida']);

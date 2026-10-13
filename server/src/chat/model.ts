@@ -24,7 +24,7 @@ const CHANNEL_SELECT = `
 
 export const toChannel = (r: any): Channel => ({
   id: r.id, kind: r.kind, name: r.name, topic: r.topic, description: r.description,
-  departmentId: r.department_id, lineId: r.line_id, archivedAt: r.archived_at?.toISOString() ?? null,
+  departmentId: r.department_id, lineId: r.line_id, parentId: r.parent_id ?? null, archivedAt: r.archived_at?.toISOString() ?? null,
   memberIds: r.member_ids ?? undefined,
   isMember: r.is_member, muted: r.muted ?? false, starred: r.starred ?? false, notifLevel: r.notif_level ?? null,
   unreadCount: r.unread, mentionCount: r.mentions, lastReadAt: r.last_read_at?.toISOString() ?? null,

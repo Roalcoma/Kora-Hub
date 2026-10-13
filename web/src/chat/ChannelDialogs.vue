@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Diálogos del sidebar: crear/explorar canales y abrir un mensaje directo.
 // Un canal privado se liga a un departamento (y a una línea): sus miembros se mantienen solos. Si no, se eligen personas
-// filtrando por departamento, línea o nombre.
+// filtrando por departamento, línea o nombre. Puede ser subcanal de otro: cuelga de él en el sidebar.
 import { computed, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -15,6 +15,7 @@ import Avatar from '@/design/Avatar.vue';
 import Dropdown from '@/design/Dropdown.vue';
 import EmptyState from '@/design/EmptyState.vue';
 import { errorText } from '@/platform/errors.ts';
+import { api } from '@/api.ts';
 import { useChat } from './store.ts';
 
 const dialog = defineModel<'channel' | 'dm' | null>({ default: null });
@@ -27,19 +28,36 @@ const go = (id: string) => { dialog.value = null; router.push(`/w/${s.workspace!
 // ─── Canal ───
 const channelOpen = computed({ get: () => dialog.value === 'channel', set: (v) => { if (!v) dialog.value = null; } });
 const tab = ref<'create' | 'browse'>('create');
-const f = reactive({ name: '', topic: '', private: false, departmentId: '', lineId: '' });
-const pick = reactive({ dept: '', line: '', q: '', ids: [] as string[] });
+const f = reactive({ name: '', topic: '', private: false, departmentId: '', lineId: '', parentId: '' });
+const pick = reactive({ dept: '', line: '', q: '', ids: [] as string[], parentOnly: false });
 // Nombre sugerido: se reemplaza mientras nadie lo cambie a mano
 const suggested = ref('');
 const error = ref<string | null>(null);
 const busy = ref(false);
 watch(channelOpen, (v) => {
   if (!v) return;
-  Object.assign(f, { name: '', topic: '', private: false, departmentId: '', lineId: '' });
-  Object.assign(pick, { dept: '', line: '', q: '', ids: [] });
+  Object.assign(f, { name: '', topic: '', private: false, departmentId: '', lineId: '', parentId: '' });
+  Object.assign(pick, { dept: '', line: '', q: '', ids: [], parentOnly: false });
   suggested.value = ''; error.value = null; tab.value = 'create';
 });
 const browse = computed(() => chat.channels.filter((c) => c.kind === 'public' && !c.isMember));
+
+// ─── Canal superior (subcanal): uno de mis canales que no cuelgue de otro (un solo nivel) ───
+const parents = computed(() => chat.channels.filter((c) => c.isMember && !c.archivedAt && (c.kind === 'public' || c.kind === 'private')
+  && !c.parentId && !c.lineId).sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')));
+const parentOptions = computed(() => [{ value: '', label: t('chat.noParent') }, ...parents.value.map((c) => ({ value: c.id, label: `# ${c.name}` }))]);
+const parent = computed(() => parents.value.find((c) => c.id === f.parentId));
+const parentMembers = ref<string[]>([]);
+watch(() => f.parentId, async (id) => {
+  parentMembers.value = [];
+  pick.parentOnly = false;
+  const p = parent.value;
+  if (!p) return;
+  if (p.kind === 'private') f.private = true;   // de un privado solo cuelgan privados
+  if (!f.name || f.name === suggested.value) f.name = suggested.value = `${p.name}-`;
+  parentMembers.value = await api('GET /w/:slug/channels/:id/members', { params: { slug: s.workspace!.slug, id: p.id } });
+  pick.parentOnly = p.kind === 'private';
+});
 
 const fold = (x: string) => x.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 const slugify = (x: string) => fold(x).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
@@ -61,6 +79,7 @@ const active = computed(() => chat.members.filter((m) => m.isActive && m.role !=
 const managedPeople = computed(() => !f.departmentId ? [] : active.value.filter((m) => ['owner', 'admin'].includes(m.role)
   || (m.departmentIds.includes(f.departmentId) && (m.leadOfDepartmentIds.includes(f.departmentId) || !f.lineId || !m.lineIds.length || m.lineIds.includes(f.lineId)))));
 const candidates = computed(() => active.value.filter((m) => m.userId !== s.user!.id
+  && (!pick.parentOnly || parentMembers.value.includes(m.userId))
   && (!pick.dept || m.departmentIds.includes(pick.dept)) && (!pick.line || m.lineIds.includes(pick.line)) && fold(m.name).includes(fold(pick.q))));
 const allPicked = computed(() => candidates.value.length > 0 && candidates.value.every((m) => pick.ids.includes(m.userId)));
 const toggle = (id: string) => { pick.ids = pick.ids.includes(id) ? pick.ids.filter((x) => x !== id) : [...pick.ids, id]; };
@@ -77,6 +96,7 @@ async function create() {
     const c = await chat.createChannel({
       kind: f.private ? 'private' : 'public', name: f.name.trim().toLowerCase().replace(/\s+/g, '-'), topic: f.topic || undefined,
       ...(managed.value ? { departmentId: f.departmentId, lineId: f.lineId || undefined } : {}),
+      ...(f.parentId ? { parentId: f.parentId } : {}),
       memberIds: f.private && !managed.value ? pick.ids : [],
     });
     go(c.id);
@@ -109,7 +129,8 @@ async function openDm() {
   <Modal v-model="channelOpen" :title="t('chat.addChannel')" width="520px">
     <Tabs v-model="tab" :tabs="[{ value: 'create', label: t('chat.createChannel') }, { value: 'browse', label: t('chat.explore'), count: browse.length }]" />
     <form v-if="tab === 'create'" id="new-channel" class="grid gap-4" @submit.prevent="create">
-      <label class="priv"><input v-model="f.private" type="checkbox"><Lock :size="16" /><span><b>{{ t('chat.private') }}</b><small>{{ t('chat.privateHint') }}</small></span></label>
+      <Dropdown v-if="parents.length" v-model="f.parentId" :options="parentOptions" :label="t('chat.parentChannel')" searchable />
+      <label class="priv" :class="{ locked: parent?.kind === 'private' }"><input v-model="f.private" type="checkbox" :disabled="parent?.kind === 'private'"><Lock :size="16" /><span><b>{{ t('chat.private') }}</b><small>{{ t('chat.privateHint') }}</small></span></label>
       <template v-if="f.private && ownDepts.length">
         <div class="pair">
           <Dropdown v-model="f.departmentId" :options="deptOptions" :label="t('chat.linkDepartment')" />
@@ -126,6 +147,7 @@ async function openDm() {
       </div>
       <!-- Sin departamento: se eligen personas, con filtros -->
       <div v-else-if="f.private" class="picker">
+        <label v-if="parent" class="only"><input v-model="pick.parentOnly" type="checkbox">{{ t('chat.onlyParentMembers', { name: parent.name }) }}</label>
         <div class="filters">
           <Dropdown v-model="pick.dept" :options="filterDeptOptions" :label="t('chat.filterDepartment')" />
           <Dropdown v-if="s.activeLines.length" v-model="pick.line" :options="lineOptions(t('chat.allLines', s.cat))" :label="s.cat.category" />
@@ -179,6 +201,8 @@ async function openDm() {
 .priv { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--color-line); cursor: pointer; }
 .priv span { display: grid; }
 .priv small { color: var(--color-muted); font-size: 12px; }
+.priv.locked { cursor: default; opacity: .7; }
+.only { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
 .row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 6px 10px; font: inherit; text-align: left; color: inherit; background: none; border: 0; border-bottom: 1px solid var(--color-line); cursor: pointer; transition: background var(--duration), box-shadow var(--duration); }
 .row:hover:not(:disabled) { background: var(--color-surface); box-shadow: var(--shadow-md); position: relative; }
 .row span { display: grid; min-width: 0; }

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // Secciones del sidebar: Anuncios, Destacados, Canales y Mensajes directos. Filtra por la línea de negocio activa.
-// Canales en cascada: bajo el canal general de un departamento (sin línea) cuelgan los de sus líneas; cada grupo se
-// despliega o contrae (se recuerda por agencia en este navegador). Contraído, el general suma los avisos de sus líneas.
+// Canales en cascada: de su canal superior cuelgan los subcanales y, bajo el general de un departamento, los de sus
+// líneas. Cada grupo se despliega o contrae (se recuerda por agencia en este navegador); contraído, el superior suma
+// los avisos de lo que tiene dentro.
 import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -27,28 +28,35 @@ const announcement = computed(() => mine.value.find((c) => c.kind === 'announcem
 const starred = computed(() => mine.value.filter((c) => c.starred && c.kind !== 'announcement' && byLine(c)));
 const tree = computed(() => {
   const flat = mine.value.filter((c) => !c.starred && !isDm(c) && c.kind !== 'announcement' && byLine(c));
+  const ids = new Set(flat.map((c) => c.id));
   // Un solo canal general por departamento (el privado, si hay público y privado): de él cuelgan los de línea
   const general = new Map<string, Channel>();
   for (const c of flat) {
-    if (c.departmentId && !c.lineId && (!general.has(c.departmentId) || c.kind === 'private')) general.set(c.departmentId, c);
+    if (c.departmentId && !c.lineId && !c.parentId && (!general.has(c.departmentId) || c.kind === 'private')) general.set(c.departmentId, c);
   }
+  // Superior: el elegido al crear (subcanal) o, para los de línea, el general de su departamento. Un solo nivel:
+  // si el superior no se ve o él mismo cuelga de otro, el canal queda arriba.
+  const rawParent = (c: Channel) => (c.parentId && ids.has(c.parentId) ? c.parentId
+    : c.lineId && c.departmentId && general.has(c.departmentId) ? general.get(c.departmentId)!.id : null);
+  const byId = new Map(flat.map((c) => [c.id, c]));
+  const parentFor = (c: Channel) => { const p = rawParent(c); return p && !rawParent(byId.get(p)!) ? p : null; };
   const linePos = (c: Channel) => s.workspace!.lines.findIndex((l) => l.id === c.lineId);
   const sub = new Set<string>();
   const kids = new Map<string, Channel[]>();
   const parentOf = new Map<string, string>();
+  for (const c of flat) {
+    const p = parentFor(c);
+    if (!p) continue;
+    sub.add(c.id);
+    parentOf.set(c.id, p);
+    kids.set(p, [...(kids.get(p) ?? []), c]);
+  }
+  // Primero los subcanales elegidos (por nombre), luego los de línea (en el orden de las líneas)
+  for (const ks of kids.values()) ks.sort((a, b) => (a.lineId ? 1 : 0) - (b.lineId ? 1 : 0) || linePos(a) - linePos(b) || (a.name ?? '').localeCompare(b.name ?? ''));
   const out: Channel[] = [];
   for (const c of flat) {
-    if (c.lineId && c.departmentId && general.has(c.departmentId)) continue;   // va debajo de su canal general
-    out.push(c);
-    if (c.departmentId && general.get(c.departmentId) === c) {
-      const ks = flat.filter((x) => x.departmentId === c.departmentId && x.lineId).sort((a, b) => linePos(a) - linePos(b));
-      if (ks.length) kids.set(c.id, ks);
-      for (const k of ks) {
-        sub.add(k.id);
-        parentOf.set(k.id, c.id);
-        out.push(k);
-      }
-    }
+    if (sub.has(c.id)) continue;
+    out.push(c, ...(kids.get(c.id) ?? []));
   }
   return { out, sub, kids, parentOf };
 });
