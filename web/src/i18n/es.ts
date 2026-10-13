@@ -7,6 +7,7 @@ export default {
   },
   /** Nombre por defecto de las categorías cuando la agencia no eligió uno propio */
   category: { singular: 'Categoría', plural: 'Categorías' },
+  update: { title: 'Hay una versión nueva de Kora.', hint: 'Actualiza para ver los últimos cambios; no pierdes lo que estabas escribiendo.', action: 'Actualizar' },
   roles: { owner: 'Owner', admin: 'Admin', lead: 'Líder', member: 'Miembro', guest: 'Invitado', accountant: 'Contable' },
   auth: {
     closedTitle: 'El registro está cerrado', closedSubtitle: 'Kora funciona por invitación.',

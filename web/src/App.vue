@@ -4,8 +4,10 @@ import { useRoute } from 'vue-router';
 import ToastHost from '@/design/ToastHost.vue';
 import ImpersonationBand from '@/layouts/ImpersonationBand.vue';
 import MaintenanceBand from '@/layouts/MaintenanceBand.vue';
+import UpdateBand from '@/layouts/UpdateBand.vue';
 import { useSession } from '@/stores/session.ts';
 import { publicConfig } from '@/platform/config.ts';
+import { updateReady } from '@/platform/update.ts';
 
 const s = useSession();
 const route = useRoute();
@@ -22,6 +24,7 @@ const showMaint = computed(() => inApp.value && !!publicConfig.value?.maintenanc
     <div class="app-top">
       <ImpersonationBand v-if="s.impersonation" />
       <MaintenanceBand v-if="showMaint" :edge="!s.impersonation" />
+      <UpdateBand v-if="updateReady" :edge="!s.impersonation && !showMaint" />
     </div>
     <div class="app-body"><RouterView /></div>
   </div>

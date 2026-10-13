@@ -8,6 +8,7 @@ export default {
     error: 'Something went wrong. Please try again.', email: 'Email', password: 'Password', name: 'Name',
   },
   category: { singular: 'Category', plural: 'Categories' },
+  update: { title: 'A new version of Kora is available.', hint: 'Refresh to see the latest changes; you will not lose what you were typing.', action: 'Refresh' },
   roles: { owner: 'Owner', admin: 'Admin', lead: 'Lead', member: 'Member', guest: 'Guest', accountant: 'Accountant' },
   auth: {
     closedTitle: 'Sign-up is closed', closedSubtitle: 'Kora works by invitation.',
