@@ -63,7 +63,7 @@ watch(range, load, { immediate: true });
 
 const rows = computed(() => {
   const base = f.status === 'overdue' ? overdue.value : items.value ?? [];
-  return base.filter((x) => (!f.agent || x.agentUserId === f.agent) && (!f.carrier || x.carrierId === f.carrier)
+  return base.filter((x) => (!f.agent || x.agentId === f.agent) && (!f.carrier || x.carrierId === f.carrier)
     && (!f.status || f.status === 'overdue' || x.status === f.status));
 });
 const { page, size, rows: pageRows, total } = usePaged(rows);
@@ -76,9 +76,9 @@ const totals = computed(() => ({
 
 // Agentes que aparecen en las ventas visibles (un agente ve solo los suyos; el dueño, también los de su equipo)
 const agentOptions = computed(() => {
-  const ids = [...new Set([...(items.value ?? []), ...overdue.value].map((x) => x.agentUserId))];
+  const ids = [...new Set([...(items.value ?? []), ...overdue.value].map((x) => x.agentId))];
   return [{ value: '', label: t('sales.allAgents') },
-    ...ids.map((id) => ({ value: id, label: ref_.memberName(id) })).sort((a, b) => a.label.localeCompare(b.label))];
+    ...ids.map((id) => ({ value: id, label: ref_.agentName(id) })).sort((a, b) => a.label.localeCompare(b.label))];
 });
 const carrierOptions = computed(() => [{ value: '', label: t('sales.allCarriers') }, ...ref_.carriers.map((c) => ({ value: c.id, label: c.name }))]);
 const statusOptions = computed(() => [{ value: '' as const, label: t('sales.allStatuses') },
@@ -174,7 +174,7 @@ const cancel = () => act(() => api('POST /w/:slug/sales/:id/cancel', { params: {
           <tr v-for="x in pageRows" :key="x.id" :class="{ off: x.status === 'declined' || x.status === 'cancelled' }">
             <td class="nowrap">{{ day(x.expectedIssueDate) }}<small v-if="x.issuedAt">ISSUE {{ day(x.issuedAt) }}</small></td>
             <td><b>{{ x.clientName }}</b><small v-if="x.clientState">{{ x.clientState }}</small></td>
-            <td>{{ ref_.memberName(x.agentUserId) }}<small v-if="x.uplineUserId">{{ t('sales.under', { name: ref_.memberName(x.uplineUserId) }) }}</small></td>
+            <td>{{ ref_.agentName(x.agentId) }}<small v-if="x.uplineAgentId">{{ t('sales.under', { name: ref_.agentName(x.uplineAgentId) }) }}</small></td>
             <td>{{ ref_.productLabel(x.productId) }}</td>
             <td class="num"><b>{{ money(x.amount) }}</b></td>
             <td>

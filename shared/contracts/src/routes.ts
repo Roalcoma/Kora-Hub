@@ -128,9 +128,10 @@ export type Routes = {
   'POST /w/:slug/carriers/:id/products': R<In<typeof S.ProductBody>, S.Carrier>;             // admin
   'PATCH /w/:slug/products/:id': R<In<typeof S.UpdateProductBody>, S.Carrier>;               // admin
   'PUT /w/:slug/products/:id/grid': R<In<typeof S.GridBody>, S.Carrier>;                     // admin
-  'GET /w/:slug/agents': R<never, S.AgentProfile[]>;                                         // admin: todos; resto: el suyo
-  'PATCH /w/:slug/agents/:userId': R<In<typeof S.UpdateAgentProfileBody>, S.AgentProfile>;   // admin
-  'POST /w/:slug/agents/:userId/levels': R<In<typeof S.LevelBody>, S.AgentProfile>;          // admin
+  'GET /w/:slug/agents': R<never, S.Agent[]>;                                                // admin: todos; resto: el suyo y su equipo
+  'POST /w/:slug/agents': R<In<typeof S.AgentBody>, S.Agent>;                                 // admin
+  'PATCH /w/:slug/agents/:id': R<In<typeof S.UpdateAgentBody>, S.Agent>;                      // admin
+  'POST /w/:slug/agents/:id/levels': R<In<typeof S.LevelBody>, S.Agent>;                      // admin
   'GET /w/:slug/sales': R<never, S.SalesList, In<typeof S.SalesQuery>>;                      // admin: todas; dueño: suyas y de sus agentes; resto: suyas
   'GET /w/:slug/sales.csv': R<never, string, In<typeof S.SalesQuery>>;
   'POST /w/:slug/sales': R<In<typeof S.SaleBody>, S.Sale>;                                   // admin

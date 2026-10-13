@@ -54,14 +54,19 @@ async function main() {
     throw e;
   }
 
-  // Equipo: Lendry y los 17 agentes como miembros (así se ve la vista de dueña de agencia y la de agente)
+  // Equipo: Lendry y los 17 agentes como agentes asociados (sin usuario). Lendry y Cesar además tienen usuario enlazado,
+  // para ver la vista de dueña de agencia y la de agente
   const ids: Record<string, string> = {};
+  const WITH_USER = [OWNER[0], 'Cesar David Diaz Alvarado'];
   for (const [name] of [OWNER, ...AGENTS]) {
-    const inv = (await call(office, 'POST', w('/invitations'), { email: email(name), role: 'member' })).data;
-    const r = await call(null, 'POST', '/invitations/accept', { token: inv.url.split('/invite/')[1], newAccount: { name, password: PASS, locale: 'es' } });
-    ids[name] = r.data.user.id;
+    let userId: string | null = null;
+    if (WITH_USER.includes(name)) {
+      const inv = (await call(office, 'POST', w('/invitations'), { email: email(name), role: 'member' })).data;
+      userId = (await call(null, 'POST', '/invitations/accept', { token: inv.url.split('/invite/')[1], newAccount: { name, password: PASS, locale: 'es' } })).data.user.id;
+    }
+    ids[name] = (await call(office, 'POST', w('/agents'), { name, userId })).data.id;
   }
-  for (const [name] of AGENTS) await call(office, 'PATCH', w(`/agents/${ids[name]}`), { uplineUserId: ids[OWNER[0]] });
+  for (const [name] of AGENTS) await call(office, 'PATCH', w(`/agents/${ids[name]}`), { uplineAgentId: ids[OWNER[0]] });
   console.log(`equipo listo: ${AGENTS.length} agentes bajo ${OWNER[0]}`);
 
   const product: Record<string, string> = {};
@@ -95,7 +100,7 @@ async function main() {
   ];
   for (const x of sales) {
     const s = (await call(office, 'POST', w('/sales'), {
-      agentUserId: ids[x.agent], productId: product[x.carrier], amount: x.amount, clientName: x.client, clientState: x.state, expectedIssueDate: x.date,
+      agentId: ids[x.agent], productId: product[x.carrier], amount: x.amount, clientName: x.client, clientState: x.state, expectedIssueDate: x.date,
     })).data;
     if (x.issued) await call(office, 'POST', w(`/sales/${s.id}/issue`), { issuedAt: x.issued });
   }

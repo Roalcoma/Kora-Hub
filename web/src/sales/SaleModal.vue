@@ -22,31 +22,31 @@ const { t } = useI18n();
 const s = useSession();
 const sales = useSales();
 
-const f = reactive({ agentUserId: '', productId: '', amount: '', clientName: '', clientState: '', expectedIssueDate: '', notes: '' });
+const f = reactive({ agentId: '', productId: '', amount: '', clientName: '', clientState: '', expectedIssueDate: '', notes: '' });
 const error = ref<string | null>(null);
 const busy = ref(false);
 watch(open, (v) => {
   if (!v) return;
   const x = props.sale ?? props.inbox?.parsed ?? {};
   Object.assign(f, {
-    agentUserId: x.agentUserId ?? '', productId: x.productId ?? '', amount: x.amount ? String(x.amount) : '',
+    agentId: x.agentId ?? '', productId: x.productId ?? '', amount: x.amount ? String(x.amount) : '',
     clientName: x.clientName ?? '', clientState: x.clientState ?? '', expectedIssueDate: x.expectedIssueDate ?? today(),
     notes: props.sale?.notes ?? '',
   });
   error.value = null;
 });
 
-const agentOptions = computed(() => sales.sellers.map((m) => ({ value: m.userId, label: m.name, hint: m.email })));
+const agentOptions = computed(() => sales.sellers.map((a) => ({ value: a.id, label: a.name, hint: a.email ?? undefined })));
 const productOptions = computed(() => sales.carriers.filter((c) => !c.archivedAt).flatMap((c) =>
   c.products.filter((p) => !p.archivedAt).map((p) => ({ value: p.id, label: `${c.name} · ${p.name}` }))));
 const stateOptions = computed(() => [{ value: '', label: '—' }, ...US_STATES.map((x) => ({ value: x, label: x }))]);
-const valid = computed(() => f.agentUserId && f.productId && Number(f.amount) > 0 && f.clientName.trim() && f.expectedIssueDate);
+const valid = computed(() => f.agentId && f.productId && Number(f.amount) > 0 && f.clientName.trim() && f.expectedIssueDate);
 
 async function save() {
   busy.value = true;
   error.value = null;
   const body = {
-    agentUserId: f.agentUserId, productId: f.productId, amount: Number(f.amount), clientName: f.clientName.trim(),
+    agentId: f.agentId, productId: f.productId, amount: Number(f.amount), clientName: f.clientName.trim(),
     clientState: (f.clientState || null) as (typeof US_STATES)[number] | null, expectedIssueDate: f.expectedIssueDate, notes: f.notes,
   };
   try {
@@ -68,7 +68,7 @@ async function save() {
   <Modal v-model="open" :title="sale ? t('sales.editSale') : t('sales.newSale')" :subtitle="inbox ? `${inbox.authorName}: ${inbox.content}` : t('sales.newSaleHint')" width="560px">
     <form id="sale-form" class="grid gap-4" @submit.prevent="valid && save()">
       <div class="row">
-        <Dropdown v-model="f.agentUserId" :options="agentOptions" :label="t('sales.agent')" :placeholder="t('sales.pickAgent')" searchable :search-placeholder="t('sales.searchAgent')" />
+        <Dropdown v-model="f.agentId" :options="agentOptions" :label="t('sales.agent')" :placeholder="t('sales.pickAgent')" searchable :search-placeholder="t('sales.searchAgent')" />
         <Dropdown v-model="f.productId" :options="productOptions" :label="t('sales.product')" :placeholder="t('sales.pickProduct')" />
       </div>
       <div class="row">

@@ -95,8 +95,9 @@ test('resumen: banco, gastos pagados, nómina, resultado, comisiones, próximos 
   carrier = (await owner('POST', `/w/${slugA}/carriers`, { name: 'Americo' })).body.id;
   const pid = (await owner('POST', `/w/${slugA}/carriers/${carrier}/products`, { name: 'IUL' })).body.products[0].id;
   await owner('PUT', `/w/${slugA}/products/${pid}/grid`, { effectiveFrom: '2024-08-19', rows: [{ level: 80, rate: 65 }] });
-  await owner('POST', `/w/${slugA}/agents/${anaId}/levels`, { carrierIds: [carrier], level: 80, effectiveFrom: '2026-01-01' });
-  const sale = await owner('POST', `/w/${slugA}/sales`, { agentUserId: anaId, productId: pid, amount: 1200, clientName: 'Cliente', expectedIssueDate: '2026-08-05' });
+  const anaAgent = (await owner('POST', `/w/${slugA}/agents`, { name: 'Ana', userId: anaId })).body.id;
+  await owner('POST', `/w/${slugA}/agents/${anaAgent}/levels`, { carrierIds: [carrier], level: 80, effectiveFrom: '2026-01-01' });
+  const sale = await owner('POST', `/w/${slugA}/sales`, { agentId: anaAgent, productId: pid, amount: 1200, clientName: 'Cliente', expectedIssueDate: '2026-08-05' });
   await owner('POST', `/w/${slugA}/sales/${sale.body.id}/issue`, { issuedAt: '2026-08-05' });
   const inst = (await owner('GET', `/w/${slugA}/commissions`)).body.items.filter((i: any) => i.saleId === sale.body.id && i.status !== 'void');
   const adv = inst.find((i: any) => i.part === 'advance');

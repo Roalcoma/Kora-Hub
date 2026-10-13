@@ -30,15 +30,19 @@ export type Carrier = {
   defaultProductId: Id | null;            // el que se asume cuando el mensaje de Discord no dice el producto
 };
 
-/** Admin ve todos los miembros; el resto, solo su propio perfil */
-export type AgentProfile = {
-  userId: Id; uplineUserId: Id | null; discordUserId: string | null;
+/**
+ * Agente asociado: vende y cobra comisiones, pero no es usuario de la agencia. Si algún día entra a Kora, se enlaza a su
+ * usuario (`userId`) y ve sus ventas y comisiones. Admin ve todos; el resto, el suyo y los de su equipo.
+ */
+export type Agent = {
+  id: Id; name: string; email: string | null; userId: Id | null; uplineAgentId: Id | null; discordUserId: string | null;
+  archivedAt: IsoDate | null;
   /** Nivel de contrato (FFL) por compañía; historial, el más reciente primero (ADR 0006) */
   levels: { carrierId: Id; level: number; effectiveFrom: Day }[];
 };
 
 export type Sale = {
-  id: Id; agentUserId: Id; uplineUserId: Id | null; carrierId: Id; productId: Id;
+  id: Id; agentId: Id; uplineAgentId: Id | null; carrierId: Id; productId: Id;
   amount: number; clientName: string; clientState: string | null;
   expectedIssueDate: Day; issuedAt: Day | null; status: SaleStatus; overdue: boolean;   // pendiente con fecha vencida
   source: 'manual' | 'discord'; notes: string; createdAt: IsoDate;
@@ -51,7 +55,7 @@ export type SalesList = {
 /** Una cuota de la comisión vista desde otra (para saltar entre ellas) */
 export type InstallmentRef = { id: Id; part: 'advance' | 'remainder'; seq: number; amount: number; dueDate: Day; status: InstallmentStatus };
 export type Installment = {
-  id: Id; saleId: Id; beneficiaryUserId: Id; kind: 'direct' | 'override'; part: 'advance' | 'remainder' | 'chargeback';
+  id: Id; saleId: Id; beneficiaryAgentId: Id; kind: 'direct' | 'override'; part: 'advance' | 'remainder' | 'chargeback';
   /** 0 = adelanto, 1..n = cuotas mensuales del resto (ADR 0008); null en chargebacks */
   seq: number | null;
   /** Meses después del ISSUE en que vence (0 = adelanto, 10/11/12 = resto con 9 adelantados); null en chargebacks */
@@ -62,7 +66,7 @@ export type Installment = {
   of: number;
   /** Todas las cuotas de la misma venta, beneficiario y tipo, ordenadas por `seq` (incluye esta); vacío en chargebacks */
   group: InstallmentRef[];
-  sale: Pick<Sale, 'agentUserId' | 'carrierId' | 'productId' | 'clientName' | 'amount' | 'issuedAt' | 'status'>;
+  sale: Pick<Sale, 'agentId' | 'carrierId' | 'productId' | 'clientName' | 'amount' | 'issuedAt' | 'status'>;
 };
 export type CommissionsList = {
   items: Installment[];
@@ -75,7 +79,7 @@ export type InboxProblem = (typeof INBOX_PROBLEMS)[number];
 /** Mensaje de Discord que el lector no pudo completar */
 export type InboxItem = {
   id: Id; discordUserId: string; authorName: string; content: string; postedAt: IsoDate;
-  parsed: Partial<Pick<Sale, 'agentUserId' | 'carrierId' | 'productId' | 'amount' | 'clientName' | 'clientState' | 'expectedIssueDate'>>;
+  parsed: Partial<Pick<Sale, 'agentId' | 'carrierId' | 'productId' | 'amount' | 'clientName' | 'clientState' | 'expectedIssueDate'>>;
   problems: InboxProblem[];
 };
 
@@ -100,8 +104,15 @@ export const UpdateCarrierBody = z.object({
 export const ProductBody = z.object({ name: z.string().trim().min(1).max(80), aliases: Aliases });
 export const UpdateProductBody = z.object({ name: z.string().trim().min(1).max(80), aliases: AliasList, archived: z.boolean() }).partial();
 
-export const UpdateAgentProfileBody = z.object({
-  uplineUserId: Id.nullable(), discordUserId: z.string().regex(/^\d{5,25}$/).nullable(),
+const DiscordUser = z.string().regex(/^\d{5,25}$/);
+export const AgentBody = z.object({
+  name: z.string().trim().min(1).max(120), email: z.email().nullable().default(null),
+  uplineAgentId: Id.nullable().default(null), discordUserId: DiscordUser.nullable().default(null),
+  userId: Id.nullable().default(null),     // usuario de Kora enlazado (si el email coincide, se enlaza solo)
+});
+export const UpdateAgentBody = z.object({
+  name: z.string().trim().min(1).max(120), email: z.email().nullable(), uplineAgentId: Id.nullable(),
+  discordUserId: DiscordUser.nullable(), userId: Id.nullable(), archived: z.boolean(),
 }).partial();
 const Level = z.number().int().min(0).max(300);
 /** El mismo nivel aplicado a una o varias compañías desde esa fecha (misma fecha = corrige esa fila) */
@@ -117,7 +128,7 @@ export const GridBody = z.object({
 });
 
 export const SaleBody = z.object({
-  agentUserId: Id, productId: Id, amount: z.number().positive().max(10_000_000),
+  agentId: Id, productId: Id, amount: z.number().positive().max(10_000_000),
   clientName: z.string().trim().min(1).max(120), clientState: z.enum(US_STATES).nullable().default(null),
   expectedIssueDate: Day, notes: z.string().max(2_000).default(''),
   inboxId: Id.optional(),          // al completar un mensaje de la bandeja de Discord
@@ -130,17 +141,17 @@ export const CancelSaleBody = z.object({ chargebackPercent: z.number().min(0).ma
 const Bool = z.enum(['true', 'false']).transform((v) => v === 'true');
 export const SalesQuery = z.object({
   from: Day.optional(), to: Day.optional(),            // por fecha esperada de ISSUE
-  agentUserId: Id.optional(), carrierId: Id.optional(), productId: Id.optional(),
+  agentId: Id.optional(), carrierId: Id.optional(), productId: Id.optional(),
   status: z.enum(SALE_STATUS).optional(), overdue: Bool.optional(),
 });
 export const CommissionsQuery = z.object({
   from: Day.optional(), to: Day.optional(),            // por fecha de pago
-  beneficiaryUserId: Id.optional(), status: z.enum(INSTALLMENT_STATUS).optional(),
+  beneficiaryAgentId: Id.optional(), status: z.enum(INSTALLMENT_STATUS).optional(),
   carrierId: Id.optional(),
-  agentUserId: Id.optional(),                           // agente que hizo la venta (distinto del beneficiario)
+  agentId: Id.optional(),                               // agente que hizo la venta (distinto del beneficiario)
 });
 const Snowflake = z.string().regex(/^\d{15,25}$/, 'ID de Discord inválido');
 export const DiscordFeedBody = z.object({ channelId: Snowflake, importSince: Day });   // lee el canal desde ese día
-export const LinkInboxAuthorBody = z.object({ userId: Id });                         // el autor de Discord es este miembro
+export const LinkInboxAuthorBody = z.object({ agentId: Id });                        // el autor de Discord es este agente
 
 export const PayInstallmentsBody = z.object({ ids: z.array(Id).min(1).max(500), paidAt: Day.nullable() });   // null = deshacer

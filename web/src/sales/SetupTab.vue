@@ -1,10 +1,11 @@
 <script setup lang="ts">
-// Configuración del módulo (Admin): agentes (nivel de contrato por compañía, dueño de agencia, usuario de Discord) y
+// Configuración del módulo (Admin): agentes asociados (no son usuarios; uno puede enlazarse a su usuario de Kora), con su
+// nivel de contrato por compañía, dueño de agencia y usuario de Discord; y
 // compañías con sus productos, alias para el lector de Discord y tabla nivel → %.
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Plus, Pencil, Table2, TrendingUp, Building2, Users, ChevronRight, AlertTriangle } from 'lucide-vue-next';
-import type { Carrier, Product } from '@agencia-hub/contracts';
+import { Plus, Pencil, Table2, TrendingUp, Building2, Users, ChevronRight, AlertTriangle, Link2, Archive, ArchiveRestore } from 'lucide-vue-next';
+import type { Agent, Carrier, Product } from '@agencia-hub/contracts';
 import Dropdown from '@/design/Dropdown.vue';
 import Button from '@/design/Button.vue';
 import Badge from '@/design/Badge.vue';
@@ -41,25 +42,48 @@ async function guard(fn: () => Promise<unknown>, ok = t('common.saved')) {
 }
 
 // ─── Agentes ───
-const uplineOptions = (userId: string) => [{ value: '', label: t('sales.noUpline') },
-  ...ref_.sellers.filter((m) => m.userId !== userId).map((m) => ({ value: m.userId, label: m.name }))];
-const setUpline = (userId: string, v: string) =>
-  guard(() => api('PATCH /w/:slug/agents/:userId', { params: { slug: slug(), userId }, body: { uplineUserId: v || null } }));
+const uplineOptions = (id: string) => [{ value: '', label: t('sales.noUpline') },
+  ...ref_.sellers.filter((a) => a.id !== id).map((a) => ({ value: a.id, label: a.name }))];
+const patchAgent = (id: string, body: Record<string, unknown>) => api('PATCH /w/:slug/agents/:id', { params: { slug: slug(), id }, body });
+const setUpline = (id: string, v: string) => guard(() => patchAgent(id, { uplineAgentId: v || null }));
 const discordDraft = reactive<Record<string, string>>({});
-const discordOf = (userId: string) => discordDraft[userId] ?? ref_.agent(userId)?.discordUserId ?? '';
-function saveDiscord(userId: string) {
-  const v = (discordDraft[userId] ?? '').trim();
-  if (discordDraft[userId] === undefined || v === (ref_.agent(userId)?.discordUserId ?? '')) return;
+const discordOf = (id: string) => discordDraft[id] ?? ref_.agent(id)?.discordUserId ?? '';
+function saveDiscord(id: string) {
+  const v = (discordDraft[id] ?? '').trim();
+  if (discordDraft[id] === undefined || v === (ref_.agent(id)?.discordUserId ?? '')) return;
   if (v && !/^\d{5,25}$/.test(v)) { toast(t('sales.discordInvalid'), 'error'); return; }
-  guard(() => api('PATCH /w/:slug/agents/:userId', { params: { slug: slug(), userId }, body: { discordUserId: v || null } }))
-    .then(() => { delete discordDraft[userId]; });
+  guard(() => patchAgent(id, { discordUserId: v || null })).then(() => { delete discordDraft[id]; });
 }
-/** Dueños de agencia primero, luego por nombre */
-const agents = computed(() => [...ref_.sellers].sort((a, b) => {
-  const owners = (id: string) => ref_.agents.some((x) => x.uplineUserId === id) ? 0 : 1;
-  return owners(a.userId) - owners(b.userId) || a.name.localeCompare(b.name);
+/** Activos primero (dueños de agencia arriba), luego por nombre; los archivados al final si se piden */
+const showArchived = ref(false);
+const agents = computed(() => ref_.agents.filter((a) => showArchived.value || !a.archivedAt).sort((a, b) => {
+  const rank = (x: Agent) => (x.archivedAt ? 2 : ref_.agents.some((y) => y.uplineAgentId === x.id) ? 0 : 1);
+  return rank(a) - rank(b) || a.name.localeCompare(b.name);
 }));
-const teamSize = (id: string) => ref_.agents.filter((x) => x.uplineUserId === id).length;
+const archivedCount = computed(() => ref_.agents.filter((a) => a.archivedAt).length);
+const teamSize = (id: string) => ref_.agents.filter((x) => x.uplineAgentId === id && !x.archivedAt).length;
+
+// Alta y edición del agente: nombre, email y usuario de Kora enlazado (opcional; con el mismo email se enlaza solo)
+const agentEdit = ref<Agent | 'new' | null>(null);
+const agentOpen = computed({ get: () => !!agentEdit.value, set: (v) => { if (!v) agentEdit.value = null; } });
+const af = reactive({ name: '', email: '', userId: '' });
+function openAgent(a: Agent | null) {
+  agentEdit.value = a ?? 'new';
+  Object.assign(af, { name: a?.name ?? '', email: a?.email ?? '', userId: a?.userId ?? '' });
+}
+const editingId = computed(() => (agentEdit.value && agentEdit.value !== 'new' ? agentEdit.value.id : null));
+// Usuarios que se pueden enlazar: miembros activos que no están enlazados a otro agente
+const userOptions = computed(() => [{ value: '', label: t('sales.noLinkedUser') },
+  ...ref_.members.filter((m) => m.isActive && m.role !== 'guest' && !ref_.agents.some((a) => a.userId === m.userId && a.id !== editingId.value))
+    .map((m) => ({ value: m.userId, label: m.name, hint: m.email }))]);
+async function saveAgent() {
+  const body = { name: af.name.trim(), email: af.email.trim() || null, userId: af.userId || null };
+  const id = editingId.value;
+  if (await guard(() => (id ? patchAgent(id, body) : api('POST /w/:slug/agents', { params: { slug: slug() }, body })))) agentEdit.value = null;
+}
+const toggleArchive = async (a: Agent) => {
+  if (await guard(() => patchAgent(a.id, { archived: !a.archivedAt }))) agentEdit.value = null;
+};
 
 // Nivel de contrato por compañía (ADR 0006): la tabla muestra un resumen que escala a N compañías y el detalle vive en
 // el modal; el formulario aplica el mismo nivel a las compañías marcadas (un ascenso general sigue siendo una acción).
@@ -105,7 +129,7 @@ const levelHistory = computed(() => {
   return ref_.carriers.map((c) => ({ carrier: c, levels: levels.filter((l) => l.carrierId === c.id) })).filter((g) => g.levels.length);
 });
 const saveLevel = async () => {
-  if (await guard(() => api('POST /w/:slug/agents/:userId/levels', { params: { slug: slug(), userId: levelFor.value! },
+  if (await guard(() => api('POST /w/:slug/agents/:id/levels', { params: { slug: slug(), id: levelFor.value! },
     body: { carrierIds: levelForm.carrierIds, level: Number(levelForm.level), effectiveFrom: levelForm.effectiveFrom } }))) levelFor.value = null;
 };
 
@@ -156,7 +180,11 @@ const gridSummary = (p: Product) => {
     <div class="split">
       <!-- Agentes: la columna con más peso -->
       <section class="card accent">
-        <header class="head"><h2><Users :size="20" />{{ t('sales.agents') }}</h2><small>{{ t('sales.agentsHint') }}</small></header>
+        <header class="head row">
+          <span class="ttl"><h2><Users :size="20" />{{ t('sales.agents') }}</h2><small>{{ t('sales.agentsHint') }}</small></span>
+          <Button size="sm" variant="primary" @click="openAgent(null)"><Plus :size="15" />{{ t('sales.newAgent') }}</Button>
+        </header>
+        <EmptyState v-if="!ref_.agents.length" :icon="Users" :title="t('sales.noAgents')" :text="t('sales.noAgentsText')" />
         <div class="table-wrap">
           <table>
             <thead>
@@ -168,14 +196,17 @@ const gridSummary = (p: Product) => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="m in agents" :key="m.userId">
+              <tr v-for="m in agents" :key="m.id" :class="{ off: m.archivedAt }">
                 <th scope="row">
                   <span class="who"><Avatar :name="m.name" :size="30" /><span>{{ m.name }}
-                    <Badge v-if="teamSize(m.userId)" tone="primary">{{ t('sales.ownerOf', { n: teamSize(m.userId) }, teamSize(m.userId)) }}</Badge></span></span>
+                    <Badge v-if="teamSize(m.id)" tone="primary">{{ t('sales.ownerOf', { n: teamSize(m.id) }, teamSize(m.id)) }}</Badge>
+                    <Badge v-if="m.userId" tone="neutral"><Link2 :size="12" />{{ t('sales.hasUser') }}</Badge>
+                    <Badge v-if="m.archivedAt" tone="neutral">{{ t('sales.archivedAgent') }}</Badge></span>
+                    <button type="button" class="ico" :aria-label="`${t('sales.editAgent')} · ${m.name}`" :title="t('sales.editAgent')" @click="openAgent(m)"><Pencil :size="15" /></button></span>
                 </th>
                 <td class="lv">
-                  <button v-for="sum in [levelSummary(m.userId)]" :key="m.userId" type="button" class="lvl" :class="{ none: !sum }"
-                    :aria-label="`${t('sales.levelTitle')} · ${m.name}`" @click="openLevel(m.userId)">
+                  <button v-for="sum in [levelSummary(m.id)]" :key="m.id" type="button" class="lvl" :class="{ none: !sum }"
+                    :aria-label="`${t('sales.levelTitle')} · ${m.name}`" @click="openLevel(m.id)">
                     <template v-if="sum">
                       <b>{{ sum.range }}</b><span class="scope">{{ sum.scope }}</span>
                       <span v-if="sum.missing" class="miss"><AlertTriangle :size="13" />{{ t('sales.levelMissing', { n: sum.missing }) }}</span>
@@ -185,17 +216,18 @@ const gridSummary = (p: Product) => {
                   </button>
                 </td>
                 <td class="up" :data-label="t('sales.upline')">
-                  <Dropdown :model-value="ref_.agent(m.userId)?.uplineUserId ?? ''" :options="uplineOptions(m.userId)" searchable :search-placeholder="t('sales.searchAgent')"
-                    :aria-label="t('sales.upline')" @update:model-value="(v) => v !== (ref_.agent(m.userId)?.uplineUserId ?? '') && setUpline(m.userId, v ?? '')" />
+                  <Dropdown :model-value="ref_.agent(m.id)?.uplineAgentId ?? ''" :options="uplineOptions(m.id)" searchable :search-placeholder="t('sales.searchAgent')"
+                    :aria-label="t('sales.upline')" @update:model-value="(v) => v !== (ref_.agent(m.id)?.uplineAgentId ?? '') && setUpline(m.id, v ?? '')" />
                 </td>
                 <td :data-label="t('sales.discordId')">
-                  <input class="dc" :value="discordOf(m.userId)" inputmode="numeric" :placeholder="t('sales.discordPlaceholder')" :aria-label="`${t('sales.discordId')} · ${m.name}`"
-                    @input="discordDraft[m.userId] = ($event.target as HTMLInputElement).value" @blur="saveDiscord(m.userId)" @keydown.enter="saveDiscord(m.userId)">
+                  <input class="dc" :value="discordOf(m.id)" inputmode="numeric" :placeholder="t('sales.discordPlaceholder')" :aria-label="`${t('sales.discordId')} · ${m.name}`"
+                    @input="discordDraft[m.id] = ($event.target as HTMLInputElement).value" @blur="saveDiscord(m.id)" @keydown.enter="saveDiscord(m.id)">
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
+        <label v-if="archivedCount" class="show-arch"><input v-model="showArchived" type="checkbox">{{ t('sales.showArchivedAgents', { n: archivedCount }) }}</label>
       </section>
 
       <!-- Compañías y productos; arriba, la conexión con Discord -->
@@ -225,6 +257,21 @@ const gridSummary = (p: Product) => {
         </article>
       </section>
     </div>
+
+    <Modal v-model="agentOpen" :title="editingId ? t('sales.editAgent') : t('sales.newAgent')" :subtitle="t('sales.agentFormHint')" width="480px">
+      <form id="agent-form" class="grid gap-4" @submit.prevent="saveAgent">
+        <Input v-model="af.name" :label="t('sales.agentName')" required />
+        <Input v-model="af.email" type="email" :label="t('sales.agentEmail')" :hint="t('sales.agentEmailHint')" />
+        <Dropdown v-model="af.userId" :options="userOptions" :label="t('sales.linkedUser')" searchable />
+      </form>
+      <template #footer>
+        <Button v-if="agentEdit && agentEdit !== 'new'" variant="ghost" class="mr-auto" @click="toggleArchive(agentEdit)">
+          <ArchiveRestore v-if="agentEdit.archivedAt" :size="15" /><Archive v-else :size="15" />{{ agentEdit.archivedAt ? t('sales.restoreAgent') : t('sales.archiveAgent') }}
+        </Button>
+        <Button @click="agentEdit = null">{{ t('common.cancel') }}</Button>
+        <Button type="submit" form="agent-form" variant="primary" :disabled="!af.name.trim()">{{ t('common.save') }}</Button>
+      </template>
+    </Modal>
 
     <Modal v-model="levelOpen" :title="levelFor ? t('sales.levelsOf', { name: ref_.memberName(levelFor) }) : ''" :subtitle="t('sales.levelsHint')" width="560px">
       <!-- Nivel vigente por compañía: cada fila lleva su compañía al formulario -->
@@ -306,7 +353,12 @@ const gridSummary = (p: Product) => {
 .card { display: grid; gap: 12px; padding: 18px 20px; background: var(--color-surface); box-shadow: var(--shadow-md); }
 .card.accent { border-left: 4px solid var(--color-primary); }
 .head { display: grid; gap: 2px; }
-.head.row { display: flex; align-items: center; justify-content: space-between; }
+.head.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.head .ttl { display: grid; gap: 2px; min-width: 0; }
+tr.off { opacity: .55; }
+.who .ico { margin-left: auto; }
+.who > :deep(.av) { flex: none; }
+.show-arch { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-muted); cursor: pointer; }
 h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 19px; }
 .head small { color: var(--color-muted); }
 

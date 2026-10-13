@@ -34,19 +34,17 @@ async function catalog(db: pg.PoolClient): Promise<CatalogCarrier[]> {
 /** Interpreta un mensaje: venta completa → `sale`; incompleta → `problems` (con lo que sí se entendió) */
 async function interpret(db: pg.PoolClient, cat: CatalogCarrier[], content: string, discordUserId: string, postedAt: string) {
   const parsed = parseSale(content, nyDay(postedAt), cat);
-  const agent = (await db.query(
-    `select p.user_id from agent_profiles p join workspace_members m on m.workspace_id = p.workspace_id and m.user_id = p.user_id and m.is_active
-     where p.discord_user_id = $1`, [discordUserId])).rows[0]?.user_id as string | undefined;
+  const agent = (await db.query('select id from agents where discord_user_id = $1 and archived_at is null', [discordUserId])).rows[0]?.id as string | undefined;
   const problems: Problem[] = [...parsed.problems, ...(agent ? [] : ['agent' as const])];
   const { problems: _, ignore, ...fields } = parsed;
-  return { fields: { ...fields, agentUserId: agent }, problems, ignore };
+  return { fields: { ...fields, agentId: agent }, problems, ignore };
 }
 
 async function createSale(db: pg.PoolClient, f: Awaited<ReturnType<typeof interpret>>['fields'], messageId: string) {
   const { rows } = await db.query(
-    `insert into sales (workspace_id, agent_user_id, product_id, amount, client_name, client_state, expected_issue_date, source, discord_message_id)
+    `insert into sales (workspace_id, agent_id, product_id, amount, client_name, client_state, expected_issue_date, source, discord_message_id)
      values (app_ws(), $1, $2, $3, $4, $5, $6, 'discord', $7) on conflict (workspace_id, discord_message_id) do nothing returning id`,
-    [f.agentUserId, f.productId, f.amount, f.clientName, f.clientState ?? null, f.expectedIssueDate, messageId]);
+    [f.agentId, f.productId, f.amount, f.clientName, f.clientState ?? null, f.expectedIssueDate, messageId]);
   return rows[0]?.id as string | undefined;
 }
 

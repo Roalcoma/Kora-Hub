@@ -14,6 +14,7 @@ import { withAdmin } from '../db.ts';
 import { seedFinanceCategories } from './template.ts';
 import { disconnectUser } from '../realtime/hub.ts';
 import { syncDepartmentChannels } from '../chat/department-channels.ts';
+import { linkAgentByEmail } from '../sales/link.ts';
 import { enqueueSeatSync } from '../billing/lifecycle.ts';
 
 // Montado en index.ts detrás de requireAuth + workspaceContext
@@ -160,6 +161,7 @@ workspaceRouter.post('/members', async (req, res) => {
     for (const l of body.lineIds) await db.query('insert into member_lines (workspace_id, user_id, line_id) values ($1, $2, $3)', [wsId, user.id, l]);
     await joinDefaultChannels(db, wsId, user.id);
     await syncDepartmentChannels(db, wsId, { userId: user.id });
+    await linkAgentByEmail(db, wsId, user.id);
     await audit(db, { workspaceId: wsId, actor: req.userId!, action: 'member.created', targetType: 'user', targetId: user.id,
       meta: { role: body.role, existingAccount }, ip: req.ip });
     return { ...(await listMembers(db, user.id))[0]!, existingAccount };

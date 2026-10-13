@@ -553,15 +553,17 @@ test('nextPeriod y periodContaining de los 4 calendarios', () => {
 });
 
 let calId = '', luisId = '', anaPersonId = '', salaryId = '', runId = '', luisLine = '', anaLine = '';
-let negCalId = '', carrierA = '';
+let negCalId = '', carrierA = '', anaAgent = '';
 test('nómina: comisiones reales de ventas pagadas en el periodo (venta ISSUED + cuotas pagadas)', async () => {
   // Ana vende en septiembre; la compañía le paga el adelanto el 10/09
   const c = await owner('POST', `/w/${slugA}/carriers`, { name: 'Americo', aliases: ['americo fin'] });
   carrierA = c.body.id;
   const pid = (await owner('POST', `/w/${slugA}/carriers/${carrierA}/products`, { name: 'IUL' })).body.products[0].id;
   await owner('PUT', `/w/${slugA}/products/${pid}/grid`, { effectiveFrom: '2024-08-19', rows: [{ level: 80, rate: 65 }, { level: 100, rate: 85 }] });
-  await owner('POST', `/w/${slugA}/agents/${anaId}/levels`, { carrierIds: [carrierA], level: 80, effectiveFrom: '2026-01-01' });
-  const s = await owner('POST', `/w/${slugA}/sales`, { agentUserId: anaId, productId: pid, amount: 1200, clientName: 'Cliente Uno', expectedIssueDate: '2026-09-05' });
+  // Ana vende como agente asociado enlazado a su usuario: así su nómina toma sus comisiones
+  anaAgent = (await owner('POST', `/w/${slugA}/agents`, { name: 'Ana', userId: anaId })).body.id;
+  await owner('POST', `/w/${slugA}/agents/${anaAgent}/levels`, { carrierIds: [carrierA], level: 80, effectiveFrom: '2026-01-01' });
+  const s = await owner('POST', `/w/${slugA}/sales`, { agentId: anaAgent, productId: pid, amount: 1200, clientName: 'Cliente Uno', expectedIssueDate: '2026-09-05' });
   assert.equal((await owner('POST', `/w/${slugA}/sales/${s.body.id}/issue`, { issuedAt: '2026-09-05' })).body.status, 'issued');
   const adv = (await owner('GET', `/w/${slugA}/commissions`)).body.items.find((i: any) => i.saleId === s.body.id && i.part === 'advance');
   assert.equal(adv.amount, 585);
@@ -674,9 +676,9 @@ test('corrida: pagar parcial y total, deshacer, reabrir con pagos → 409', asyn
 });
 
 test('nómina: chargeback pagado en el periodo entra como deducción y deja neto negativo; CSV sin apóstrofo en -230.00', async () => {
-  const sale = (await owner('GET', `/w/${slugA}/sales`)).body.items.find((s: any) => s.agentUserId === anaId);
+  const sale = (await owner('GET', `/w/${slugA}/sales`)).body.items.find((s: any) => s.agentId === anaAgent);
   assert.equal((await owner('POST', `/w/${slugA}/sales/${sale.id}/cancel`, { chargebackPercent: 100 })).body.status, 'cancelled');
-  const cb = (await owner('GET', `/w/${slugA}/commissions`)).body.items.find((i: any) => i.part === 'chargeback' && i.beneficiaryUserId === anaId);
+  const cb = (await owner('GET', `/w/${slugA}/commissions`)).body.items.find((i: any) => i.part === 'chargeback' && i.beneficiaryAgentId === anaAgent);
   assert.equal(cb.amount, -585);
   await owner('POST', `/w/${slugA}/commissions/pay`, { ids: [cb.id], paidAt: '2026-10-05' });
   const oct = await conta('POST', A('/payroll/runs'), { calendarId: calId, periodStart: '2026-10-01', periodEnd: '2026-10-31', payDate: '2026-10-31' });

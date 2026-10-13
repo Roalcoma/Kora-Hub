@@ -292,13 +292,13 @@ async function recalcRun(db: pg.PoolClient, runId: string) {
   const comps = await db.query(
     `select id, person_id, kind, label, amount::float, rate::float, ${day('effective_from')} as ef, ${day('effective_to')} as et
      from payroll_components where person_id = any($1)`, [ids]);
-  // Cuotas pagadas en el periodo (los chargebacks pagados vienen negativos)
+  // Cuotas pagadas en el periodo (los chargebacks pagados vienen negativos). Las ventas son del agente enlazado al usuario.
   const commissions = await db.query(
-    `select beneficiary_user_id as uid, sum(amount) as total, count(*)::int as n from commission_installments
-     where beneficiary_user_id = any($1) and status = 'paid' and paid_at between $2 and $3 group by 1`, [users, run.ps, run.pe]);
+    `select a.user_id as uid, sum(i.amount) as total, count(*)::int as n from commission_installments i join agents a on a.id = i.beneficiary_agent_id
+     where a.user_id = any($1) and i.status = 'paid' and i.paid_at between $2 and $3 group by 1`, [users, run.ps, run.pe]);
   const sales = await db.query(
-    `select agent_user_id as uid, sum(amount) as total, count(*)::int as n from sales
-     where agent_user_id = any($1) and status = 'issued' and issued_at between $2 and $3 group by 1`, [users, run.ps, run.pe]);
+    `select a.user_id as uid, sum(s.amount) as total, count(*)::int as n from sales s join agents a on a.id = s.agent_id
+     where a.user_id = any($1) and s.status = 'issued' and s.issued_at between $2 and $3 group by 1`, [users, run.ps, run.pe]);
   const adjustments = await db.query('select id, person_id, kind, label, amount::float from payroll_adjustments where run_id = $1', [runId]);
   const lines = await db.query('select id, person_id, hours::float from payroll_lines where run_id = $1', [runId]);
   const byUser = (rows: any[]) => new Map(rows.map((r) => [r.uid, { cents: toCents(r.total), count: r.n }]));

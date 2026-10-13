@@ -1,6 +1,6 @@
 // Cálculo de comisiones (docs/plan-comisiones.md §2). Todo en centavos enteros: nada de flotantes con dinero.
 
-export type Share = { beneficiaryUserId: string; kind: 'direct' | 'override'; rate: number };
+export type Share = { beneficiaryAgentId: string; kind: 'direct' | 'override'; rate: number };
 /** `seq`: 0 = adelanto, 1..n = cuotas mensuales del resto (ADR 0008) */
 export type NewInstallment = Share & { part: 'advance' | 'remainder'; seq: number; amountCents: number; monthsAfterIssue: number };
 
@@ -9,11 +9,11 @@ export type NewInstallment = Share & { part: 'advance' | 'remainder'; seq: numbe
  * Cada parte se divide en adelanto (`advanceMonths` de 12, al ISSUE) y resto en cuotas mensuales.
  */
 export function commissionShares(
-  agent: { userId: string; rate: number },
-  upline: { userId: string; rate: number } | null,
+  agent: { agentId: string; rate: number },
+  upline: { agentId: string; rate: number } | null,
 ): Share[] {
-  const shares: Share[] = [{ beneficiaryUserId: agent.userId, kind: 'direct', rate: agent.rate }];
-  if (upline) shares.push({ beneficiaryUserId: upline.userId, kind: 'override', rate: Math.max(0, round3(upline.rate - agent.rate)) });
+  const shares: Share[] = [{ beneficiaryAgentId: agent.agentId, kind: 'direct', rate: agent.rate }];
+  if (upline) shares.push({ beneficiaryAgentId: upline.agentId, kind: 'override', rate: Math.max(0, round3(upline.rate - agent.rate)) });
   return shares.filter((s) => s.rate > 0);
 }
 

@@ -1,13 +1,14 @@
 // /w/:slug — ventas y comisiones por agente (docs/plan-comisiones.md). Solo con settings.sales_module.
+// Los agentes son asociados (tabla agents), no usuarios; uno puede enlazarse a un usuario para entrar y ver lo suyo.
 // Visibilidad: Admin ve todo; un dueño de agencia ve lo suyo y lo de sus agentes directos; el resto, solo lo suyo.
 // El % sale del nivel de contrato del agente (FFL) cruzado con la tabla del producto, ambos vigentes a la fecha de ISSUE.
 // Al marcar ISSUED se congelan nivel, % y montos en commission_installments: un ascenso después no mueve lo generado.
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import type pg from 'pg';
 import {
-  Id, CarrierBody, UpdateCarrierBody, ProductBody, UpdateProductBody, GridBody, UpdateAgentProfileBody, LevelBody,
+  Id, CarrierBody, UpdateCarrierBody, ProductBody, UpdateProductBody, GridBody, AgentBody, UpdateAgentBody, LevelBody,
   SaleBody, UpdateSaleBody, IssueSaleBody, CancelSaleBody, SalesQuery, CommissionsQuery, PayInstallmentsBody, DiscordFeedBody, LinkInboxAuthorBody,
-  type Carrier, type AgentProfile, type Sale, type SalesList, type Installment, type CommissionsList, type InboxItem, type DiscordFeed,
+  type Carrier, type Agent, type Sale, type SalesList, type Installment, type CommissionsList, type InboxItem, type DiscordFeed,
 } from '@agencia-hub/contracts';
 import { HttpError, parse, sendCsv } from '../platform/http.ts';
 import { tx, isAdmin, requireRole, membersOnly } from '../platform/workspace.ts';
@@ -130,81 +131,129 @@ salesRouter.put('/products/:id/grid', async (req, res) => {
   }));
 });
 
-// ─── Agentes: dueño de agencia, Discord y nivel de contrato ───
+// ─── Agentes: nombre, enlace a usuario, dueño de agencia, Discord y nivel de contrato ───
 
-async function listAgents(db: pg.PoolClient, userId: string | null): Promise<AgentProfile[]> {
+/** Agentes del usuario que pide (normalmente uno): el enlazado a su cuenta */
+const MY_AGENTS = `(select id from agents where user_id = app_user())`;
+
+async function listAgents(db: pg.PoolClient, req: Request, id?: string): Promise<Agent[]> {
+  // Admin ve todos; el resto, su agente y los de su equipo (de los que es dueño de agencia)
+  const mine = isAdmin(req) ? 'true' : `(a.id in ${MY_AGENTS} or a.upline_agent_id in ${MY_AGENTS})`;
   const { rows } = await db.query(
-    `select m.user_id, p.upline_user_id, p.discord_user_id,
-       coalesce((select json_agg(json_build_object('carrierId', l.carrier_id, 'level', l.level, 'effectiveFrom', ${day('l.effective_from')}) order by l.effective_from desc)
-                 from agent_levels l where l.user_id = m.user_id), '[]') as levels
-     from workspace_members m left join agent_profiles p on p.workspace_id = m.workspace_id and p.user_id = m.user_id
-     where m.workspace_id = app_ws() and m.role <> 'guest' and ($1::uuid is null or m.user_id = $1)
-     order by m.joined_at`, [userId]);
+    `select a.*, coalesce((select json_agg(json_build_object('carrierId', l.carrier_id, 'level', l.level, 'effectiveFrom', ${day('l.effective_from')})
+                order by l.effective_from desc) from agent_levels l where l.agent_id = a.id), '[]') as levels
+     from agents a where ${mine} and ($1::uuid is null or a.id = $1) order by a.archived_at nulls first, lower(a.name)`, [id ?? null]);
   return rows.map((r) => ({
-    userId: r.user_id, uplineUserId: r.upline_user_id, discordUserId: r.discord_user_id, levels: r.levels,
+    id: r.id, name: r.name, email: r.email, userId: r.user_id, uplineAgentId: r.upline_agent_id, discordUserId: r.discord_user_id,
+    archivedAt: r.archived_at?.toISOString() ?? null, levels: r.levels,
   }));
 }
-const oneAgent = async (db: pg.PoolClient, userId: string) => {
-  const a = (await listAgents(db, userId))[0];
-  if (!a) throw new HttpError(404, 'member_not_found', 'Miembro no encontrado');
+const oneAgent = async (db: pg.PoolClient, req: Request, id: string) => {
+  const a = (await listAgents(db, req, id))[0];
+  if (!a) throw new HttpError(404, 'agent_not_found', 'Agente no encontrado');
   return a;
 };
 
+/** El usuario a enlazar debe ser miembro activo; sin usuario explícito, se enlaza el miembro con el mismo email (si lo hay) */
+async function resolveUser(db: pg.PoolClient, userId: string | null | undefined, email: string | null | undefined, selfId?: string) {
+  if (userId) {
+    const ok = await db.query('select 1 from workspace_members where workspace_id = app_ws() and user_id = $1 and is_active', [userId]);
+    if (!ok.rowCount) throw new HttpError(400, 'invalid_user', 'Ese usuario no está activo en la agencia');
+  }
+  if (userId === undefined && email) {
+    const m = (await db.query(
+      `select m.user_id from workspace_members m join users u on u.id = m.user_id
+       where m.workspace_id = app_ws() and lower(u.email) = lower($1)
+         and not exists (select 1 from agents a where a.user_id = m.user_id and a.id is distinct from $2::uuid)`, [email, selfId ?? null])).rows[0];
+    if (m) return m.user_id as string;
+  }
+  if (userId) {
+    const taken = await db.query('select 1 from agents where user_id = $1 and id is distinct from $2::uuid', [userId, selfId ?? null]);
+    if (taken.rowCount) throw new HttpError(409, 'user_taken', 'Ese usuario ya está enlazado a otro agente');
+  }
+  return userId;
+}
+
+const agentConflict = (e: any) => {
+  if (e?.code === '23505' && String(e.constraint).includes('email')) throw new HttpError(409, 'agent_email_taken', 'Ya hay un agente con ese email');
+  if (e?.code === '23505' && String(e.constraint).includes('discord')) throw new HttpError(409, 'discord_taken', 'Ese usuario de Discord ya es de otro agente');
+  if (e?.code === '23503') throw new HttpError(400, 'invalid_reference', 'Dueño de agencia o usuario no válidos');
+  throw e;
+};
+
 salesRouter.get('/agents', async (req, res) => {
-  res.json(await tx(req, (db) => listAgents(db, isAdmin(req) ? null : req.userId!)));
+  res.json(await tx(req, (db) => listAgents(db, req)));
 });
 
-salesRouter.patch('/agents/:userId', async (req, res) => {
+salesRouter.post('/agents', async (req, res) => {
   requireRole(req, 'admin');
-  const userId = Id.parse(req.params.userId);
-  const body = parse(UpdateAgentProfileBody, req.body);
-  if (body.uplineUserId === userId) throw new HttpError(400, 'self_upline', 'Un agente no puede ser su propio dueño de agencia');
-  res.json(await tx(req, async (db) => {
-    await oneAgent(db, userId);
-    await db.query(
-      `insert into agent_profiles (workspace_id, user_id, upline_user_id, discord_user_id) values (app_ws(), $1, $3, $5)
-       on conflict (workspace_id, user_id) do update set
-         upline_user_id = case when $2 then excluded.upline_user_id else agent_profiles.upline_user_id end,
-         discord_user_id = case when $4 then excluded.discord_user_id else agent_profiles.discord_user_id end`,
-      [userId, body.uplineUserId !== undefined, body.uplineUserId ?? null, body.discordUserId !== undefined, body.discordUserId ?? null]);
-    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'agent.profile_changed', targetType: 'user', targetId: userId, meta: body });
-    // Sus mensajes que esperaban en la bandeja por no estar enlazado se vuelven ventas
+  const body = parse(AgentBody, req.body);
+  res.status(201).json(await tx(req, async (db) => {
+    const userId = await resolveUser(db, body.userId ?? undefined, body.email);
+    const { rows } = await db.query(
+      `insert into agents (workspace_id, name, email, user_id, upline_agent_id, discord_user_id) values (app_ws(), $1, $2, $3, $4, $5) returning id`,
+      [body.name, body.email?.toLowerCase() ?? null, userId ?? null, body.uplineAgentId, body.discordUserId]).catch(agentConflict);
+    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'agent.created', targetType: 'agent', targetId: rows[0].id, meta: body });
     if (body.discordUserId) await retryInbox(db, body.discordUserId);
-    return oneAgent(db, userId);
+    return oneAgent(db, req, rows[0].id);
   }));
 });
 
-salesRouter.post('/agents/:userId/levels', async (req, res) => {
+salesRouter.patch('/agents/:id', async (req, res) => {
   requireRole(req, 'admin');
-  const userId = Id.parse(req.params.userId);
+  const id = Id.parse(req.params.id);
+  const body = parse(UpdateAgentBody, req.body);
+  if (body.uplineAgentId === id) throw new HttpError(400, 'self_upline', 'Un agente no puede ser su propio dueño de agencia');
+  res.json(await tx(req, async (db) => {
+    await oneAgent(db, req, id);
+    const userId = await resolveUser(db, body.userId, body.email, id);
+    const set: string[] = [];
+    const vals: unknown[] = [id];
+    const add = (col: string, v: unknown) => { vals.push(v); set.push(`${col} = $${vals.length}`); };
+    if (body.name !== undefined) add('name', body.name);
+    if (body.email !== undefined) add('email', body.email?.toLowerCase() ?? null);
+    if (userId !== undefined) add('user_id', userId);
+    if (body.uplineAgentId !== undefined) add('upline_agent_id', body.uplineAgentId);
+    if (body.discordUserId !== undefined) add('discord_user_id', body.discordUserId);
+    if (body.archived !== undefined) add('archived_at', body.archived ? new Date() : null);
+    if (set.length) await db.query(`update agents set ${set.join(', ')} where id = $1`, vals).catch(agentConflict);
+    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'agent.changed', targetType: 'agent', targetId: id, meta: body });
+    // Sus mensajes que esperaban en la bandeja por no estar enlazado se vuelven ventas
+    if (body.discordUserId) await retryInbox(db, body.discordUserId);
+    return oneAgent(db, req, id);
+  }));
+});
+
+salesRouter.post('/agents/:id/levels', async (req, res) => {
+  requireRole(req, 'admin');
+  const id = Id.parse(req.params.id);
   const body = parse(LevelBody, req.body);
   res.json(await tx(req, async (db) => {
-    await oneAgent(db, userId);
+    await oneAgent(db, req, id);
     const found = (await db.query('select count(*)::int as n from carriers where id = any($1::uuid[])', [body.carrierIds])).rows[0].n;
     if (found !== body.carrierIds.length) throw new HttpError(404, 'carrier_not_found', 'Alguna compañía no existe en esta agencia');
     await db.query(
-      `insert into agent_levels (workspace_id, user_id, carrier_id, effective_from, level, set_by)
+      `insert into agent_levels (workspace_id, agent_id, carrier_id, effective_from, level, set_by)
        select app_ws(), $1, c, $2, $3, app_user() from unnest($4::uuid[]) as c
-       on conflict (workspace_id, user_id, carrier_id, effective_from) do update set level = excluded.level, set_by = excluded.set_by, set_at = now()`,
-      [userId, body.effectiveFrom, body.level, body.carrierIds]);
-    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'agent.level_set', targetType: 'user', targetId: userId, meta: body });
-    return oneAgent(db, userId);
+       on conflict (workspace_id, agent_id, carrier_id, effective_from) do update set level = excluded.level, set_by = excluded.set_by, set_at = now()`,
+      [id, body.effectiveFrom, body.level, body.carrierIds]);
+    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'agent.level_set', targetType: 'agent', targetId: id, meta: body });
+    return oneAgent(db, req, id);
   }));
 });
 
 // ─── Ventas ───
 
 /** Condición de visibilidad sobre el agente de la venta (alias `s`) */
-const visibleSale = (req: Request) => isAdmin(req) ? 'true' :
-  `(s.agent_user_id = app_user() or exists (select 1 from agent_profiles ap where ap.user_id = s.agent_user_id and ap.upline_user_id = app_user()))`;
+const visibleSale = (req: Request) => isAdmin(req) ? 'true' : `(s.agent_id in ${MY_AGENTS} or ag.upline_agent_id in ${MY_AGENTS})`;
 
-const SALE_COLS = `s.*, p.carrier_id, ap.upline_user_id, ${day('s.expected_issue_date')} as expected, ${day('s.issued_at')} as issued,
+const SALE_COLS = `s.*, p.carrier_id, ag.upline_agent_id, ${day('s.expected_issue_date')} as expected, ${day('s.issued_at')} as issued,
   (s.status = 'pending' and s.expected_issue_date < ${TODAY}) as overdue`;
 const SALE_FROM = `sales s join carrier_products p on p.id = s.product_id
-  left join agent_profiles ap on ap.workspace_id = s.workspace_id and ap.user_id = s.agent_user_id`;
+  join agents ag on ag.workspace_id = s.workspace_id and ag.id = s.agent_id`;
 
 const toSale = (r: any): Sale => ({
-  id: r.id, agentUserId: r.agent_user_id, uplineUserId: r.upline_user_id, carrierId: r.carrier_id, productId: r.product_id,
+  id: r.id, agentId: r.agent_id, uplineAgentId: r.upline_agent_id, carrierId: r.carrier_id, productId: r.product_id,
   amount: Number(r.amount), clientName: r.client_name, clientState: r.client_state,
   expectedIssueDate: r.expected, issuedAt: r.issued, status: r.status, overdue: r.overdue,
   source: r.source, notes: r.notes, createdAt: r.created_at.toISOString(),
@@ -215,11 +264,11 @@ async function querySales(req: Request, q: ReturnType<typeof SalesQuery.parse>):
     `select ${SALE_COLS} from ${SALE_FROM}
      where ${visibleSale(req)}
        and ($1::date is null or s.expected_issue_date >= $1) and ($2::date is null or s.expected_issue_date <= $2)
-       and ($3::uuid is null or s.agent_user_id = $3) and ($4::uuid is null or p.carrier_id = $4)
+       and ($3::uuid is null or s.agent_id = $3) and ($4::uuid is null or p.carrier_id = $4)
        and ($5::uuid is null or s.product_id = $5) and ($6::text is null or s.status = $6)
        and ($7::boolean is null or (s.status = 'pending' and s.expected_issue_date < ${TODAY}) = $7)
      order by s.expected_issue_date desc, s.created_at desc limit 2000`,
-    [q.from ?? null, q.to ?? null, q.agentUserId ?? null, q.carrierId ?? null, q.productId ?? null, q.status ?? null, q.overdue ?? null],
+    [q.from ?? null, q.to ?? null, q.agentId ?? null, q.carrierId ?? null, q.productId ?? null, q.status ?? null, q.overdue ?? null],
   )).rows.map(toSale));
 }
 
@@ -244,7 +293,7 @@ salesRouter.get('/sales.csv', async (req, res) => {
   const names = await nameMaps(req);
   sendCsv(res, 'ventas.csv', [
     ['Agente', 'Dueño de agencia', 'Compañía', 'Producto', 'Monto', 'Cliente', 'Estado (US)', 'Fecha esperada', 'ISSUE', 'Estado', 'Origen'],
-    ...items.map((s) => [names.get(s.agentUserId), s.uplineUserId ? names.get(s.uplineUserId) : '', names.get(s.carrierId), names.get(s.productId),
+    ...items.map((s) => [names.get(s.agentId), s.uplineAgentId ? names.get(s.uplineAgentId) : '', names.get(s.carrierId), names.get(s.productId),
       s.amount.toFixed(2), s.clientName, s.clientState ?? '', s.expectedIssueDate, s.issuedAt ?? '', s.status, s.source]),
   ]);
 });
@@ -256,10 +305,10 @@ salesRouter.post('/sales', async (req, res) => {
     const inbox = body.inboxId ? (await db.query('select * from sale_inbox where id = $1 and resolved_at is null for update', [body.inboxId])).rows[0] : null;
     if (body.inboxId && !inbox) throw new HttpError(404, 'inbox_not_found', 'Ese mensaje ya se resolvió o no existe');
     const { rows } = await db.query(
-      `insert into sales (workspace_id, agent_user_id, product_id, amount, client_name, client_state, expected_issue_date, notes,
+      `insert into sales (workspace_id, agent_id, product_id, amount, client_name, client_state, expected_issue_date, notes,
          source, discord_message_id, created_by)
        values (app_ws(), $1, $2, $3, $4, $5, $6, $7, $8, $9, app_user()) returning id`,
-      [body.agentUserId, body.productId, body.amount, body.clientName, body.clientState, body.expectedIssueDate, body.notes,
+      [body.agentId, body.productId, body.amount, body.clientName, body.clientState, body.expectedIssueDate, body.notes,
         inbox ? 'discord' : 'manual', inbox?.discord_message_id ?? null]);
     if (inbox) await db.query('update sale_inbox set resolved_at = now(), resolved_by = app_user(), sale_id = $2 where id = $1', [inbox.id, rows[0].id]);
     return oneSale(db, rows[0].id);
@@ -274,11 +323,11 @@ salesRouter.patch('/sales/:id', async (req, res) => {
     const before = await oneSale(db, id, true);
     if (before.status !== 'pending') throw new HttpError(409, 'sale_not_pending', 'Solo se editan ventas pendientes de ISSUE');
     await db.query(
-      `update sales set agent_user_id = coalesce($2, agent_user_id), product_id = coalesce($3, product_id), amount = coalesce($4, amount),
+      `update sales set agent_id = coalesce($2, agent_id), product_id = coalesce($3, product_id), amount = coalesce($4, amount),
          client_name = coalesce($5, client_name), client_state = case when $6 then $7 else client_state end,
          expected_issue_date = coalesce($8, expected_issue_date), notes = coalesce($9, notes), updated_at = now()
        where id = $1`,
-      [id, body.agentUserId ?? null, body.productId ?? null, body.amount ?? null, body.clientName ?? null,
+      [id, body.agentId ?? null, body.productId ?? null, body.amount ?? null, body.clientName ?? null,
         body.clientState !== undefined, body.clientState ?? null, body.expectedIssueDate ?? null, body.notes ?? null]);
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'sale.edited', targetType: 'sale', targetId: id, meta: body });
     return oneSale(db, id);
@@ -286,13 +335,13 @@ salesRouter.patch('/sales/:id', async (req, res) => {
 });
 
 /** Nivel del agente y su % en el producto a la fecha de ISSUE (nivel y tabla: los más recientes con vigencia <= fecha) */
-async function rateAt(db: pg.PoolClient, userId: string, productId: string, date: string) {
-  const who = (await db.query('select name from users where id = $1', [userId])).rows[0]?.name ?? '';
+async function rateAt(db: pg.PoolClient, agentId: string, productId: string, date: string) {
+  const who = (await db.query('select name from agents where id = $1', [agentId])).rows[0]?.name ?? '';
   // El nivel es por compañía: se busca en la del producto
   const lvl = (await db.query(
     `select l.level, c.name as carrier from agent_levels l join carriers c on c.id = l.carrier_id
-     where l.user_id = $1 and l.effective_from <= $2 and l.carrier_id = (select carrier_id from carrier_products where id = $3)
-     order by l.effective_from desc limit 1`, [userId, date, productId])).rows[0];
+     where l.agent_id = $1 and l.effective_from <= $2 and l.carrier_id = (select carrier_id from carrier_products where id = $3)
+     order by l.effective_from desc limit 1`, [agentId, date, productId])).rows[0];
   if (!lvl) {
     const carrier = (await db.query('select c.name from carriers c join carrier_products p on p.carrier_id = c.id where p.id = $1', [productId])).rows[0]?.name ?? 'esta compañía';
     throw new HttpError(409, 'missing_level', `${who} no tiene nivel de contrato en ${carrier} a esa fecha`);
@@ -302,7 +351,7 @@ async function rateAt(db: pg.PoolClient, userId: string, productId: string, date
        and g.effective_from = (select max(effective_from) from comp_grid where product_id = p.id and effective_from <= $3)
      where p.id = $1`, [productId, lvl.level, date]);
   if (rows[0]?.rate == null) throw new HttpError(409, 'missing_rate', `La tabla de ${rows[0]?.name ?? 'este producto'} no tiene el nivel ${lvl.level} de ${who} a esa fecha`);
-  return { userId, level: lvl.level as number, rate: Number(rows[0].rate) };
+  return { agentId, level: lvl.level as number, rate: Number(rows[0].rate) };
 }
 
 salesRouter.post('/sales/:id/issue', async (req, res) => {
@@ -312,15 +361,15 @@ salesRouter.post('/sales/:id/issue', async (req, res) => {
   res.json(await tx(req, async (db) => {
     const sale = await oneSale(db, id, true);
     if (sale.status !== 'pending') throw new HttpError(409, 'sale_not_pending', 'Esta venta ya no está pendiente de ISSUE');
-    const agent = await rateAt(db, sale.agentUserId, sale.productId, issuedAt);
-    const upline = sale.uplineUserId ? await rateAt(db, sale.uplineUserId, sale.productId, issuedAt) : null;
-    const levels = new Map([[agent.userId, agent.level], ...(upline ? [[upline.userId, upline.level] as const] : [])]);
+    const agent = await rateAt(db, sale.agentId, sale.productId, issuedAt);
+    const upline = sale.uplineAgentId ? await rateAt(db, sale.uplineAgentId, sale.productId, issuedAt) : null;
+    const levels = new Map([[agent.agentId, agent.level], ...(upline ? [[upline.agentId, upline.level] as const] : [])]);
     const { advance_months } = (await db.query('select advance_months from carriers where id = $1', [sale.carrierId])).rows[0];
     for (const i of installments(toCents(sale.amount), advance_months, commissionShares(agent, upline))) {
       await db.query(
-        `insert into commission_installments (workspace_id, sale_id, beneficiary_user_id, kind, part, seq, level, rate, amount, due_date)
+        `insert into commission_installments (workspace_id, sale_id, beneficiary_agent_id, kind, part, seq, level, rate, amount, due_date)
          values (app_ws(), $1, $2, $3, $4, $5, $6, $7, $8, $9::date + make_interval(months => $10))`,
-        [id, i.beneficiaryUserId, i.kind, i.part, i.seq, levels.get(i.beneficiaryUserId), i.rate, i.amountCents / 100, issuedAt, i.monthsAfterIssue]);
+        [id, i.beneficiaryAgentId, i.kind, i.part, i.seq, levels.get(i.beneficiaryAgentId), i.rate, i.amountCents / 100, issuedAt, i.monthsAfterIssue]);
     }
     await db.query("update sales set status = 'issued', issued_at = $2, updated_at = now() where id = $1", [id, issuedAt]);
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'sale.issued', targetType: 'sale', targetId: id, meta: { issuedAt } });
@@ -350,15 +399,15 @@ salesRouter.post('/sales/:id/cancel', async (req, res) => {
     // Lo no pagado se anula; sobre lo ya pagado la compañía descuenta el % indicado
     await db.query("update commission_installments set status = 'void' where sale_id = $1 and status = 'pending'", [id]);
     const paid = (await db.query(
-      `select beneficiary_user_id, kind, max(level) as level, max(rate) as rate, sum(amount) as amount from commission_installments
-       where sale_id = $1 and status = 'paid' and part <> 'chargeback' group by beneficiary_user_id, kind`, [id])).rows;
+      `select beneficiary_agent_id, kind, max(level) as level, max(rate) as rate, sum(amount) as amount from commission_installments
+       where sale_id = $1 and status = 'paid' and part <> 'chargeback' group by beneficiary_agent_id, kind`, [id])).rows;
     for (const p of paid) {
       const cents = chargebackCents(toCents(p.amount), chargebackPercent);
       if (cents >= 0) continue;
       await db.query(
-        `insert into commission_installments (workspace_id, sale_id, beneficiary_user_id, kind, part, level, rate, amount, due_date)
+        `insert into commission_installments (workspace_id, sale_id, beneficiary_agent_id, kind, part, level, rate, amount, due_date)
          values (app_ws(), $1, $2, $3, 'chargeback', $4, $5, $6, ${TODAY})`,
-        [id, p.beneficiary_user_id, p.kind, p.level, p.rate, cents / 100]);
+        [id, p.beneficiary_agent_id, p.kind, p.level, p.rate, cents / 100]);
     }
     await db.query("update sales set status = 'cancelled', updated_at = now() where id = $1", [id]);
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'sale.cancelled', targetType: 'sale', targetId: id, meta: { chargebackPercent } });
@@ -370,10 +419,10 @@ salesRouter.post('/sales/:id/cancel', async (req, res) => {
 
 async function queryInstallments(req: Request, q: ReturnType<typeof CommissionsQuery.parse>): Promise<Installment[]> {
   // El agente ve solo sus cuotas (no el override que su venta le deja al dueño); el dueño ve además las de sus agentes
-  const visible = isAdmin(req) ? 'true' : `(i.beneficiary_user_id = app_user()
-    or exists (select 1 from agent_profiles ap where ap.user_id = s.agent_user_id and ap.upline_user_id = app_user()))`;
+  const visible = isAdmin(req) ? 'true' : `(i.beneficiary_agent_id in ${MY_AGENTS}
+    or exists (select 1 from agents ag where ag.id = s.agent_id and ag.upline_agent_id in ${MY_AGENTS}))`;
   return tx(req, async (db) => (await db.query(
-    `select i.*, ${day('i.due_date')} as due, ${day('i.paid_at')} as paid, s.agent_user_id, s.product_id, p.carrier_id,
+    `select i.*, ${day('i.due_date')} as due, ${day('i.paid_at')} as paid, s.agent_id, s.product_id, p.carrier_id,
        s.client_name, s.amount as sale_amount, ${day('s.issued_at')} as issued, s.status as sale_status, g.grp,
        -- Mes de calendario respecto al ISSUE (no age(): 31/01 + 10 meses = 30/11 daría 9 meses y 30 días)
        case when i.part <> 'chargeback' then ((extract(year from i.due_date) - extract(year from s.issued_at)) * 12
@@ -384,19 +433,19 @@ async function queryInstallments(req: Request, q: ReturnType<typeof CommissionsQ
        select json_agg(json_build_object('id', o.id, 'part', o.part, 'seq', o.seq, 'amount', o.amount, 'dueDate', ${day('o.due_date')}, 'status', o.status)
                 order by o.seq, o.due_date) as grp
        from commission_installments o
-       where o.sale_id = i.sale_id and o.beneficiary_user_id = i.beneficiary_user_id and o.kind = i.kind
+       where o.sale_id = i.sale_id and o.beneficiary_agent_id = i.beneficiary_agent_id and o.kind = i.kind
          and i.part <> 'chargeback' and o.part <> 'chargeback') g on true
      where ${visible}
        and ($1::date is null or i.due_date >= $1) and ($2::date is null or i.due_date <= $2)
-       and ($3::uuid is null or i.beneficiary_user_id = $3) and ($4::text is null or i.status = $4)
-       and ($5::uuid is null or p.carrier_id = $5) and ($6::uuid is null or s.agent_user_id = $6)
+       and ($3::uuid is null or i.beneficiary_agent_id = $3) and ($4::text is null or i.status = $4)
+       and ($5::uuid is null or p.carrier_id = $5) and ($6::uuid is null or s.agent_id = $6)
      order by i.due_date, s.client_name, i.kind limit 5000`,
-    [q.from ?? null, q.to ?? null, q.beneficiaryUserId ?? null, q.status ?? null, q.carrierId ?? null, q.agentUserId ?? null],
+    [q.from ?? null, q.to ?? null, q.beneficiaryAgentId ?? null, q.status ?? null, q.carrierId ?? null, q.agentId ?? null],
   )).rows.map((r) => ({
-    id: r.id, saleId: r.sale_id, beneficiaryUserId: r.beneficiary_user_id, kind: r.kind, part: r.part,
+    id: r.id, saleId: r.sale_id, beneficiaryAgentId: r.beneficiary_agent_id, kind: r.kind, part: r.part,
     seq: r.seq, month: r.month, level: r.level, rate: Number(r.rate), amount: Number(r.amount), dueDate: r.due, status: r.status, paidAt: r.paid,
     ...group(r),
-    sale: { agentUserId: r.agent_user_id, carrierId: r.carrier_id, productId: r.product_id, clientName: r.client_name,
+    sale: { agentId: r.agent_id, carrierId: r.carrier_id, productId: r.product_id, clientName: r.client_name,
       amount: Number(r.sale_amount), issuedAt: r.issued, status: r.sale_status },
   })));
 }
@@ -424,7 +473,7 @@ salesRouter.get('/commissions.csv', async (req, res) => {
     : `${PART[i.part]} · cuota ${i.group.findIndex((o) => o.id === i.id) + 1} de ${i.of}${i.part === 'remainder' ? ` (mes ${i.month})` : ''}`;
   sendCsv(res, 'comisiones.csv', [
     ['Beneficiario', 'Tipo', 'Cuota', 'Agente', 'Cliente', 'Compañía', 'Producto', 'Monto venta', 'Nivel', '%', 'Monto de la cuota', 'Comisión total', 'Fecha de pago', 'Estado', 'Pagada el'],
-    ...items.map((i) => [names.get(i.beneficiaryUserId), i.kind === 'direct' ? 'Directa' : 'Override', part(i), names.get(i.sale.agentUserId),
+    ...items.map((i) => [names.get(i.beneficiaryAgentId), i.kind === 'direct' ? 'Directa' : 'Override', part(i), names.get(i.sale.agentId),
       i.sale.clientName, names.get(i.sale.carrierId), names.get(i.sale.productId), i.sale.amount.toFixed(2), i.level ?? '', i.rate, i.amount.toFixed(2), i.total.toFixed(2),
       i.dueDate, i.status, i.paidAt ?? '']),
   ]);
@@ -471,16 +520,15 @@ salesRouter.post('/sales-inbox/retry', async (req, res) => {
 salesRouter.post('/sales-inbox/:id/link', async (req, res) => {
   requireRole(req, 'admin');
   const id = Id.parse(req.params.id);
-  const { userId } = parse(LinkInboxAuthorBody, req.body);
+  const { agentId } = parse(LinkInboxAuthorBody, req.body);
   res.json(await tx(req, async (db) => {
     const it = (await db.query('select discord_user_id from sale_inbox where id = $1', [id])).rows[0];
     if (!it) throw new HttpError(404, 'inbox_not_found', 'Ese mensaje no existe');
-    // Un usuario de Discord es de un solo miembro: si estaba en otro perfil, se mueve
-    await db.query('update agent_profiles set discord_user_id = null where discord_user_id = $1 and user_id <> $2', [it.discord_user_id, userId]);
-    await db.query(
-      `insert into agent_profiles (workspace_id, user_id, discord_user_id) values (app_ws(), $1, $2)
-       on conflict (workspace_id, user_id) do update set discord_user_id = excluded.discord_user_id`, [userId, it.discord_user_id]);
-    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'agent.profile_changed', targetType: 'user', targetId: userId,
+    await oneAgent(db, req, agentId);
+    // Un usuario de Discord es de un solo agente: si estaba en otro, se mueve
+    await db.query('update agents set discord_user_id = null where discord_user_id = $1 and id <> $2', [it.discord_user_id, agentId]);
+    await db.query('update agents set discord_user_id = $2 where id = $1', [agentId, it.discord_user_id]);
+    await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'agent.changed', targetType: 'agent', targetId: agentId,
       meta: { discordUserId: it.discord_user_id } });
     return { created: await retryInbox(db, it.discord_user_id) };
   }));
@@ -523,9 +571,9 @@ salesRouter.delete('/discord-feed', async (req, res) => {
   res.status(204).end();
 });
 
-/** Nombres de miembros, compañías y productos para los CSV */
+/** Nombres de agentes, compañías y productos para los CSV */
 const nameMaps = (req: Request) => tx(req, async (db) => new Map<string, string>([
-  ...(await db.query('select u.id, u.name from workspace_members m join users u on u.id = m.user_id where m.workspace_id = app_ws()')).rows,
+  ...(await db.query('select id, name from agents')).rows,
   ...(await db.query('select id, name from carriers')).rows,
   ...(await db.query('select id, name from carrier_products')).rows,
 ].map((r) => [r.id, r.name])));

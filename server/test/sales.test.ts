@@ -55,16 +55,18 @@ before(async () => {
       token: inv.body.url.split('/invite/')[1], newAccount: { name, password, locale: 'es', email: `${name.toLowerCase()}-${run}@test.local` } });
     return acc.body.user.id as string;
   };
-  anaId = await join(ana, 'Ana');
-  carlosId = await join(carlos, 'Carlos');
-  omarId = await join(omar, 'Omar');
+  // Los agentes son asociados: aquí cada uno además tiene usuario (enlazado) para probar lo que ve cada quien
+  const agent = async (name: string, userId: string) => (await owner('POST', A('/agents'), { name, userId })).body.id as string;
+  anaId = await agent('Ana', await join(ana, 'Ana'));
+  carlosId = await agent('Carlos', await join(carlos, 'Carlos'));
+  omarId = await agent('Omar', await join(omar, 'Omar'));
 });
 
 after(async () => {
   server.close();
   const ws = (await adminPool.query('select id from workspaces where slug = any($1)', [[slugA, slugB]])).rows.map((r) => r.id);
   await adminPool.query('update carriers set default_product_id = null where workspace_id = any($1)', [ws]);
-  for (const t of ['sale_inbox', 'commission_installments', 'sales', 'agent_levels', 'comp_grid', 'agent_profiles', 'carrier_products', 'carriers',
+  for (const t of ['sale_inbox', 'commission_installments', 'sales', 'agent_levels', 'comp_grid', 'agents', 'carrier_products', 'carriers',
     'discord_feeds', 'messages', 'channel_members', 'channels', 'audit_log', 'member_departments', 'member_lines', 'invitations',
     'departments', 'business_lines', 'expense_categories', 'workspace_members', 'jobs']) {
     await adminPool.query(`delete from ${t} where workspace_id = any($1)`, [ws]);
@@ -80,8 +82,8 @@ after(async () => {
 // ═══ Cálculo puro ═══
 
 test('comisión directa y override: 75 % al ISSUE y el resto en 3 cuotas de 1/12 (meses 10, 11 y 12)', () => {
-  const rows = installments(120_000, 9, commissionShares({ userId: 'ana', rate: 70 }, { userId: 'carlos', rate: 90 }));
-  assert.deepEqual(rows.map((r) => [r.beneficiaryUserId, r.kind, r.part, r.seq, r.amountCents, r.monthsAfterIssue]), [
+  const rows = installments(120_000, 9, commissionShares({ agentId: 'ana', rate: 70 }, { agentId: 'carlos', rate: 90 }));
+  assert.deepEqual(rows.map((r) => [r.beneficiaryAgentId, r.kind, r.part, r.seq, r.amountCents, r.monthsAfterIssue]), [
     ['ana', 'direct', 'advance', 0, 63_000, 0], ['ana', 'direct', 'remainder', 1, 7_000, 10],
     ['ana', 'direct', 'remainder', 2, 7_000, 11], ['ana', 'direct', 'remainder', 3, 7_000, 12],
     ['carlos', 'override', 'advance', 0, 18_000, 0], ['carlos', 'override', 'remainder', 1, 2_000, 10],
@@ -91,12 +93,12 @@ test('comisión directa y override: 75 % al ISSUE y el resto en 3 cuotas de 1/12
 
 test('redondeo: total no divisible entre 12, la última cuota absorbe la diferencia', () => {
   // 1199.88 × 72.5 % = 869.91 → adelanto 652.43; 1/12 = 72.49 → 72.49 + 72.49 + 72.50
-  const rows = installments(119_988, 9, [{ beneficiaryUserId: 'a', kind: 'direct', rate: 72.5 }]);
+  const rows = installments(119_988, 9, [{ beneficiaryAgentId: 'a', kind: 'direct', rate: 72.5 }]);
   assert.deepEqual(rows.map((r) => r.amountCents), [65_243, 7_249, 7_249, 7_250]);
   assert.equal(rows.reduce((t, r) => t + r.amountCents, 0), 86_991);
   // Barrido: en cualquier monto y adelanto la suma cuadra y no hay cuotas en 0 ni negativas
   for (let m = 0; m <= 12; m++) for (const c of [1, 5, 6, 7, 13, 18, 99, 1001, 100_006, 123_457]) {
-    const r = installments(c * 100, m, [{ beneficiaryUserId: 'a', kind: 'direct', rate: 1 }]);
+    const r = installments(c * 100, m, [{ beneficiaryAgentId: 'a', kind: 'direct', rate: 1 }]);
     assert.equal(r.reduce((t, i) => t + i.amountCents, 0), c, `${c} con ${m}`);
     assert.ok(r.every((i) => i.amountCents > 0));
     assert.deepEqual(r.filter((i) => i.part === 'remainder').map((i) => i.seq), r.filter((i) => i.part === 'remainder').map((_, k) => k + 1));
@@ -104,16 +106,16 @@ test('redondeo: total no divisible entre 12, la última cuota absorbe la diferen
 });
 
 test('adelanto de 6 meses: 6 cuotas mensuales; de 12 meses: sin resto', () => {
-  const six = installments(120_000, 6, [{ beneficiaryUserId: 'a', kind: 'direct', rate: 65 }]);
+  const six = installments(120_000, 6, [{ beneficiaryAgentId: 'a', kind: 'direct', rate: 65 }]);
   assert.deepEqual(six.map((r) => [r.part, r.seq, r.amountCents, r.monthsAfterIssue]), [
     ['advance', 0, 39_000, 0], ...[7, 8, 9, 10, 11, 12].map((m, k) => ['remainder', k + 1, 6_500, m])]);
-  const twelve = installments(120_000, 12, [{ beneficiaryUserId: 'a', kind: 'direct', rate: 65 }]);
+  const twelve = installments(120_000, 12, [{ beneficiaryAgentId: 'a', kind: 'direct', rate: 65 }]);
   assert.deepEqual(twelve.map((r) => [r.part, r.seq, r.amountCents, r.monthsAfterIssue]), [['advance', 0, 78_000, 0]]);
 });
 
 test('override en 0 si el dueño no supera al agente; los centavos siempre cuadran', () => {
-  assert.deepEqual(commissionShares({ userId: 'a', rate: 90 }, { userId: 'b', rate: 80 }).map((s) => s.kind), ['direct']);
-  const rows = installments(119_988, 9, commissionShares({ userId: 'a', rate: 72.5 }, null));
+  assert.deepEqual(commissionShares({ agentId: 'a', rate: 90 }, { agentId: 'b', rate: 80 }).map((s) => s.kind), ['direct']);
+  const rows = installments(119_988, 9, commissionShares({ agentId: 'a', rate: 72.5 }, null));
   assert.equal(rows.reduce((t, r) => t + r.amountCents, 0), Math.round(119_988 * 0.725));
 });
 
@@ -147,34 +149,64 @@ test('compañías y productos: solo Admin los crea; los alias se guardan sin ace
 });
 
 test('perfil de agente: dueño de agencia, Discord y nivel de contrato con vigencia', async () => {
-  assert.equal((await ana('PATCH', A(`/agents/${anaId}`), { uplineUserId: anaId })).status, 403);
-  assert.equal((await owner('PATCH', A(`/agents/${anaId}`), { uplineUserId: anaId })).status, 400);
-  const p = await owner('PATCH', A(`/agents/${anaId}`), { uplineUserId: carlosId, discordUserId: '123456789012' });
-  assert.equal(p.body.uplineUserId, carlosId);
+  assert.equal((await ana('PATCH', A(`/agents/${anaId}`), { uplineAgentId: anaId })).status, 403);
+  assert.equal((await owner('PATCH', A(`/agents/${anaId}`), { uplineAgentId: anaId })).status, 400);
+  const p = await owner('PATCH', A(`/agents/${anaId}`), { uplineAgentId: carlosId, discordUserId: '123456789012' });
+  assert.equal(p.body.uplineAgentId, carlosId);
   await owner('POST', A(`/agents/${anaId}/levels`), { carrierIds: [carrierId], level: 80, effectiveFrom: '2026-01-01' });
   await owner('POST', A(`/agents/${anaId}/levels`), { carrierIds: [carrierId], level: 85, effectiveFrom: '2027-01-01' });   // ascenso futuro
   const r = await owner('POST', A(`/agents/${carlosId}/levels`), { carrierIds: [carrierId], level: 105, effectiveFrom: '2026-01-01' });
   assert.deepEqual(r.body.levels, [{ carrierId, level: 105, effectiveFrom: '2026-01-01' }]);
   // Cada uno ve solo su perfil; el Admin ve a todos
-  assert.deepEqual((await ana('GET', A('/agents'))).body.map((a: any) => a.userId), [anaId]);
-  assert.ok((await owner('GET', A('/agents'))).body.length >= 4);
+  assert.deepEqual((await ana('GET', A('/agents'))).body.map((a: any) => a.id), [anaId]);
+  assert.ok((await owner('GET', A('/agents'))).body.length >= 3);
+});
+
+test('agente asociado sin usuario: vende y cobra; al crearle usuario con su email se enlaza y ve lo suyo', async () => {
+  assert.equal((await ana('POST', A('/agents'), { name: 'Intruso' })).status, 403);
+  const r = await owner('POST', A('/agents'), { name: 'Lucía Díaz', email: `LUCIA-${run}@test.local` });
+  assert.equal(r.status, 201);
+  assert.deepEqual([r.body.userId, r.body.email], [null, `lucia-${run}@test.local`]);
+  const lucia = r.body.id;
+  assert.equal((await owner('POST', A('/agents'), { name: 'Otra', email: `lucia-${run}@test.local` })).body.code, 'agent_email_taken');
+  // No es usuario: no aparece entre los miembros
+  assert.ok(!(await owner('GET', A('/members'))).body.some((m: any) => m.name === 'Lucía Díaz'));
+  const sale = await owner('POST', A('/sales'), { agentId: lucia, productId: iulId, amount: 300, clientName: 'Cliente de Lucía', expectedIssueDate: '2026-10-08' });
+  assert.equal(sale.status, 201);
+  // Se le crea usuario con el mismo email: queda enlazada y ve su venta (y nada de los demás)
+  const u = await owner('POST', A('/members'), { name: 'Lucía Díaz', email: `lucia-${run}@test.local`, password: 'clave-lucia-123' });
+  assert.equal((await owner('GET', A('/agents'))).body.find((a: any) => a.id === lucia).userId, u.body.userId);
+  const lc = client();
+  await lc('POST', '/auth/login', { email: `lucia-${run}@test.local`, password: 'clave-lucia-123' });
+  assert.deepEqual((await lc('GET', A('/sales'))).body.items.map((s: any) => s.clientName), ['Cliente de Lucía']);
+  // Archivar no borra su historial
+  assert.ok((await owner('PATCH', A(`/agents/${lucia}`), { archived: true })).body.archivedAt);
+  assert.equal((await owner('POST', A(`/sales/${sale.body.id}/decline`))).body.status, 'declined');
+});
+
+test('aislamiento de agentes: otra agencia no los ve, no los edita y no enlaza usuarios ajenos', async () => {
+  await outsider('PATCH', `/w/${slugB}`, { settings: { salesModule: true } });
+  assert.equal((await outsider('PATCH', `/w/${slugB}/agents/${anaId}`, { name: 'x' })).status, 404);
+  assert.ok(!(await outsider('GET', `/w/${slugB}/agents`)).body.some((a: any) => a.id === anaId));
+  const anaUser = (await owner('GET', A('/agents'))).body.find((a: any) => a.id === anaId).userId;
+  assert.equal((await outsider('POST', `/w/${slugB}/agents`, { name: 'Robo', userId: anaUser })).body.code, 'invalid_user');
 });
 
 // ═══ Ventas y comisiones ═══
 
 test('solo Admin registra ventas; quedan pendientes de ISSUE', async () => {
-  const body = { agentUserId: anaId, productId: iulId, amount: 1200, clientName: 'Danielle Cardenas', clientState: 'NY', expectedIssueDate: '2026-10-08' };
+  const body = { agentId: anaId, productId: iulId, amount: 1200, clientName: 'Danielle Cardenas', clientState: 'NY', expectedIssueDate: '2026-10-08' };
   assert.equal((await ana('POST', A('/sales'), body)).status, 403);
   const s = await owner('POST', A('/sales'), body);
   assert.equal(s.status, 201);
   assert.equal(s.body.status, 'pending');
-  assert.equal(s.body.uplineUserId, carlosId);
+  assert.equal(s.body.uplineAgentId, carlosId);
   assert.equal(s.body.carrierId, carrierId);
   saleId = s.body.id;
 });
 
 test('sin nivel del agente no se puede marcar ISSUED', async () => {
-  const s = await owner('POST', A('/sales'), { agentUserId: omarId, productId: iulId, amount: 500, clientName: 'Vilma', expectedIssueDate: '2026-10-09' });
+  const s = await owner('POST', A('/sales'), { agentId: omarId, productId: iulId, amount: 500, clientName: 'Vilma', expectedIssueDate: '2026-10-09' });
   const r = await owner('POST', A(`/sales/${s.body.id}/issue`), { issuedAt: '2026-10-15' });
   assert.equal(r.status, 409);
   assert.equal(r.body.code, 'missing_level');
@@ -195,7 +227,7 @@ test('ISSUE genera las cuotas con el nivel y la tabla vigentes a esa fecha', asy
   assert.equal(r.body.issuedAt, '2026-10-15');
   const c = (await owner('GET', A('/commissions'))).body;
   // Ana nivel 80 → 65 %; Carlos nivel 105 → 90 %, override 25 %
-  assert.deepEqual(c.items.map((i: any) => [i.beneficiaryUserId, i.kind, i.part, i.level, i.rate, i.amount, i.dueDate]).sort(), [
+  assert.deepEqual(c.items.map((i: any) => [i.beneficiaryAgentId, i.kind, i.part, i.level, i.rate, i.amount, i.dueDate]).sort(), [
     [anaId, 'direct', 'advance', 80, 65, 585, '2026-10-15'], [anaId, 'direct', 'remainder', 80, 65, 65, '2027-08-15'],
     [anaId, 'direct', 'remainder', 80, 65, 65, '2027-09-15'], [anaId, 'direct', 'remainder', 80, 65, 65, '2027-10-15'],
     [carlosId, 'override', 'advance', 105, 25, 225, '2026-10-15'], [carlosId, 'override', 'remainder', 105, 25, 25, '2027-08-15'],
@@ -203,7 +235,7 @@ test('ISSUE genera las cuotas con el nivel y la tabla vigentes a esa fecha', asy
   ].sort());
   assert.equal(c.totals.pending, 1080);
   // Cada cuota trae su número, el mes, el total de su comisión y el grupo completo de cuotas (incluida ella)
-  const anas = c.items.filter((i: any) => i.beneficiaryUserId === anaId);
+  const anas = c.items.filter((i: any) => i.beneficiaryAgentId === anaId);
   assert.deepEqual(anas.map((i: any) => [i.part, i.seq, i.month, i.of, i.total]), [
     ['advance', 0, 0, 4, 780], ['remainder', 1, 10, 4, 780], ['remainder', 2, 11, 4, 780], ['remainder', 3, 12, 4, 780]]);
   const group = anas.map((i: any) => ({ id: i.id, part: i.part, seq: i.seq, amount: i.amount, dueDate: i.dueDate, status: 'pending' }));
@@ -220,7 +252,7 @@ test('ISSUE genera las cuotas con el nivel y la tabla vigentes a esa fecha', asy
 
 test('visibilidad: agente lo suyo, dueño también lo de sus agentes, otro agente nada', async () => {
   const mine = (await ana('GET', A('/commissions'))).body.items;
-  assert.deepEqual([...new Set(mine.map((i: any) => i.beneficiaryUserId))], [anaId]);   // no ve el override de Carlos
+  assert.deepEqual([...new Set(mine.map((i: any) => i.beneficiaryAgentId))], [anaId]);   // no ve el override de Carlos
   assert.equal((await carlos('GET', A('/commissions'))).body.items.length, 8);
   assert.equal((await carlos('GET', A('/sales'))).body.items.some((s: any) => s.id === saleId), true);
   assert.equal((await omar('GET', A('/commissions'))).body.items.length, 0);
@@ -231,20 +263,20 @@ test('visibilidad: agente lo suyo, dueño también lo de sus agentes, otro agent
 test('cancelar con chargeback: anula lo no pagado y descuenta % de lo pagado (cuotas pagadas a medias)', async () => {
   // Pagados los adelantos y la primera cuota del resto de Ana (mes 10); las otras dos quedan por cobrar
   const before = (await owner('GET', A('/commissions'))).body.items;
-  const paidIds = before.filter((i: any) => i.part === 'advance' || (i.beneficiaryUserId === anaId && i.seq === 1)).map((i: any) => i.id);
+  const paidIds = before.filter((i: any) => i.part === 'advance' || (i.beneficiaryAgentId === anaId && i.seq === 1)).map((i: any) => i.id);
   assert.equal((await owner('POST', A('/commissions/pay'), { ids: paidIds, paidAt: '2026-10-20' })).status, 204);
   assert.equal((await owner('POST', A(`/sales/${saleId}/decline`))).status, 409);
   const r = await owner('POST', A(`/sales/${saleId}/cancel`), { chargebackPercent: 50 });
   assert.equal(r.body.status, 'cancelled');
   const items = (await owner('GET', A('/commissions'))).body.items;
-  assert.deepEqual(items.filter((i: any) => i.part === 'remainder').map((i: any) => [i.beneficiaryUserId === anaId ? 'ana' : 'carlos', i.seq, i.status]).sort(), [
+  assert.deepEqual(items.filter((i: any) => i.part === 'remainder').map((i: any) => [i.beneficiaryAgentId === anaId ? 'ana' : 'carlos', i.seq, i.status]).sort(), [
     ['ana', 1, 'paid'], ['ana', 2, 'void'], ['ana', 3, 'void'], ['carlos', 1, 'void'], ['carlos', 2, 'void'], ['carlos', 3, 'void']].sort());
   // Ana: 50 % de (585 + 65); Carlos: 50 % de 225. El chargeback va solo, sin grupo
   const cb = items.filter((i: any) => i.part === 'chargeback');
-  assert.deepEqual(cb.map((i: any) => [i.beneficiaryUserId, i.amount, i.seq, i.of, i.group.length]).sort(),
+  assert.deepEqual(cb.map((i: any) => [i.beneficiaryAgentId, i.amount, i.seq, i.of, i.group.length]).sort(),
     [[anaId, -325, null, 1, 0], [carlosId, -112.5, null, 1, 0]].sort());
   // El grupo de una cuota muestra el estado de cada una
-  const adv = items.find((i: any) => i.beneficiaryUserId === anaId && i.part === 'advance');
+  const adv = items.find((i: any) => i.beneficiaryAgentId === anaId && i.part === 'advance');
   assert.deepEqual(adv.group.map((o: any) => o.status), ['paid', 'paid', 'void', 'void']);
 });
 
@@ -256,13 +288,13 @@ test('ventas reales del Discord de VFS (8-9 oct 2026) con la guía FFL', async (
   const moo = (await owner('POST', A('/carriers'), { name: 'Mutual of Omaha', aliases: ['MOO'] })).body;
   const iule = (await owner('POST', A(`/carriers/${moo.id}/products`), { name: 'IULE', aliases: ['IUL'] })).body.products[0].id;
   await owner('PUT', A(`/products/${iule}/grid`), { effectiveFrom: '2024-08-19', rows: IULE });
-  await owner('PATCH', A(`/agents/${omarId}`), { uplineUserId: carlosId });
+  await owner('PATCH', A(`/agents/${omarId}`), { uplineAgentId: carlosId });
   for (const [id, lvl] of [[anaId, 80], [omarId, 85], [carlosId, 105]] as const) {
     await owner('POST', A(`/agents/${id}/levels`), { carrierIds: [carrierId, nlg.id, moo.id], level: lvl, effectiveFrom: '2026-01-01' });
   }
 
-  const sell = async (agentUserId: string, productId: string, amount: number, clientName: string) => {
-    const s = await owner('POST', A('/sales'), { agentUserId, productId, amount, clientName, expectedIssueDate: '2026-10-08' });
+  const sell = async (agentId: string, productId: string, amount: number, clientName: string) => {
+    const s = await owner('POST', A('/sales'), { agentId, productId, amount, clientName, expectedIssueDate: '2026-10-08' });
     await owner('POST', A(`/sales/${s.body.id}/issue`), { issuedAt: '2026-10-08' });
     const items = (await owner('GET', A('/commissions'))).body.items.filter((i: any) => i.saleId === s.body.id);
     return items.map((i: any) => [i.kind, i.part, i.amount]).sort();
@@ -297,17 +329,17 @@ test('nivel distinto por compañía: ISSUE y override usan el nivel de cada comp
   await lv(anaId, [alfa.id], 80); await lv(anaId, [beta.id], 100);
   await lv(carlosId, [alfa.id], 100); await lv(carlosId, [beta.id], 105);
   // El perfil trae carrierId en cada nivel
-  const prof = (await owner('GET', A('/agents'))).body.find((a: any) => a.userId === anaId);
+  const prof = (await owner('GET', A('/agents'))).body.find((a: any) => a.id === anaId);
   assert.ok(prof.levels.length >= 4);
   assert.ok(prof.levels.every((l: any) => typeof l.carrierId === 'string'));
   assert.deepEqual(prof.levels.filter((l: any) => l.carrierId === alfa.id), [{ carrierId: alfa.id, level: 80, effectiveFrom: '2026-01-01' }]);
   assert.deepEqual(prof.levels.filter((l: any) => l.carrierId === beta.id), [{ carrierId: beta.id, level: 100, effectiveFrom: '2026-01-01' }]);
 
   const sell = async (productId: string, clientName: string) => {
-    const s = await owner('POST', A('/sales'), { agentUserId: anaId, productId, amount: 1000, clientName, expectedIssueDate: '2026-10-08' });
+    const s = await owner('POST', A('/sales'), { agentId: anaId, productId, amount: 1000, clientName, expectedIssueDate: '2026-10-08' });
     assert.equal((await owner('POST', A(`/sales/${s.body.id}/issue`), { issuedAt: '2026-10-08' })).status, 200);
     const items = (await owner('GET', A('/commissions'))).body.items.filter((i: any) => i.saleId === s.body.id);
-    return { id: s.body.id as string, rows: items.map((i: any) => [i.beneficiaryUserId, i.kind, i.part, i.level, i.rate, i.amount]).sort() };
+    return { id: s.body.id as string, rows: items.map((i: any) => [i.beneficiaryAgentId, i.kind, i.part, i.level, i.rate, i.amount]).sort() };
   };
   // Alfa: Ana 80 → 65 % (650: 487.5 + 3 × 54.17 ≈ 162.5); Carlos 100 → 85 %, override 20 % (200: 150 + 16.67 + 16.67 + 16.66)
   const rem = (r: any[]) => r.filter((x) => x[2] === 'remainder');
@@ -329,27 +361,27 @@ test('nivel distinto por compañía: ISSUE y override usan el nivel de cada comp
   assert.deepEqual([...ids(byCarrier)], [a.id]);
   assert.equal(byCarrier.body.items.length, 8);
   assert.ok(!ids(await owner('GET', A(`/commissions?carrierId=${beta.id}`))).has(a.id));
-  const byAgent = await owner('GET', A(`/commissions?agentUserId=${omarId}`));
+  const byAgent = await owner('GET', A(`/commissions?agentId=${omarId}`));
   assert.ok(byAgent.body.items.length > 0);
-  assert.ok(byAgent.body.items.every((i: any) => i.sale.agentUserId === omarId));
-  const both = await owner('GET', A(`/commissions?agentUserId=${anaId}&carrierId=${beta.id}`));
+  assert.ok(byAgent.body.items.every((i: any) => i.sale.agentId === omarId));
+  const both = await owner('GET', A(`/commissions?agentId=${anaId}&carrierId=${beta.id}`));
   assert.deepEqual([...ids(both)], [b.id]);
   const csv = await owner('GET', A(`/commissions.csv?carrierId=${alfa.id}`));
   assert.match(csv.body, /Cliente Alfa/);
   assert.doesNotMatch(csv.body, /Cliente Beta|Danielle|Vilma/);
-  const csvAgent = await owner('GET', A(`/commissions.csv?agentUserId=${omarId}`));
+  const csvAgent = await owner('GET', A(`/commissions.csv?agentId=${omarId}`));
   assert.match(csvAgent.body, /Vilma/);
   assert.doesNotMatch(csvAgent.body, /Cliente Alfa|Cliente Beta/);
 
   // Un agente sin permisos de admin no ve más al filtrar: su override sigue oculto y el agente ajeno da vacío
   const mine = (await ana('GET', A('/commissions'))).body.items.length;
-  const anaFiltered = (await ana('GET', A(`/commissions?agentUserId=${anaId}`))).body.items;
+  const anaFiltered = (await ana('GET', A(`/commissions?agentId=${anaId}`))).body.items;
   assert.equal(anaFiltered.length, mine);
-  assert.ok(anaFiltered.every((i: any) => i.beneficiaryUserId === anaId));
-  assert.equal((await ana('GET', A(`/commissions?agentUserId=${omarId}`))).body.items.length, 0);
-  assert.equal((await ana('GET', A(`/commissions?carrierId=${alfa.id}`))).body.items.every((i: any) => i.beneficiaryUserId === anaId), true);
-  assert.doesNotMatch((await ana('GET', A(`/commissions.csv?agentUserId=${omarId}`))).body, /Vilma/);
-  assert.equal((await omar('GET', A(`/commissions?agentUserId=${anaId}`))).body.items.length, 0);
+  assert.ok(anaFiltered.every((i: any) => i.beneficiaryAgentId === anaId));
+  assert.equal((await ana('GET', A(`/commissions?agentId=${omarId}`))).body.items.length, 0);
+  assert.equal((await ana('GET', A(`/commissions?carrierId=${alfa.id}`))).body.items.every((i: any) => i.beneficiaryAgentId === anaId), true);
+  assert.doesNotMatch((await ana('GET', A(`/commissions.csv?agentId=${omarId}`))).body, /Vilma/);
+  assert.equal((await omar('GET', A(`/commissions?agentId=${anaId}`))).body.items.length, 0);
 });
 
 test('sin nivel en la compañía del producto: 409 missing_level con el nombre de la compañía', async () => {
@@ -357,7 +389,7 @@ test('sin nivel en la compañía del producto: 409 missing_level con el nombre d
   const pid = (await owner('POST', A(`/carriers/${c.id}/products`), { name: 'Prod' })).body.products[0].id;
   await owner('PUT', A(`/products/${pid}/grid`), { effectiveFrom: '2024-08-19', rows: INSTANT_DECISION });
   // Ana tiene nivel en otras compañías, pero no en Gamma
-  const s = await owner('POST', A('/sales'), { agentUserId: anaId, productId: pid, amount: 500, clientName: 'Sin Nivel', expectedIssueDate: '2026-10-09' });
+  const s = await owner('POST', A('/sales'), { agentId: anaId, productId: pid, amount: 500, clientName: 'Sin Nivel', expectedIssueDate: '2026-10-09' });
   const r = await owner('POST', A(`/sales/${s.body.id}/issue`), { issuedAt: '2026-10-15' });
   assert.equal(r.status, 409);
   assert.equal(r.body.code, 'missing_level');
@@ -376,14 +408,14 @@ test('sin nivel en la compañía del producto: 409 missing_level con el nombre d
 test('aislamiento: niveles con una compañía de otra agencia dan 404 carrier_not_found', async () => {
   await outsider('PATCH', `/w/${slugB}`, { settings: { salesModule: true } });
   const cb = (await outsider('POST', `/w/${slugB}/carriers`, { name: 'Compañía B' })).body;
-  const before = (await owner('GET', A('/agents'))).body.find((a: any) => a.userId === anaId).levels.length;
+  const before = (await owner('GET', A('/agents'))).body.find((a: any) => a.id === anaId).levels.length;
   for (const carrierIds of [[cb.id], [carrierId, cb.id]]) {
     const r = await owner('POST', A(`/agents/${anaId}/levels`), { carrierIds, level: 80, effectiveFrom: '2026-02-01' });
     assert.equal(r.status, 404);
     assert.equal(r.body.code, 'carrier_not_found');
   }
   // No se insertó nada (ni siquiera la compañía válida de la mezcla)
-  assert.equal((await owner('GET', A('/agents'))).body.find((a: any) => a.userId === anaId).levels.length, before);
+  assert.equal((await owner('GET', A('/agents'))).body.find((a: any) => a.id === anaId).levels.length, before);
   assert.equal((await owner('POST', A(`/agents/${anaId}/levels`), { carrierIds: [], level: 80, effectiveFrom: '2026-02-01' })).status, 400);
   assert.equal((await owner('POST', A(`/agents/${anaId}/levels`), { level: 80, effectiveFrom: '2026-02-01' })).status, 400);
 });
@@ -396,8 +428,8 @@ test('aislamiento: la agencia B no ve ni toca las ventas de la A', async () => {
   assert.equal((await outsider('POST', B(`/sales/${saleId}/issue`), { issuedAt: '2026-10-15' })).status, 404);
   assert.equal((await outsider('PATCH', B(`/products/${iulId}`), { name: 'x' })).status, 404);
   // Una venta en B con el producto de A: la FK compuesta lo rechaza
-  const me = (await outsider('GET', B(''))).body.me.userId;
-  assert.equal((await outsider('POST', B('/sales'), { agentUserId: me, productId: iulId, amount: 1, clientName: 'x', expectedIssueDate: '2026-10-01' })).status, 400);
+  const me = (await outsider('POST', B('/agents'), { name: 'Agente B' })).body.id;
+  assert.equal((await outsider('POST', B('/sales'), { agentId: me, productId: iulId, amount: 1, clientName: 'x', expectedIssueDate: '2026-10-01' })).status, 400);
   assert.equal((await outsider('GET', A('/sales'))).status, 404);
 });
 
@@ -487,7 +519,7 @@ test('canal de Discord: ventas completas, bandeja, enlazar autor y sin duplicado
 
     const fromDiscord = async () => (await owner('GET', A('/sales'))).body.items.filter((s: any) => s.source === 'discord');
     const first = await fromDiscord();
-    assert.deepEqual(first.map((s: any) => [s.agentUserId, s.clientName, s.amount, s.expectedIssueDate, s.clientState, s.status]),
+    assert.deepEqual(first.map((s: any) => [s.agentId, s.clientName, s.amount, s.expectedIssueDate, s.clientState, s.status]),
       [[anaId, 'Danielle Cardenas', 1200, '2026-10-08', 'NY', 'pending']]);   // 8:22 pm del 8 en Nueva York
     const inbox = (await owner('GET', A('/sales-inbox'))).body;
     // FEX (sin producto FEX en esta agencia) y AMAM se ignoran; el mensaje sin cliente espera en la bandeja
@@ -495,9 +527,9 @@ test('canal de Discord: ventas completas, bandeja, enlazar autor y sin duplicado
       ['Maria V Salas', ['client', 'agent']], ['Nanishka M Reyes Padua', ['agent']], ['Nanishka M Reyes Padua', ['agent']]].sort());
 
     // Enlazar a Nanishka (aquí Omar) convierte sus dos mensajes en ventas
-    const link = await owner('POST', A(`/sales-inbox/${inbox.find((i: any) => i.discordUserId === nani[0]).id}/link`), { userId: omarId });
+    const link = await owner('POST', A(`/sales-inbox/${inbox.find((i: any) => i.discordUserId === nani[0]).id}/link`), { agentId: omarId });
     assert.deepEqual(link.body, { created: 2 });
-    assert.equal((await owner('GET', A('/agents'))).body.find((a: any) => a.userId === omarId).discordUserId, nani[0]);
+    assert.equal((await owner('GET', A('/agents'))).body.find((a: any) => a.id === omarId).discordUserId, nani[0]);
     const vero1 = (await owner('GET', A('/sales-inbox'))).body;
     assert.equal(vero1.length, 1);
     assert.equal(vero1[0].parsed.amount, 500);
@@ -511,7 +543,7 @@ test('canal de Discord: ventas completas, bandeja, enlazar autor y sin duplicado
     assert.equal(state.pendingInbox, 1);
 
     // Descartar; la agencia B no toca la bandeja de la A
-    assert.equal((await outsider('POST', `/w/${slugB}/sales-inbox/${vero1[0].id}/link`, { userId: omarId })).status, 404);
+    assert.equal((await outsider('POST', `/w/${slugB}/sales-inbox/${vero1[0].id}/link`, { agentId: omarId })).status, 404);
     assert.equal((await owner('POST', A(`/sales-inbox/${vero1[0].id}/dismiss`))).status, 204);
     assert.equal((await owner('GET', A('/sales-inbox'))).body.length, 0);
   } finally {

@@ -46,10 +46,10 @@ async function run(fn: () => Promise<unknown>, ok?: (r: any) => string) {
 }
 const created = (r: { created: number }) => t('sales.inboxCreated', { n: r.created }, r.created);
 const retry = () => run(() => api('POST /w/:slug/sales-inbox/retry', { params: { slug: slug() } }), created);
-const link = (it: InboxItem, userId: string) => userId && run(() => api('POST /w/:slug/sales-inbox/:id/link', { params: { slug: slug(), id: it.id }, body: { userId } }), created);
+const link = (it: InboxItem, agentId: string) => agentId && run(() => api('POST /w/:slug/sales-inbox/:id/link', { params: { slug: slug(), id: it.id }, body: { agentId } }), created);
 const dismiss = (it: InboxItem) => run(() => api('POST /w/:slug/sales-inbox/:id/dismiss', { params: { slug: slug(), id: it.id } }), () => t('sales.inboxDismissed'));
 
-const memberOptions = computed(() => ref_.sellers.map((m) => ({ value: m.userId, label: m.name })));
+const memberOptions = computed(() => ref_.sellers.map((a) => ({ value: a.id, label: a.name })));
 const completing = ref<InboxItem | null>(null);
 const modal = computed({ get: () => !!completing.value, set: (v) => { if (!v) completing.value = null; } });
 /** Lo que sí se entendió del mensaje, para mostrarlo junto al original */

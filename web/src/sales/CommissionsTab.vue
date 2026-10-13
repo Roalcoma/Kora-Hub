@@ -42,7 +42,7 @@ const statusOptions = computed(() => [{ value: '' as const, label: t('sales.allS
   ...(['pending', 'paid', 'void'] as const).map((v) => ({ value: v, label: t(`sales.installment.${v}`) }))]);
 const carrierOptions = computed(() => [{ value: '', label: t('sales.allCarriers') }, ...ref_.carriers.map((c) => ({ value: c.id, label: c.name }))]);
 const sellerOptions = computed(() => [{ value: '', label: t('sales.allSellers') },
-  ...ref_.sellers.map((m) => ({ value: m.userId, label: m.name })).sort((a, b) => a.label.localeCompare(b.label))]);
+  ...ref_.sellers.map((a) => ({ value: a.id, label: a.name })).sort((a, b) => a.label.localeCompare(b.label))]);
 /** Compañía y agente vendedor van al servidor; el beneficiario se filtra aquí (el salto entre cuotas lo usa) */
 const query = computed(() => {
   const now = today(), p = date.value.period;
@@ -52,7 +52,7 @@ const query = computed(() => {
     : p === 'next12' ? { from: now, to: addMonths(now, 12) }
     : p === 'past' ? { from: undefined, to: now }
     : { from: undefined, to: undefined });
-  return { ...r, status: status.value || undefined, carrierId: carrier.value || undefined, agentUserId: seller.value || undefined };
+  return { ...r, status: status.value || undefined, carrierId: carrier.value || undefined, agentId: seller.value || undefined };
 });
 
 const items = ref<Installment[] | null>(null);
@@ -87,17 +87,17 @@ async function reveal() {
 function jump(i: Installment, target: string) {
   focusId.value = target;
   if (rows.value.some((r) => r.id === focusId.value)) return reveal();
-  who.value = i.beneficiaryUserId;
+  who.value = i.beneficiaryAgentId;
   status.value = '';
   if (date.value.period === 'all' && !query.value.status) reveal();
   else date.value = { ...ALL };
 }
 
-const rows = computed(() => (items.value ?? []).filter((i) => !who.value || i.beneficiaryUserId === who.value));
+const rows = computed(() => (items.value ?? []).filter((i) => !who.value || i.beneficiaryAgentId === who.value));
 const { page, size, rows: pageRows, total } = usePaged(rows);
 const pagerLabels = computed(() => ({ prev: t('common.pager.prev'), next: t('common.pager.next'), perPage: t('common.pager.perPage'), of: t('common.pager.of') }));
 const whoOptions = computed(() => [{ value: '', label: t('sales.allBeneficiaries') },
-  ...[...new Set((items.value ?? []).map((i) => i.beneficiaryUserId))].map((id) => ({ value: id, label: ref_.memberName(id) }))
+  ...[...new Set((items.value ?? []).map((i) => i.beneficiaryAgentId))].map((id) => ({ value: id, label: ref_.agentName(id) }))
     .sort((a, b) => a.label.localeCompare(b.label))]);
 
 const cents = (n: number) => Math.round(n * 100);
@@ -106,10 +106,10 @@ const summary = computed(() => {
   const by = new Map<string, { id: string; direct: number; override: number; chargeback: number; pending: number; paid: number }>();
   for (const i of rows.value) {
     if (i.status === 'void') continue;
-    const r = by.get(i.beneficiaryUserId) ?? { id: i.beneficiaryUserId, direct: 0, override: 0, chargeback: 0, pending: 0, paid: 0 };
+    const r = by.get(i.beneficiaryAgentId) ?? { id: i.beneficiaryAgentId, direct: 0, override: 0, chargeback: 0, pending: 0, paid: 0 };
     if (i.part === 'chargeback') r.chargeback += cents(i.amount); else r[i.kind] += cents(i.amount);
     r[i.status] += cents(i.amount);
-    by.set(i.beneficiaryUserId, r);
+    by.set(i.beneficiaryAgentId, r);
   }
   return [...by.values()].map((r) => ({ ...r, total: r.direct + r.override + r.chargeback }))
     .sort((a, b) => b.total - a.total);
@@ -169,7 +169,7 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
             </tr></thead>
             <tbody>
               <tr v-for="r in summary" :key="r.id" class="pick" @click="who = who === r.id ? '' : r.id">
-                <th scope="row">{{ ref_.memberName(r.id) }}</th>
+                <th scope="row">{{ ref_.agentName(r.id) }}</th>
                 <td class="num">{{ r.direct ? money(r.direct / 100) : '—' }}</td><td class="num">{{ r.override ? money(r.override / 100) : '—' }}</td>
                 <td class="num" :class="{ neg: r.chargeback }">{{ r.chargeback ? money(r.chargeback / 100) : '—' }}</td>
                 <td class="num">{{ money(r.pending / 100) }}</td><td class="num"><b>{{ money(r.total / 100) }}</b></td>
@@ -199,7 +199,7 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
             <tr v-for="i in pageRows" :id="`inst-${i.id}`" :key="i.id" :class="{ off: i.status === 'void', flash: flash === i.id }">
               <td v-if="s.isAdmin"><input v-if="i.status !== 'void'" type="checkbox" :checked="selected.has(i.id)" :aria-label="i.sale.clientName" @change="toggle(i.id)"></td>
               <td class="nowrap">{{ day(i.dueDate) }}</td>
-              <td>{{ ref_.memberName(i.beneficiaryUserId) }}</td>
+              <td>{{ ref_.agentName(i.beneficiaryAgentId) }}</td>
               <td class="concept">
                 <Badge :tone="i.kind === 'override' ? 'purple' : 'blue'">{{ t(`sales.kind.${i.kind}`) }}</Badge>
                 <small class="part">{{ t(`sales.part.${i.part}`) }}<template v-if="i.of > 1"> · {{ t('sales.nOfM', { n: pos(i), m: i.of }) }}</template><template v-if="i.part === 'remainder' && i.month != null"> ({{ t('sales.monthN', { n: i.month }) }})</template></small>
@@ -215,7 +215,7 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
                   </li>
                 </ol>
               </td>
-              <td><b>{{ i.sale.clientName }}</b><small v-if="i.kind === 'override'">{{ t('sales.soldBy', { name: ref_.memberName(i.sale.agentUserId) }) }}</small></td>
+              <td><b>{{ i.sale.clientName }}</b><small v-if="i.kind === 'override'">{{ t('sales.soldBy', { name: ref_.agentName(i.sale.agentId) }) }}</small></td>
               <td>{{ ref_.productLabel(i.sale.productId) }}</td>
               <td class="num">{{ money(i.sale.amount) }}</td>
               <td class="num">{{ i.level ?? '—' }} · {{ i.rate }}%</td>
