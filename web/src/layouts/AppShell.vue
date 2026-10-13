@@ -4,7 +4,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen, ChevronsUpDown, BellRing, ShieldCheck, BadgeDollarSign, Landmark, ExternalLink, X } from 'lucide-vue-next';
+import { ChevronDown, Search, BookOpen, SquareKanban, Target, Settings, House, MessageCircle, AtSign, SquareCheck, CircleUser, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen, ChevronsUpDown, BellRing, ShieldCheck, BadgeDollarSign, Landmark, ExternalLink, X, ArrowLeftRight } from 'lucide-vue-next';
 import { useSession } from '@/stores/session.ts';
 import { useChat } from '@/chat/store.ts';
 import { canUseFinance } from '@/finance/store.ts';
@@ -172,7 +172,9 @@ function openWsMenu(e: MouseEvent) {
   menuPos.value = { x: r.left, y: r.bottom + 4 };
   wsMenu.value = true;
 }
+// El nombre de la agencia es donde se busca cambiar de agencia (en el teléfono no hay riel): las demás van primero
 const wsMenuItems = computed(() => [
+  ...otherWorkspaces.value.map((w) => ({ label: w.name, icon: ArrowLeftRight, action: () => router.push(`/w/${w.slug}`) })),
   { label: t('nav.settings'), icon: Settings, action: () => router.push(`${base.value}/settings`) },
   { label: t('nav.logout'), icon: LogOut, danger: true, action: async () => { chat.disconnect(); await s.logout(); router.replace('/login'); } },
 ]);
@@ -293,6 +295,11 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
             <span class="me-txt"><b>{{ s.user!.name }}</b><small>{{ meLabel }} · {{ s.workspace!.name }}</small></span>
             <button type="button" class="sheet-x" :aria-label="t('nav.close')" @click="moreOpen = false"><X :size="20" /></button>
           </header>
+          <!-- Las otras agencias, arriba: así no quedan fuera de la pantalla en teléfonos bajos -->
+          <div v-if="otherWorkspaces.length" class="sheet-list">
+            <h4>{{ t('nav.agencies') }}</h4>
+            <RouterLink v-for="w in otherWorkspaces" :key="w.id" :to="`/w/${w.slug}`" class="row"><span class="ws-mini">{{ initials(w.name) }}</span>{{ w.name }}</RouterLink>
+          </div>
           <div class="sheet-grid">
             <RouterLink v-for="n in moreNav" :key="n.to" :to="n.to" class="tile" :class="{ active: route.path.startsWith(n.to) }">
               <component :is="n.icon" :size="22" />{{ n.label }}
@@ -302,10 +309,6 @@ const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join
           <div class="sheet-list">
             <RouterLink :to="`${base}/settings/profile`" class="row"><CircleUser :size="19" />{{ t('nav.profile') }}</RouterLink>
             <RouterLink v-if="s.platformAdmin && !s.impersonation" to="/admin" class="row"><ShieldCheck :size="19" />{{ t('nav.backoffice') }}</RouterLink>
-            <template v-if="otherWorkspaces.length">
-              <h4>{{ t('nav.agencies') }}</h4>
-              <RouterLink v-for="w in otherWorkspaces" :key="w.id" :to="`/w/${w.slug}`" class="row"><span class="ws-mini">{{ initials(w.name) }}</span>{{ w.name }}</RouterLink>
-            </template>
             <button type="button" class="row danger" @click="logout"><LogOut :size="19" />{{ t('nav.logout') }}</button>
           </div>
         </section>
