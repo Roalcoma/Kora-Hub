@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // Comisiones: cuotas por fecha de pago (adelanto al ISSUE, resto en cuotas mensuales, chargebacks), filtros por compañía,
-// agente vendedor y beneficiario, resumen por beneficiario y, para el Admin, marcar pagadas en lote.
+// agente vendedor, beneficiario y cliente, resumen por beneficiario y, para el Admin, marcar pagadas en lote.
+// La lista va agrupada por venta: la cabecera suma lo que dejan los filtros y se despliega para ver cada cuota.
 import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Download, Wallet, CircleCheck, Undo2 } from 'lucide-vue-next';
+import { Download, Wallet, CircleCheck, Undo2, Search, ChevronRight, ChevronsUpDown } from 'lucide-vue-next';
 import type { Installment, InstallmentStatus } from '@agencia-hub/contracts';
 import Dropdown from '@/design/Dropdown.vue';
 import Button from '@/design/Button.vue';
@@ -21,6 +22,7 @@ import { usd, fmtDay, today, addMonths, monthStart, monthEnd, customRange, type 
 import DateFilter from './DateFilter.vue';
 
 const { t, locale } = useI18n();
+const cents = (n: number) => Math.round(n * 100);
 const s = useSession();
 const ref_ = useSales();
 const slug = () => s.workspace!.slug;
@@ -37,6 +39,9 @@ const who = ref('');
 const carrier = ref('');
 const seller = ref('');
 const status = ref<InstallmentStatus | ''>('');
+const search = ref('');
+/** Sin acentos ni mayúsculas: "jose" encuentra "José" */
+const fold = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const periodOptions = computed(() => (['month', 'nextMonth', 'next12', 'past', 'all'] as const).map((v) => ({ value: v, label: t(`sales.duePeriods.${v}`) })));
 const statusOptions = computed(() => [{ value: '' as const, label: t('sales.allStatuses') },
   ...(['pending', 'paid', 'void'] as const).map((v) => ({ value: v, label: t(`sales.installment.${v}`) }))]);
@@ -74,9 +79,10 @@ const flash = ref<string | null>(null);
 async function reveal() {
   if (!focusId.value) return;
   await nextTick();   // deja que la paginación procese la lista nueva antes de elegir página
-  const idx = rows.value.findIndex((i) => i.id === focusId.value);
+  const idx = groups.value.findIndex((g) => g.items.some((i) => i.id === focusId.value));
   if (idx < 0) return;
   page.value = Math.floor(idx / size.value) + 1;
+  open.value = new Set(open.value).add(groups.value[idx]!.saleId);
   await nextTick();
   document.getElementById(`inst-${focusId.value}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   flash.value = focusId.value;
@@ -93,14 +99,48 @@ function jump(i: Installment, target: string) {
   else date.value = { ...ALL };
 }
 
-const rows = computed(() => (items.value ?? []).filter((i) => !who.value || i.beneficiaryAgentId === who.value));
-const { page, size, rows: pageRows, total } = usePaged(rows);
+const rows = computed(() => {
+  const q = fold(search.value.trim());
+  return (items.value ?? []).filter((i) => (!who.value || i.beneficiaryAgentId === who.value) && (!q || fold(i.sale.clientName).includes(q)));
+});
+
+// ─── Agrupado por venta: una cabecera por venta con lo que suman sus cuotas filtradas ───
+type SaleGroup = {
+  saleId: string; sale: Installment['sale']; items: Installment[];
+  total: number; paid: number; pending: number; chargeback: number; payable: string[];
+};
+const groups = computed(() => {
+  const by = new Map<string, SaleGroup>();
+  for (const i of rows.value) {   // ya vienen por fecha de pago: la venta toma el lugar de su primera cuota
+    const g = by.get(i.saleId) ?? { saleId: i.saleId, sale: i.sale, items: [], total: 0, paid: 0, pending: 0, chargeback: 0, payable: [] };
+    g.items.push(i);
+    if (i.status !== 'void') {
+      g.payable.push(i.id);
+      g.total += cents(i.amount);
+      if (i.part === 'chargeback') g.chargeback += cents(i.amount);
+      if (i.status === 'paid') g.paid += cents(i.amount); else g.pending += cents(i.amount);
+    }
+    by.set(i.saleId, g);
+  }
+  return [...by.values()];
+});
+const { page, size, rows: pageGroups, total } = usePaged(groups);
+const open = ref<Set<string>>(new Set());
+const isOpen = (id: string) => open.value.has(id);
+const toggleOpen = (id: string) => {
+  const next = new Set(open.value);
+  if (!next.delete(id)) next.add(id);
+  open.value = next;
+};
+const allOpen = computed(() => pageGroups.value.length > 0 && pageGroups.value.every((g) => open.value.has(g.saleId)));
+const toggleAllOpen = () => { open.value = allOpen.value ? new Set() : new Set(groups.value.map((g) => g.saleId)); };
+// Buscando un cliente (pocas ventas) se abren solas
+watch(groups, (g) => { if (g.length && g.length <= 3) open.value = new Set(g.map((x) => x.saleId)); });
 const pagerLabels = computed(() => ({ prev: t('common.pager.prev'), next: t('common.pager.next'), perPage: t('common.pager.perPage'), of: t('common.pager.of') }));
 const whoOptions = computed(() => [{ value: '', label: t('sales.allBeneficiaries') },
   ...[...new Set((items.value ?? []).map((i) => i.beneficiaryAgentId))].map((id) => ({ value: id, label: ref_.agentName(id) }))
     .sort((a, b) => a.label.localeCompare(b.label))]);
 
-const cents = (n: number) => Math.round(n * 100);
 /** Resumen por beneficiario; anuladas no suman */
 const summary = computed(() => {
   const by = new Map<string, { id: string; direct: number; override: number; chargeback: number; pending: number; paid: number }>();
@@ -122,6 +162,16 @@ const csvUrl = computed(() => `/api/v1/w/${slug()}/commissions.csv?${new URLSear
 const payable = computed(() => rows.value.filter((i) => i.status !== 'void'));
 const allOn = computed(() => payable.value.length > 0 && payable.value.every((i) => selected.value.has(i.id)));
 const toggleAll = () => { selected.value = allOn.value ? new Set() : new Set(payable.value.map((i) => i.id)); };
+/** Casilla de la cabecera: todas las cuotas de la venta (las que muestra el filtro) */
+const groupOn = (g: SaleGroup) => g.payable.length > 0 && g.payable.every((id) => selected.value.has(id));
+const groupSome = (g: SaleGroup) => !groupOn(g) && g.payable.some((id) => selected.value.has(id));
+const toggleGroup = (g: SaleGroup) => {
+  const next = new Set(selected.value);
+  const on = groupOn(g);
+  for (const id of g.payable) if (on) next.delete(id); else next.add(id);
+  selected.value = next;
+};
+const SALE_TONE = { pending: 'warning', issued: 'success', declined: 'neutral', cancelled: 'danger' } as const;
 const toggle = (id: string) => {
   const next = new Set(selected.value);
   if (!next.delete(id)) next.add(id);
@@ -148,6 +198,10 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
       <Dropdown v-model="seller" :options="sellerOptions" searchable :search-placeholder="t('sales.searchAgent')" :aria-label="t('sales.seller')" />
       <Dropdown v-model="who" :options="whoOptions" searchable :search-placeholder="t('sales.searchAgent')" :aria-label="t('sales.beneficiary')" />
       <Dropdown v-model="status" :options="statusOptions" :aria-label="t('sales.statusLabel')" />
+      <label class="search">
+        <Search :size="16" />
+        <input v-model="search" type="search" :placeholder="t('sales.searchClient')" :aria-label="t('sales.searchClient')" maxlength="100">
+      </label>
       <a :href="csvUrl" download class="exp"><Download :size="16" />CSV</a>
     </div>
 
@@ -186,46 +240,70 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
         <Button variant="ghost" :loading="busy" @click="pay(false)"><Undo2 :size="16" />{{ t('sales.markUnpaid') }}</Button>
       </div>
 
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th v-if="s.can('sales', 'manage')" scope="col"><input type="checkbox" :checked="allOn" :aria-label="t('sales.selectAll', { n: payable.length })" :title="t('sales.selectAll', { n: payable.length })" @change="toggleAll"></th>
-            <th scope="col">{{ t('sales.dueDate') }}</th><th scope="col">{{ t('sales.beneficiary') }}</th><th scope="col">{{ t('sales.concept') }}</th>
-            <th scope="col">{{ t('sales.client') }}</th><th scope="col">{{ t('sales.product') }}</th>
-            <th scope="col" class="num">{{ t('sales.saleAmount') }}</th><th scope="col" class="num">{{ t('sales.levelRate') }}</th>
-            <th scope="col" class="num">{{ t('sales.installmentCol') }}</th><th scope="col">{{ t('sales.statusLabel') }}</th>
-          </tr></thead>
-          <tbody>
-            <tr v-for="i in pageRows" :id="`inst-${i.id}`" :key="i.id" :class="{ off: i.status === 'void', flash: flash === i.id }">
-              <td v-if="s.can('sales', 'manage')"><input v-if="i.status !== 'void'" type="checkbox" :checked="selected.has(i.id)" :aria-label="i.sale.clientName" @change="toggle(i.id)"></td>
-              <td class="nowrap">{{ day(i.dueDate) }}</td>
-              <td>{{ ref_.agentName(i.beneficiaryAgentId) }}</td>
-              <td class="concept">
-                <Badge :tone="i.kind === 'override' ? 'purple' : 'blue'">{{ t(`sales.kind.${i.kind}`) }}</Badge>
-                <small class="part">{{ t(`sales.part.${i.part}`) }}<template v-if="i.of > 1"> · {{ t('sales.nOfM', { n: pos(i), m: i.of }) }}</template><template v-if="i.part === 'remainder' && i.month != null"> ({{ t('sales.monthN', { n: i.month }) }})</template></small>
-                <!-- Todas las cuotas de la comisión: la actual marcada; las demás llevan a su fila -->
-                <ol v-if="i.of > 1" class="steps" :aria-label="t('sales.installments')">
-                  <li v-for="o in i.group" :key="o.id">
-                    <button type="button" class="step" :class="[o.status, { cur: o.id === i.id }]" :aria-current="o.id === i.id ? 'step' : undefined"
-                      :title="t('sales.goTo', { n: pos(i, o.id), amount: money(o.amount), date: day(o.dueDate), status: t(`sales.installment.${o.status}`) }) + (o.id === i.id ? ` (${t('sales.current')})` : '')"
-                      :aria-label="t('sales.goTo', { n: pos(i, o.id), amount: money(o.amount), date: day(o.dueDate), status: t(`sales.installment.${o.status}`) })"
-                      @click="o.id !== i.id && jump(i, o.id)">
-                      <b>{{ pos(i, o.id) }}</b><span>{{ shortDay(o.dueDate) }}</span>
-                    </button>
-                  </li>
-                </ol>
-              </td>
-              <td><b>{{ i.sale.clientName }}</b><small v-if="i.sale.status === 'cancelled'" class="neg">{{ t('sales.saleCancelled') }}</small><small v-if="i.kind === 'override'">{{ t('sales.soldBy', { name: ref_.agentName(i.viaAgentId) }) }}</small><small v-if="i.share < 100">{{ t('sales.splitShare', { n: i.share }) }}</small></td>
-              <td>{{ ref_.productLabel(i.sale.productId) }}</td>
-              <td class="num">{{ money(i.sale.amount) }}</td>
-              <td class="num">{{ i.level ?? '—' }} · {{ i.rate }}%</td>
-              <td class="num" :class="{ neg: i.amount < 0 }"><b>{{ money(i.amount) }}</b>
-                <small v-if="i.of > 1">{{ t('sales.ofTotal', { total: money(i.total) }) }}</small></td>
-              <td><Badge :tone="STATUS_TONE[i.status]">{{ t(`sales.installment.${i.status}`) }}</Badge><small v-if="i.paidAt">{{ day(i.paidAt) }}</small>
-                <template v-if="i.chargeback && i.status === 'paid'"><Badge tone="danger" class="cb">{{ t('sales.part.chargeback') }}</Badge><small class="neg">{{ t('sales.chargedBack', { amount: money(i.chargeback.amount), date: day(i.chargeback.date) }) }}</small></template></td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="list-head">
+        <span>{{ t('sales.nSales', { n: groups.length }, groups.length) }}</span>
+        <label v-if="s.can('sales', 'manage')" class="all"><input type="checkbox" :checked="allOn" @change="toggleAll">{{ t('sales.selectAll', { n: payable.length }) }}</label>
+        <button type="button" class="ghost-btn" @click="toggleAllOpen"><ChevronsUpDown :size="15" />{{ allOpen ? t('sales.collapseAll') : t('sales.expandAll') }}</button>
+      </div>
+      <div class="sales-list">
+        <article v-for="g in pageGroups" :key="g.saleId" class="sale" :class="{ open: isOpen(g.saleId) }">
+          <header class="sale-head">
+            <input v-if="s.can('sales', 'manage') && g.payable.length" type="checkbox" class="pick-all" :checked="groupOn(g)" :indeterminate="groupSome(g)"
+              :aria-label="t('sales.selectSale', { name: g.sale.clientName })" @change="toggleGroup(g)">
+            <button type="button" class="tog" :aria-expanded="isOpen(g.saleId)" @click="toggleOpen(g.saleId)">
+              <ChevronRight :size="17" class="chev" />
+              <span class="who">
+                <b :class="{ struck: g.sale.status === 'cancelled' || g.sale.status === 'declined' }">{{ g.sale.clientName }}</b>
+                <small>{{ ref_.productLabel(g.sale.productId) }} · {{ ref_.agentName(g.sale.agentId) }}<template v-if="g.sale.issuedAt"> · ISSUE {{ day(g.sale.issuedAt) }}</template></small>
+              </span>
+            </button>
+            <Badge :tone="SALE_TONE[g.sale.status]">{{ t(`sales.status.${g.sale.status}`) }}</Badge>
+            <dl class="figs">
+              <div><dt>{{ t('sales.saleAmount') }}</dt><dd>{{ money(g.sale.amount) }}</dd></div>
+              <div><dt>{{ t('sales.installment.paid') }}</dt><dd>{{ money(g.paid / 100) }}</dd></div>
+              <div><dt>{{ t('sales.toCollect') }}</dt><dd>{{ money(g.pending / 100) }}</dd></div>
+              <div v-if="g.chargeback"><dt>{{ t('sales.part.chargeback') }}</dt><dd class="neg">{{ money(g.chargeback / 100) }}</dd></div>
+              <div class="main"><dt>{{ t('sales.commissionNet') }}</dt><dd>{{ money(g.total / 100) }}</dd></div>
+            </dl>
+          </header>
+          <div v-if="isOpen(g.saleId)" class="table-wrap inner">
+            <table>
+              <thead><tr>
+                <th v-if="s.can('sales', 'manage')" scope="col"><span class="sr-only">{{ t('sales.select') }}</span></th>
+                <th scope="col">{{ t('sales.dueDate') }}</th><th scope="col">{{ t('sales.beneficiary') }}</th><th scope="col">{{ t('sales.concept') }}</th>
+                <th scope="col" class="num">{{ t('sales.levelRate') }}</th>
+                <th scope="col" class="num">{{ t('sales.installmentCol') }}</th><th scope="col">{{ t('sales.statusLabel') }}</th>
+              </tr></thead>
+              <tbody>
+                <tr v-for="i in g.items" :id="`inst-${i.id}`" :key="i.id" :class="{ off: i.status === 'void', flash: flash === i.id }">
+                  <td v-if="s.can('sales', 'manage')"><input v-if="i.status !== 'void'" type="checkbox" :checked="selected.has(i.id)" :aria-label="`${i.sale.clientName} · ${ref_.agentName(i.beneficiaryAgentId)}`" @change="toggle(i.id)"></td>
+                  <td class="nowrap">{{ day(i.dueDate) }}</td>
+                  <td>{{ ref_.agentName(i.beneficiaryAgentId) }}<small v-if="i.kind === 'override'">{{ t('sales.soldBy', { name: ref_.agentName(i.viaAgentId) }) }}</small><small v-if="i.share < 100">{{ t('sales.splitShare', { n: i.share }) }}</small></td>
+                  <td class="concept">
+                    <Badge :tone="i.part === 'chargeback' ? 'danger' : i.kind === 'override' ? 'purple' : 'blue'">{{ i.part === 'chargeback' ? t('sales.part.chargeback') : t(`sales.kind.${i.kind}`) }}</Badge>
+                    <small v-if="i.part !== 'chargeback'" class="part">{{ t(`sales.part.${i.part}`) }}<template v-if="i.of > 1"> · {{ t('sales.nOfM', { n: pos(i), m: i.of }) }}</template><template v-if="i.part === 'remainder' && i.month != null"> ({{ t('sales.monthN', { n: i.month }) }})</template></small>
+                    <!-- Todas las cuotas de la comisión: la actual marcada; las demás llevan a su fila -->
+                    <ol v-if="i.of > 1" class="steps" :aria-label="t('sales.installments')">
+                      <li v-for="o in i.group" :key="o.id">
+                        <button type="button" class="step" :class="[o.status, { cur: o.id === i.id }]" :aria-current="o.id === i.id ? 'step' : undefined"
+                          :title="t('sales.goTo', { n: pos(i, o.id), amount: money(o.amount), date: day(o.dueDate), status: t(`sales.installment.${o.status}`) }) + (o.id === i.id ? ` (${t('sales.current')})` : '')"
+                          :aria-label="t('sales.goTo', { n: pos(i, o.id), amount: money(o.amount), date: day(o.dueDate), status: t(`sales.installment.${o.status}`) })"
+                          @click="o.id !== i.id && jump(i, o.id)">
+                          <b>{{ pos(i, o.id) }}</b><span>{{ shortDay(o.dueDate) }}</span>
+                        </button>
+                      </li>
+                    </ol>
+                  </td>
+                  <td class="num">{{ i.level ?? '—' }} · {{ i.rate }}%</td>
+                  <td class="num" :class="{ neg: i.amount < 0 }"><b>{{ money(i.amount) }}</b>
+                    <small v-if="i.of > 1">{{ t('sales.ofTotal', { total: money(i.total) }) }}</small></td>
+                  <td><Badge :tone="STATUS_TONE[i.status]">{{ t(`sales.installment.${i.status}`) }}</Badge><small v-if="i.paidAt">{{ day(i.paidAt) }}</small>
+                    <template v-if="i.chargeback && i.status === 'paid'"><Badge tone="danger" class="cb">{{ t('sales.part.chargeback') }}</Badge><small class="neg">{{ t('sales.chargedBack', { amount: money(i.chargeback.amount), date: day(i.chargeback.date) }) }}</small></template></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
       </div>
       <Pagination v-model="page" v-model:size="size" :total="total" :labels="pagerLabels" />
     </template>
@@ -234,6 +312,36 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
 
 <style scoped>
 .cb { margin-top: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.search { flex: 1.4 1 220px; display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 12px; color: var(--color-muted); background: var(--color-surface); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-sm); transition: border-color var(--duration); }
+.search:focus-within { border-color: var(--color-ink); }
+.search input { flex: 1; width: 0; min-width: 0; font: inherit; color: var(--color-ink); background: none; border: 0; outline: none; }
+
+/* Ventas como tarjetas: cabecera con lo que suman sus cuotas; se despliega para ver cada una */
+.list-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; font-size: 14px; color: var(--color-muted); }
+.list-head > span { margin-right: auto; font-weight: 600; color: var(--color-ink); }
+.all { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.ghost-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 10px; font: inherit; font-size: 14px; font-weight: 500; color: var(--color-ink); background: var(--color-surface); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-sm); cursor: pointer; }
+.ghost-btn:hover { box-shadow: var(--shadow-md); }
+.sales-list { display: grid; gap: 10px; }
+.sale { background: var(--color-surface); box-shadow: var(--shadow-sm); border-left: 4px solid transparent; transition: box-shadow var(--duration), border-color var(--duration); }
+.sale:hover { box-shadow: var(--shadow-md); }
+.sale.open { border-left-color: var(--color-primary); box-shadow: var(--shadow-md); }
+.sale-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 16px; }
+.pick-all { flex: none; }
+.tog { flex: 1 1 260px; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 0; font: inherit; color: var(--color-ink); text-align: left; background: none; border: 0; cursor: pointer; }
+.chev { flex: none; color: var(--color-muted); transition: transform var(--duration); }
+.sale.open .chev { transform: rotate(90deg); }
+.who { display: grid; gap: 2px; min-width: 0; }
+.who b { font-size: 15px; }
+.who b.struck { text-decoration: line-through; color: var(--color-muted); }
+.who small { font-size: 13px; color: var(--color-muted); }
+.figs { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0 0 0 auto; }
+.figs div { display: grid; gap: 1px; text-align: right; }
+.figs dt { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--color-muted); }
+.figs dd { margin: 0; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.figs .main dd { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
+.inner { box-shadow: none; border-top: 1px solid var(--color-line); }
 .body { flex: 1; overflow: auto; display: grid; grid-auto-rows: max-content; gap: 18px; align-content: start; padding: 18px 32px 40px 28px; }
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
 .filters :deep(.dd) { width: 210px; }

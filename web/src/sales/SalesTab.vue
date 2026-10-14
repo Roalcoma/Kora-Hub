@@ -3,7 +3,7 @@
 // (registrar, editar, marcar ISSUED, rechazar y cancelar con chargeback).
 import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Plus, Download, CircleCheck, Clock, Pencil, Ban, Undo2, Receipt, TriangleAlert } from 'lucide-vue-next';
+import { Plus, Download, CircleCheck, Clock, Pencil, Ban, Undo2, Receipt, TriangleAlert, Search } from 'lucide-vue-next';
 import type { Sale, SaleStatus } from '@agencia-hub/contracts';
 import Dropdown from '@/design/Dropdown.vue';
 import Button from '@/design/Button.vue';
@@ -37,7 +37,9 @@ const dateBy = ref<'issue' | 'sold'>(readDateBy());
 watch(dateBy, (v) => { try { localStorage.setItem(DATE_BY_KEY, v); } catch { /* sin almacenamiento */ } });
 const dateByOptions = computed(() => [{ value: 'sold' as const, label: t('sales.bySold') }, { value: 'issue' as const, label: t('sales.byIssue') }]);
 const date = ref<DateFilterValue>({ period: 'month', from: '', to: '' });
-const f = reactive({ agent: '', carrier: '', status: '' as SaleStatus | '' | 'overdue' });
+const f = reactive({ agent: '', carrier: '', status: '' as SaleStatus | '' | 'overdue', search: '' });
+/** Sin acentos ni mayúsculas: "jose" encuentra "José" */
+const fold = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const periodOptions = computed(() => (['month', 'lastMonth', 'last90', 'year', 'all'] as const).map((v) => ({ value: v, label: t(`sales.periods.${v}`) })));
 const range = computed(() => ({ ...period.value, dateBy: dateBy.value }));
 const period = computed(() => {
@@ -69,7 +71,8 @@ watch(range, load, { immediate: true });
 
 const rows = computed(() => {
   const base = f.status === 'overdue' ? overdue.value : items.value ?? [];
-  return base.filter((x) => (!f.agent || x.agentId === f.agent || x.splits.some((s) => s.agentId === f.agent)) && (!f.carrier || x.carrierId === f.carrier)
+  const q = fold(f.search.trim());
+  return base.filter((x) => (!q || fold(x.clientName).includes(q)) && (!f.agent || x.agentId === f.agent || x.splits.some((s) => s.agentId === f.agent)) && (!f.carrier || x.carrierId === f.carrier)
     && (!f.status || f.status === 'overdue' || x.status === f.status));
 });
 const { page, size, rows: pageRows, total } = usePaged(rows);
@@ -147,6 +150,10 @@ const cancel = () => act(() => api('POST /w/:slug/sales/:id/cancel', { params: {
       <Dropdown v-model="f.agent" :options="agentOptions" searchable :search-placeholder="t('sales.searchAgent')" :aria-label="t('sales.agent')" />
       <Dropdown v-model="f.carrier" :options="carrierOptions" :aria-label="t('sales.carrier')" />
       <Dropdown v-model="f.status" :options="statusOptions" :aria-label="t('sales.statusLabel')" />
+      <label class="search">
+        <Search :size="16" />
+        <input v-model="f.search" type="search" :placeholder="t('sales.searchClient')" :aria-label="t('sales.searchClient')" maxlength="100">
+      </label>
       <div class="acts">
         <a :href="csvUrl" download class="exp"><Download :size="16" />CSV</a>
         <Button v-if="s.can('sales', 'edit')" variant="primary" @click="openSale(null)"><Plus :size="17" />{{ t('sales.newSale') }}</Button>
@@ -281,6 +288,9 @@ tr.off b { text-decoration: line-through; }
 .date { display: grid; gap: 6px; font-size: 13px; font-weight: 500; }
 .date input { min-height: 42px; }
 .note { margin: 0; padding: 8px 12px; font-size: 13px; line-height: 1.5; color: var(--color-muted); background: var(--color-canvas); border-left: 3px solid var(--color-cta); }
+.search { flex: 1.4 1 220px; display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 12px; color: var(--color-muted); background: var(--color-surface); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-sm); transition: border-color var(--duration); }
+.search:focus-within { border-color: var(--color-ink); }
+.search input { flex: 1; width: 0; min-width: 0; font: inherit; color: var(--color-ink); background: none; border: 0; outline: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 @media (max-width: 767px) {
