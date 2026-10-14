@@ -215,7 +215,7 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
                   </li>
                 </ol>
               </td>
-              <td><b>{{ i.sale.clientName }}</b><small v-if="i.kind === 'override'">{{ t('sales.soldBy', { name: ref_.agentName(i.sale.agentId) }) }}</small></td>
+              <td><b>{{ i.sale.clientName }}</b><small v-if="i.kind === 'override'">{{ t('sales.soldBy', { name: ref_.agentName(i.viaAgentId) }) }}</small><small v-if="i.share < 100">{{ t('sales.splitShare', { n: i.share }) }}</small></td>
               <td>{{ ref_.productLabel(i.sale.productId) }}</td>
               <td class="num">{{ money(i.sale.amount) }}</td>
               <td class="num">{{ i.level ?? '—' }} · {{ i.rate }}%</td>

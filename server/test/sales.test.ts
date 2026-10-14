@@ -300,6 +300,39 @@ test('cancelar con chargeback: anula lo no pagado y descuenta % de lo pagado (cu
   assert.deepEqual(adv.group.map((o: any) => o.status), ['paid', 'paid', 'void', 'void']);
 });
 
+test('split: cada agente cobra sobre su parte con su nivel; el override sale de la parte de su agente', async () => {
+  await owner('POST', A(`/agents/${omarId}/levels`), { carrierIds: [carrierId], level: 85, effectiveFrom: '2026-10-01' });
+  const body = { agentId: anaId, productId: iulId, amount: 1200, clientName: 'Juan Split', expectedIssueDate: '2026-10-10' };
+  // El principal no va en el split y la suma tiene que dejarle algo
+  assert.equal((await owner('POST', A('/sales'), { ...body, splits: [{ agentId: anaId, percent: 50 }] })).body.code, 'split_main_agent');
+  assert.equal((await owner('POST', A('/sales'), { ...body, splits: [{ agentId: omarId, percent: 100 }] })).status, 400);
+  const s = await owner('POST', A('/sales'), { ...body, splits: [{ agentId: omarId, percent: 50 }] });
+  assert.deepEqual(s.body.splits, [{ agentId: omarId, percent: 50, name: 'Omar' }]);
+  // Omar ve la venta (es suya a medias) aunque el principal sea Ana
+  assert.ok((await omar('GET', A('/sales'))).body.items.some((x: any) => x.id === s.body.id));
+  assert.ok((await owner('GET', A(`/sales?agentId=${omarId}`))).body.items.some((x: any) => x.id === s.body.id));
+  await owner('POST', A(`/sales/${s.body.id}/issue`), { issuedAt: '2026-10-15' });
+  const mine = (await owner('GET', A('/commissions'))).body.items.filter((i: any) => i.sale.clientName === 'Juan Split' && i.part === 'advance');
+  // Ana: 600 × 65 % = 390 → adelanto 292.50; Carlos: 600 × 25 % = 150 → 112.50; Omar (nivel 85, 70 %): 600 × 70 % = 420 → 315
+  assert.deepEqual(mine.map((i: any) => [i.beneficiaryAgentId, i.kind, i.viaAgentId, i.share, i.amount]).sort(), [
+    [anaId, 'direct', anaId, 50, 292.5], [carlosId, 'override', anaId, 50, 112.5], [omarId, 'direct', omarId, 50, 315]].sort());
+  // Omar ve solo lo suyo; Ana no ve lo de Omar
+  assert.deepEqual([...new Set((await omar('GET', A('/commissions'))).body.items.filter((i: any) => i.sale.clientName === 'Juan Split').map((i: any) => i.beneficiaryAgentId))], [omarId]);
+  assert.ok(!(await ana('GET', A('/commissions'))).body.items.some((i: any) => i.beneficiaryAgentId === omarId));
+  // Cancelar: el chargeback va por cada parte
+  await owner('POST', A('/commissions/pay'), { ids: mine.map((i: any) => i.id), paidAt: '2026-10-20' });
+  await owner('POST', A(`/sales/${s.body.id}/cancel`), { chargebackPercent: 100 });
+  const cb = (await owner('GET', A('/commissions'))).body.items.filter((i: any) => i.sale.clientName === 'Juan Split' && i.part === 'chargeback');
+  assert.deepEqual(cb.map((i: any) => [i.beneficiaryAgentId, i.viaAgentId, i.amount]).sort(), [
+    [anaId, anaId, -292.5], [carlosId, anaId, -112.5], [omarId, omarId, -315]].sort());
+  // Permiso y aislamiento: un agente no edita el split; otra agencia no lo ve ni lo toca
+  const p = await owner('POST', A('/sales'), { ...body, clientName: 'Otro Split', splits: [{ agentId: omarId, percent: 30 }] });
+  assert.equal((await ana('PATCH', A(`/sales/${p.body.id}`), { splits: [] })).status, 403);
+  assert.equal((await outsider('PATCH', A(`/sales/${p.body.id}`), { splits: [] })).status, 404);
+  assert.deepEqual((await owner('PATCH', A(`/sales/${p.body.id}`), { splits: [] })).body.splits, []);
+  await owner('POST', A(`/sales/${p.body.id}/decline`));
+});
+
 test('ventas reales del Discord de VFS (8-9 oct 2026) con la guía FFL', async () => {
   // Cesar (80) y Nanishka (85) bajo Lendry (105): aquí Ana, Omar y Carlos hacen esos papeles
   const nlg = (await owner('POST', A('/carriers'), { name: 'National Life Group', aliases: ['NLG'] })).body;
@@ -383,7 +416,7 @@ test('nivel distinto por compañía: ISSUE y override usan el nivel de cada comp
   assert.ok(!ids(await owner('GET', A(`/commissions?carrierId=${beta.id}`))).has(a.id));
   const byAgent = await owner('GET', A(`/commissions?agentId=${omarId}`));
   assert.ok(byAgent.body.items.length > 0);
-  assert.ok(byAgent.body.items.every((i: any) => i.sale.agentId === omarId));
+  assert.ok(byAgent.body.items.every((i: any) => i.viaAgentId === omarId));   // su parte, también en splits
   const both = await owner('GET', A(`/commissions?agentId=${anaId}&carrierId=${beta.id}`));
   assert.deepEqual([...ids(both)], [b.id]);
   const csv = await owner('GET', A(`/commissions.csv?carrierId=${alfa.id}`));

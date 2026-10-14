@@ -69,7 +69,7 @@ watch(range, load, { immediate: true });
 
 const rows = computed(() => {
   const base = f.status === 'overdue' ? overdue.value : items.value ?? [];
-  return base.filter((x) => (!f.agent || x.agentId === f.agent) && (!f.carrier || x.carrierId === f.carrier)
+  return base.filter((x) => (!f.agent || x.agentId === f.agent || x.splits.some((s) => s.agentId === f.agent)) && (!f.carrier || x.carrierId === f.carrier)
     && (!f.status || f.status === 'overdue' || x.status === f.status));
 });
 const { page, size, rows: pageRows, total } = usePaged(rows);
@@ -82,7 +82,7 @@ const totals = computed(() => ({
 
 // Agentes que aparecen en las ventas visibles (un agente ve solo los suyos; el dueño, también los de su equipo)
 const agentOptions = computed(() => {
-  const ids = [...new Set([...(items.value ?? []), ...overdue.value].map((x) => x.agentId))];
+  const ids = [...new Set([...(items.value ?? []), ...overdue.value].flatMap((x) => [x.agentId, ...x.splits.map((s) => s.agentId)]))];
   return [{ value: '', label: t('sales.allAgents') },
     ...ids.map((id) => ({ value: id, label: ref_.agentName(id) })).sort((a, b) => a.label.localeCompare(b.label))];
 });
@@ -90,6 +90,7 @@ const carrierOptions = computed(() => [{ value: '', label: t('sales.allCarriers'
 const statusOptions = computed(() => [{ value: '' as const, label: t('sales.allStatuses') },
   ...(['pending', 'issued', 'declined', 'cancelled'] as const).map((v) => ({ value: v, label: t(`sales.status.${v}`) })),
   { value: 'overdue' as const, label: t('sales.overdueOnly') }]);
+const splitMain = (x: Sale) => Math.round((100 - x.splits.reduce((t, s) => t + s.percent, 0)) * 100) / 100;
 const TONE = { pending: 'warning', issued: 'success', declined: 'neutral', cancelled: 'danger' } as const;
 
 const csvUrl = computed(() => `/api/v1/w/${slug()}/sales.csv?${new URLSearchParams(Object.entries(range.value).filter(([, v]) => v) as [string, string][])}`);
@@ -182,7 +183,8 @@ const cancel = () => act(() => api('POST /w/:slug/sales/:id/cancel', { params: {
             <td class="nowrap">{{ day(x.soldOn) }}</td>
             <td class="nowrap">{{ day(x.expectedIssueDate) }}<small v-if="x.issuedAt">ISSUE {{ day(x.issuedAt) }}</small></td>
             <td><b>{{ x.clientName }}</b><small v-if="x.clientState">{{ x.clientState }}</small></td>
-            <td>{{ ref_.agentName(x.agentId) }}<small v-if="x.uplineAgentId">{{ t('sales.under', { name: ref_.agentName(x.uplineAgentId) }) }}</small></td>
+            <td>{{ ref_.agentName(x.agentId) }}<template v-if="x.splits.length"> · {{ splitMain(x) }} %</template>
+              <small v-for="sp in x.splits" :key="sp.agentId" class="split">+ {{ sp.name }} · {{ sp.percent }} %</small><small v-if="x.uplineAgentId">{{ t('sales.under', { name: ref_.agentName(x.uplineAgentId) }) }}</small></td>
             <td>{{ ref_.productLabel(x.productId) }}</td>
             <td class="num"><b>{{ money(x.amount) }}</b></td>
             <td>

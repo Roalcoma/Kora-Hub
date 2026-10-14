@@ -47,7 +47,10 @@ export type Sale = {
   soldOn: Day;                                                                           // día en que se hizo la venta
   expectedIssueDate: Day; issuedAt: Day | null; status: SaleStatus; overdue: boolean;   // pendiente con fecha vencida
   source: 'manual' | 'discord'; notes: string; createdAt: IsoDate;
+  /** Split: otros agentes y su % de la venta; el principal (`agentId`) se queda con el resto */
+  splits: SaleSplit[];
 };
+export type SaleSplit = { agentId: Id; percent: number; name: string };
 export type SalesList = {
   items: Sale[];
   totals: { count: number; amount: number; issued: number; pending: number };
@@ -67,6 +70,8 @@ export type Installment = {
   of: number;
   /** Todas las cuotas de la misma venta, beneficiario y tipo, ordenadas por `seq` (incluye esta); vacío en chargebacks */
   group: InstallmentRef[];
+  /** Agente de la venta de cuya parte sale esta cuota, y qué % de la venta es esa parte (100 sin split) */
+  viaAgentId: Id; share: number;
   sale: Pick<Sale, 'agentId' | 'carrierId' | 'productId' | 'clientName' | 'amount' | 'issuedAt' | 'status'>;
 };
 export type CommissionsList = {
@@ -128,14 +133,20 @@ export const GridBody = z.object({
     .refine((r) => new Set(r.map((x) => x.level)).size === r.length, 'Nivel repetido'),
 });
 
+/** Split con otros agentes (sin el principal); la suma queda por debajo de 100 */
+const Splits = z.array(z.object({ agentId: Id, percent: z.number().gt(0).lt(100).multipleOf(0.01) })).max(4)
+  .refine((x) => new Set(x.map((s) => s.agentId)).size === x.length, 'Agente repetido en el split')
+  .refine((x) => x.reduce((t, s) => t + s.percent, 0) < 100, 'El split tiene que dejarle una parte al agente principal');
+
 export const SaleBody = z.object({
   agentId: Id, productId: Id, amount: z.number().positive().max(10_000_000),
   clientName: z.string().trim().min(1).max(120), clientState: z.enum(US_STATES).nullable().default(null),
   expectedIssueDate: Day, notes: z.string().max(2_000).default(''),
   soldOn: Day.optional(),          // sin ella: el día del mensaje de Discord, o hoy
   inboxId: Id.optional(),          // al completar un mensaje de la bandeja de Discord
+  splits: Splits.default([]),
 });
-export const UpdateSaleBody = SaleBody.omit({ inboxId: true }).partial();
+export const UpdateSaleBody = SaleBody.omit({ inboxId: true, splits: true }).partial().extend({ splits: Splits.optional() });
 export const IssueSaleBody = z.object({ issuedAt: Day });
 /** Cancelar una venta ISSUED: % de lo ya pagado que la compañía descontó (chargeback) */
 export const CancelSaleBody = z.object({ chargebackPercent: z.number().min(0).max(100).default(100) });

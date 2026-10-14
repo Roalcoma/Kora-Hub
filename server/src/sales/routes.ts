@@ -251,10 +251,14 @@ salesRouter.post('/agents/:id/levels', async (req, res) => {
 // ─── Ventas ───
 
 /** Condición de visibilidad sobre el agente de la venta (alias `s`) */
-const visibleSale = (req: Request) => seesAll(req) ? 'true' : `(s.agent_id in ${MY_AGENTS} or ag.upline_agent_id in ${MY_AGENTS})`;
+const visibleSale = (req: Request) => seesAll(req) ? 'true' : `(s.agent_id in ${MY_AGENTS} or ag.upline_agent_id in ${MY_AGENTS}
+  or exists (select 1 from sale_splits x join agents xa on xa.id = x.agent_id where x.sale_id = s.id
+    and (x.agent_id in ${MY_AGENTS} or xa.upline_agent_id in ${MY_AGENTS})))`;
 
 const SALE_COLS = `s.*, p.carrier_id, ag.upline_agent_id, ${day('s.sold_on')} as sold, ${day('s.expected_issue_date')} as expected, ${day('s.issued_at')} as issued,
-  (s.status = 'pending' and s.expected_issue_date < ${TODAY}) as overdue`;
+  (s.status = 'pending' and s.expected_issue_date < ${TODAY}) as overdue,
+  coalesce((select json_agg(json_build_object('agentId', x.agent_id, 'percent', x.percent, 'name', xa.name) order by x.percent desc, xa.name)
+    from sale_splits x join agents xa on xa.id = x.agent_id where x.sale_id = s.id), '[]') as splits`;
 const SALE_FROM = `sales s join carrier_products p on p.id = s.product_id
   join agents ag on ag.workspace_id = s.workspace_id and ag.id = s.agent_id`;
 
@@ -263,7 +267,19 @@ const toSale = (r: any): Sale => ({
   amount: Number(r.amount), clientName: r.client_name, clientState: r.client_state,
   soldOn: r.sold, expectedIssueDate: r.expected, issuedAt: r.issued, status: r.status, overdue: r.overdue,
   source: r.source, notes: r.notes, createdAt: r.created_at.toISOString(),
+  splits: r.splits.map((x: any) => ({ ...x, percent: Number(x.percent) })),
 });
+
+/** Reemplaza el split de una venta: agentes de la agencia, sin el principal */
+async function setSplits(db: pg.PoolClient, saleId: string, mainAgentId: string, splits: { agentId: string; percent: number }[]) {
+  if (splits.some((x) => x.agentId === mainAgentId)) throw new HttpError(400, 'split_main_agent', 'El agente principal no va en el split');
+  await db.query('delete from sale_splits where sale_id = $1', [saleId]);
+  for (const x of splits) {
+    const ok = await db.query('select 1 from agents where id = $1', [x.agentId]);
+    if (!ok.rowCount) throw new HttpError(404, 'agent_not_found', 'Agente del split no encontrado');
+    await db.query('insert into sale_splits (workspace_id, sale_id, agent_id, percent) values (app_ws(), $1, $2, $3)', [saleId, x.agentId, x.percent]);
+  }
+}
 
 async function querySales(req: Request, q: ReturnType<typeof SalesQuery.parse>): Promise<Sale[]> {
   const col = q.dateBy === 'sold' ? 's.sold_on' : 's.expected_issue_date';   // columna fija, nunca texto del usuario
@@ -271,8 +287,8 @@ async function querySales(req: Request, q: ReturnType<typeof SalesQuery.parse>):
     `select ${SALE_COLS} from ${SALE_FROM}
      where ${visibleSale(req)}
        and ($1::date is null or ${col} >= $1) and ($2::date is null or ${col} <= $2)
-       and ($3::uuid is null or s.agent_id = $3) and ($4::uuid is null or p.carrier_id = $4)
-       and ($5::uuid is null or s.product_id = $5) and ($6::text is null or s.status = $6)
+       and ($3::uuid is null or s.agent_id = $3 or exists (select 1 from sale_splits x where x.sale_id = s.id and x.agent_id = $3))
+       and ($4::uuid is null or p.carrier_id = $4) and ($5::uuid is null or s.product_id = $5) and ($6::text is null or s.status = $6)
        and ($7::boolean is null or (s.status = 'pending' and s.expected_issue_date < ${TODAY}) = $7)
      order by ${col} desc, s.created_at desc limit 2000`,
     [q.from ?? null, q.to ?? null, q.agentId ?? null, q.carrierId ?? null, q.productId ?? null, q.status ?? null, q.overdue ?? null],
@@ -299,9 +315,10 @@ salesRouter.get('/sales.csv', async (req, res) => {
   const items = await querySales(req, parse(SalesQuery, req.query));
   const names = await nameMaps(req);
   sendCsv(res, 'ventas.csv', [
-    ['Agente', 'Dueño de agencia', 'Compañía', 'Producto', 'Monto', 'Cliente', 'Estado (US)', 'Fecha de venta', 'Fecha esperada', 'ISSUE', 'Estado', 'Origen'],
+    ['Agente', 'Dueño de agencia', 'Compañía', 'Producto', 'Monto', 'Cliente', 'Estado (US)', 'Fecha de venta', 'Fecha esperada', 'ISSUE', 'Estado', 'Origen', 'Split'],
     ...items.map((s) => [names.get(s.agentId), s.uplineAgentId ? names.get(s.uplineAgentId) : '', names.get(s.carrierId), names.get(s.productId),
-      s.amount.toFixed(2), s.clientName, s.clientState ?? '', s.soldOn, s.expectedIssueDate, s.issuedAt ?? '', s.status, s.source]),
+      s.amount.toFixed(2), s.clientName, s.clientState ?? '', s.soldOn, s.expectedIssueDate, s.issuedAt ?? '', s.status, s.source,
+      s.splits.map((x) => `${x.name} ${x.percent}%`).join(' · ')]),
   ]);
 });
 
@@ -319,6 +336,7 @@ salesRouter.post('/sales', async (req, res) => {
       [body.agentId, body.productId, body.amount, body.clientName, body.clientState, body.expectedIssueDate, body.notes,
         inbox ? 'discord' : 'manual', inbox?.discord_message_id ?? null, body.soldOn ?? null, inbox?.posted_at ?? null]);
     if (inbox) await db.query('update sale_inbox set resolved_at = now(), resolved_by = app_user(), sale_id = $2 where id = $1', [inbox.id, rows[0].id]);
+    if (body.splits.length) await setSplits(db, rows[0].id, body.agentId, body.splits);
     return oneSale(db, rows[0].id);
   }));
 });
@@ -338,6 +356,9 @@ salesRouter.patch('/sales/:id', async (req, res) => {
        where id = $1`,
       [id, body.agentId ?? null, body.productId ?? null, body.amount ?? null, body.clientName ?? null,
         body.clientState !== undefined, body.clientState ?? null, body.expectedIssueDate ?? null, body.notes ?? null, body.soldOn ?? null]);
+    const agentId = body.agentId ?? before.agentId;
+    if (body.splits !== undefined) await setSplits(db, id, agentId, body.splits);
+    else if (before.splits.some((x) => x.agentId === agentId)) throw new HttpError(400, 'split_main_agent', 'El agente principal no va en el split');
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'sale.edited', targetType: 'sale', targetId: id, meta: body });
     return oneSale(db, id);
   }));
@@ -370,15 +391,26 @@ salesRouter.post('/sales/:id/issue', async (req, res) => {
   res.json(await tx(req, async (db) => {
     const sale = await oneSale(db, id, true);
     if (sale.status !== 'pending') throw new HttpError(409, 'sale_not_pending', 'Esta venta ya no está pendiente de ISSUE');
-    const agent = await rateAt(db, sale.agentId, sale.productId, issuedAt);
-    const upline = sale.uplineAgentId ? await rateAt(db, sale.uplineAgentId, sale.productId, issuedAt) : null;
-    const levels = new Map([[agent.agentId, agent.level], ...(upline ? [[upline.agentId, upline.level] as const] : [])]);
     const { advance_months } = (await db.query('select advance_months from carriers where id = $1', [sale.carrierId])).rows[0];
-    for (const i of installments(toCents(sale.amount), advance_months, commissionShares(agent, upline))) {
-      await db.query(
-        `insert into commission_installments (workspace_id, sale_id, beneficiary_agent_id, kind, part, seq, level, rate, amount, due_date)
-         values (app_ws(), $1, $2, $3, $4, $5, $6, $7, $8, $9::date + make_interval(months => $10))`,
-        [id, i.beneficiaryAgentId, i.kind, i.part, i.seq, levels.get(i.beneficiaryAgentId), i.rate, i.amountCents / 100, issuedAt, i.monthsAfterIssue]);
+    // Cada agente de la venta cobra sobre su parte (el principal, lo que el split no reparte); el override sale de cada parte
+    const others = sale.splits.reduce((t, x) => t + Math.round(x.percent * 100), 0);
+    const parts = [{ agentId: sale.agentId, share: (10_000 - others) / 100 }, ...sale.splits.map((x) => ({ agentId: x.agentId, share: x.percent }))];
+    const totalCents = toCents(sale.amount);
+    let given = 0;
+    for (const [n, p] of parts.entries()) {
+      // La última parte absorbe el redondeo: la suma de las partes es exactamente el monto de la venta
+      const cents = n === parts.length - 1 ? totalCents - given : Math.round((totalCents * p.share) / 100);
+      given += cents;
+      const uplineId = (await db.query('select upline_agent_id from agents where id = $1', [p.agentId])).rows[0]?.upline_agent_id as string | null;
+      const agent = await rateAt(db, p.agentId, sale.productId, issuedAt);
+      const upline = uplineId ? await rateAt(db, uplineId, sale.productId, issuedAt) : null;
+      const levels = new Map([[agent.agentId, agent.level], ...(upline ? [[upline.agentId, upline.level] as const] : [])]);
+      for (const i of installments(cents, advance_months, commissionShares(agent, upline))) {
+        await db.query(
+          `insert into commission_installments (workspace_id, sale_id, beneficiary_agent_id, kind, part, seq, level, rate, amount, due_date, via_agent_id, share)
+           values (app_ws(), $1, $2, $3, $4, $5, $6, $7, $8, $9::date + make_interval(months => $10), $11, $12)`,
+          [id, i.beneficiaryAgentId, i.kind, i.part, i.seq, levels.get(i.beneficiaryAgentId), i.rate, i.amountCents / 100, issuedAt, i.monthsAfterIssue, p.agentId, p.share]);
+      }
     }
     await db.query("update sales set status = 'issued', issued_at = $2, updated_at = now() where id = $1", [id, issuedAt]);
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'sale.issued', targetType: 'sale', targetId: id, meta: { issuedAt } });
@@ -408,15 +440,15 @@ salesRouter.post('/sales/:id/cancel', async (req, res) => {
     // Lo no pagado se anula; sobre lo ya pagado la compañía descuenta el % indicado
     await db.query("update commission_installments set status = 'void' where sale_id = $1 and status = 'pending'", [id]);
     const paid = (await db.query(
-      `select beneficiary_agent_id, kind, max(level) as level, max(rate) as rate, sum(amount) as amount from commission_installments
-       where sale_id = $1 and status = 'paid' and part <> 'chargeback' group by beneficiary_agent_id, kind`, [id])).rows;
+      `select beneficiary_agent_id, kind, via_agent_id, share, max(level) as level, max(rate) as rate, sum(amount) as amount from commission_installments
+       where sale_id = $1 and status = 'paid' and part <> 'chargeback' group by beneficiary_agent_id, kind, via_agent_id, share`, [id])).rows;
     for (const p of paid) {
       const cents = chargebackCents(toCents(p.amount), chargebackPercent);
       if (cents >= 0) continue;
       await db.query(
-        `insert into commission_installments (workspace_id, sale_id, beneficiary_agent_id, kind, part, level, rate, amount, due_date)
-         values (app_ws(), $1, $2, $3, 'chargeback', $4, $5, $6, ${TODAY})`,
-        [id, p.beneficiary_agent_id, p.kind, p.level, p.rate, cents / 100]);
+        `insert into commission_installments (workspace_id, sale_id, beneficiary_agent_id, kind, part, level, rate, amount, due_date, via_agent_id, share)
+         values (app_ws(), $1, $2, $3, 'chargeback', $4, $5, $6, ${TODAY}, $7, $8)`,
+        [id, p.beneficiary_agent_id, p.kind, p.level, p.rate, cents / 100, p.via_agent_id, p.share]);
     }
     await db.query("update sales set status = 'cancelled', updated_at = now() where id = $1", [id]);
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'sale.cancelled', targetType: 'sale', targetId: id, meta: { chargebackPercent } });
@@ -429,7 +461,7 @@ salesRouter.post('/sales/:id/cancel', async (req, res) => {
 async function queryInstallments(req: Request, q: ReturnType<typeof CommissionsQuery.parse>): Promise<Installment[]> {
   // El agente ve solo sus cuotas (no el override que su venta le deja al dueño); el dueño ve además las de sus agentes
   const visible = seesAll(req) ? 'true' : `(i.beneficiary_agent_id in ${MY_AGENTS}
-    or exists (select 1 from agents ag where ag.id = s.agent_id and ag.upline_agent_id in ${MY_AGENTS}))`;
+    or exists (select 1 from agents ag where ag.id = i.via_agent_id and ag.upline_agent_id in ${MY_AGENTS}))`;
   return tx(req, async (db) => (await db.query(
     `select i.*, ${day('i.due_date')} as due, ${day('i.paid_at')} as paid, s.agent_id, s.product_id, p.carrier_id,
        s.client_name, s.amount as sale_amount, ${day('s.issued_at')} as issued, s.status as sale_status, g.grp,
@@ -442,18 +474,18 @@ async function queryInstallments(req: Request, q: ReturnType<typeof CommissionsQ
        select json_agg(json_build_object('id', o.id, 'part', o.part, 'seq', o.seq, 'amount', o.amount, 'dueDate', ${day('o.due_date')}, 'status', o.status)
                 order by o.seq, o.due_date) as grp
        from commission_installments o
-       where o.sale_id = i.sale_id and o.beneficiary_agent_id = i.beneficiary_agent_id and o.kind = i.kind
+       where o.sale_id = i.sale_id and o.beneficiary_agent_id = i.beneficiary_agent_id and o.kind = i.kind and o.via_agent_id = i.via_agent_id
          and i.part <> 'chargeback' and o.part <> 'chargeback') g on true
      where ${visible}
        and ($1::date is null or i.due_date >= $1) and ($2::date is null or i.due_date <= $2)
        and ($3::uuid is null or i.beneficiary_agent_id = $3) and ($4::text is null or i.status = $4)
-       and ($5::uuid is null or p.carrier_id = $5) and ($6::uuid is null or s.agent_id = $6)
+       and ($5::uuid is null or p.carrier_id = $5) and ($6::uuid is null or i.via_agent_id = $6)
      order by i.due_date, s.client_name, i.kind limit 5000`,
     [q.from ?? null, q.to ?? null, q.beneficiaryAgentId ?? null, q.status ?? null, q.carrierId ?? null, q.agentId ?? null],
   )).rows.map((r) => ({
     id: r.id, saleId: r.sale_id, beneficiaryAgentId: r.beneficiary_agent_id, kind: r.kind, part: r.part,
     seq: r.seq, month: r.month, level: r.level, rate: Number(r.rate), amount: Number(r.amount), dueDate: r.due, status: r.status, paidAt: r.paid,
-    ...group(r),
+    ...group(r), viaAgentId: r.via_agent_id, share: Number(r.share),
     sale: { agentId: r.agent_id, carrierId: r.carrier_id, productId: r.product_id, clientName: r.client_name,
       amount: Number(r.sale_amount), issuedAt: r.issued, status: r.sale_status },
   })));
@@ -481,9 +513,9 @@ salesRouter.get('/commissions.csv', async (req, res) => {
   const part = (i: Installment) => i.part === 'chargeback' ? PART.chargeback
     : `${PART[i.part]} · cuota ${i.group.findIndex((o) => o.id === i.id) + 1} de ${i.of}${i.part === 'remainder' ? ` (mes ${i.month})` : ''}`;
   sendCsv(res, 'comisiones.csv', [
-    ['Beneficiario', 'Tipo', 'Cuota', 'Agente', 'Cliente', 'Compañía', 'Producto', 'Monto venta', 'Nivel', '%', 'Monto de la cuota', 'Comisión total', 'Fecha de pago', 'Estado', 'Pagada el'],
-    ...items.map((i) => [names.get(i.beneficiaryAgentId), i.kind === 'direct' ? 'Directa' : 'Override', part(i), names.get(i.sale.agentId),
-      i.sale.clientName, names.get(i.sale.carrierId), names.get(i.sale.productId), i.sale.amount.toFixed(2), i.level ?? '', i.rate, i.amount.toFixed(2), i.total.toFixed(2),
+    ['Beneficiario', 'Tipo', 'Cuota', 'Agente', 'Cliente', 'Compañía', 'Producto', 'Monto venta', '% de la venta (split)', 'Nivel', '%', 'Monto de la cuota', 'Comisión total', 'Fecha de pago', 'Estado', 'Pagada el'],
+    ...items.map((i) => [names.get(i.beneficiaryAgentId), i.kind === 'direct' ? 'Directa' : 'Override', part(i), names.get(i.viaAgentId),
+      i.sale.clientName, names.get(i.sale.carrierId), names.get(i.sale.productId), i.sale.amount.toFixed(2), i.share, i.level ?? '', i.rate, i.amount.toFixed(2), i.total.toFixed(2),
       i.dueDate, i.status, i.paidAt ?? '']),
   ]);
 });

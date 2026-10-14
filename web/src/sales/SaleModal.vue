@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Registrar o editar una venta pendiente de ISSUE (Admin). Con `prefill` se completa un mensaje de la bandeja de Discord.
 import { computed, reactive, ref, watch } from 'vue';
+import { Plus, X } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import { US_STATES, type InboxItem, type Sale } from '@agencia-hub/contracts';
 import Modal from '@/design/Modal.vue';
@@ -23,6 +24,8 @@ const s = useSession();
 const sales = useSales();
 
 const f = reactive({ agentId: '', productId: '', amount: '', clientName: '', clientState: '', soldOn: '', expectedIssueDate: '', notes: '' });
+// Split: otros agentes con su %; el principal se queda con el resto
+const splits = ref<{ agentId: string; percent: string }[]>([]);
 const error = ref<string | null>(null);
 const busy = ref(false);
 watch(open, (v) => {
@@ -34,6 +37,7 @@ watch(open, (v) => {
     soldOn: props.sale?.soldOn ?? (props.inbox ? nyDay(props.inbox.postedAt) : today()),
     notes: props.sale?.notes ?? '',
   });
+  splits.value = (props.sale?.splits ?? []).map((x) => ({ agentId: x.agentId, percent: String(x.percent) }));
   error.value = null;
 });
 
@@ -41,7 +45,13 @@ const agentOptions = computed(() => sales.sellers.map((a) => ({ value: a.id, lab
 const productOptions = computed(() => sales.carriers.filter((c) => !c.archivedAt).flatMap((c) =>
   c.products.filter((p) => !p.archivedAt).map((p) => ({ value: p.id, label: `${c.name} · ${p.name}` }))));
 const stateOptions = computed(() => [{ value: '', label: '—' }, ...US_STATES.map((x) => ({ value: x, label: x }))]);
-const valid = computed(() => f.agentId && f.productId && Number(f.amount) > 0 && f.clientName.trim() && f.soldOn && f.expectedIssueDate);
+const mainShare = computed(() => Math.round((100 - splits.value.reduce((t, x) => t + (Number(x.percent) || 0), 0)) * 100) / 100);
+const splitOk = computed(() => splits.value.every((x) => x.agentId && x.agentId !== f.agentId && Number(x.percent) > 0)
+  && new Set(splits.value.map((x) => x.agentId)).size === splits.value.length && mainShare.value > 0);
+const addSplit = () => { splits.value.push({ agentId: '', percent: splits.value.length ? '' : '50' }); };
+const splitOptions = (current: string) => agentOptions.value.filter((o) => o.value === current
+  || (o.value !== f.agentId && !splits.value.some((x) => x.agentId === o.value)));
+const valid = computed(() => splitOk.value && f.agentId && f.productId && Number(f.amount) > 0 && f.clientName.trim() && f.soldOn && f.expectedIssueDate);
 
 async function save() {
   busy.value = true;
@@ -49,6 +59,7 @@ async function save() {
   const body = {
     agentId: f.agentId, productId: f.productId, amount: Number(f.amount), clientName: f.clientName.trim(),
     clientState: (f.clientState || null) as (typeof US_STATES)[number] | null, soldOn: f.soldOn, expectedIssueDate: f.expectedIssueDate, notes: f.notes,
+    splits: splits.value.map((x) => ({ agentId: x.agentId, percent: Number(x.percent) })),
   };
   try {
     const params = { slug: s.workspace!.slug };
@@ -71,6 +82,15 @@ async function save() {
       <div class="row">
         <Dropdown v-model="f.agentId" :options="agentOptions" :label="t('sales.agent')" :placeholder="t('sales.pickAgent')" searchable :search-placeholder="t('sales.searchAgent')" />
         <Dropdown v-model="f.productId" :options="productOptions" :label="t('sales.product')" :placeholder="t('sales.pickProduct')" />
+      </div>
+      <div class="split">
+        <div v-for="(x, n) in splits" :key="n" class="split-row">
+          <Dropdown v-model="x.agentId" :options="splitOptions(x.agentId)" :placeholder="t('sales.pickAgent')" searchable :search-placeholder="t('sales.searchAgent')" :aria-label="t('sales.splitWith')" />
+          <Input v-model="x.percent" type="number" placeholder="%" :aria-label="t('sales.splitPercent')" />
+          <button type="button" class="rm" :aria-label="t('sales.splitRemove')" @click="splits.splice(n, 1)"><X :size="16" /></button>
+        </div>
+        <p v-if="splits.length" class="split-note" :class="{ bad: !splitOk }">{{ t('sales.splitMain', { name: sales.agentName(f.agentId || null), n: mainShare }) }}</p>
+        <button v-if="splits.length < 4" type="button" class="add" @click="addSplit"><Plus :size="15" />{{ t('sales.splitAdd') }}</button>
       </div>
       <div class="row">
         <Input v-model="f.amount" type="number" prefix="$" :label="t('sales.amount')" :hint="t('sales.amountHint')" />
@@ -99,6 +119,13 @@ async function save() {
 .date { display: grid; gap: 6px; font-size: 13px; font-weight: 500; }
 .date input { min-height: 42px; }
 .date small { font-size: 12px; font-weight: 400; color: var(--color-muted); }
+.split { display: grid; gap: 8px; }
+.split-row { display: grid; grid-template-columns: 1fr 110px 36px; gap: 8px; align-items: center; }
+.split-note { margin: 0; font-size: 13px; color: var(--color-muted); }
+.split-note.bad { color: var(--color-danger); }
+.add, .rm { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 14px; color: var(--color-ink); background: none; border: 0; cursor: pointer; }
+.add { justify-self: start; padding: 4px 0; font-weight: 500; }
+.rm { justify-content: center; width: 36px; height: 36px; border: 1px solid var(--color-line-strong); }
 .err { margin: 0; padding: 8px 12px; font-size: 14px; color: var(--color-danger); background: var(--color-danger-light); border-left: 3px solid var(--color-danger); }
 @media (max-width: 520px) { .row, .row.wide { grid-template-columns: 1fr; } }
 </style>
