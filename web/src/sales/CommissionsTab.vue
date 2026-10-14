@@ -215,13 +215,14 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
                   </li>
                 </ol>
               </td>
-              <td><b>{{ i.sale.clientName }}</b><small v-if="i.kind === 'override'">{{ t('sales.soldBy', { name: ref_.agentName(i.viaAgentId) }) }}</small><small v-if="i.share < 100">{{ t('sales.splitShare', { n: i.share }) }}</small></td>
+              <td><b>{{ i.sale.clientName }}</b><small v-if="i.sale.status === 'cancelled'" class="neg">{{ t('sales.saleCancelled') }}</small><small v-if="i.kind === 'override'">{{ t('sales.soldBy', { name: ref_.agentName(i.viaAgentId) }) }}</small><small v-if="i.share < 100">{{ t('sales.splitShare', { n: i.share }) }}</small></td>
               <td>{{ ref_.productLabel(i.sale.productId) }}</td>
               <td class="num">{{ money(i.sale.amount) }}</td>
               <td class="num">{{ i.level ?? '—' }} · {{ i.rate }}%</td>
               <td class="num" :class="{ neg: i.amount < 0 }"><b>{{ money(i.amount) }}</b>
                 <small v-if="i.of > 1">{{ t('sales.ofTotal', { total: money(i.total) }) }}</small></td>
-              <td><Badge :tone="STATUS_TONE[i.status]">{{ t(`sales.installment.${i.status}`) }}</Badge><small v-if="i.paidAt">{{ day(i.paidAt) }}</small></td>
+              <td><Badge :tone="STATUS_TONE[i.status]">{{ t(`sales.installment.${i.status}`) }}</Badge><small v-if="i.paidAt">{{ day(i.paidAt) }}</small>
+                <template v-if="i.chargeback && i.status === 'paid'"><Badge tone="danger" class="cb">{{ t('sales.part.chargeback') }}</Badge><small class="neg">{{ t('sales.chargedBack', { amount: money(i.chargeback.amount), date: day(i.chargeback.date) }) }}</small></template></td>
             </tr>
           </tbody>
         </table>
@@ -232,6 +233,7 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
 </template>
 
 <style scoped>
+.cb { margin-top: 6px; }
 .body { flex: 1; overflow: auto; display: grid; grid-auto-rows: max-content; gap: 18px; align-content: start; padding: 18px 32px 40px 28px; }
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
 .filters :deep(.dd) { width: 210px; }

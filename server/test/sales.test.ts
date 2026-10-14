@@ -325,6 +325,9 @@ test('split: cada agente cobra sobre su parte con su nivel; el override sale de 
   const cb = (await owner('GET', A('/commissions'))).body.items.filter((i: any) => i.sale.clientName === 'Juan Split' && i.part === 'chargeback');
   assert.deepEqual(cb.map((i: any) => [i.beneficiaryAgentId, i.viaAgentId, i.amount]).sort(), [
     [anaId, anaId, -292.5], [carlosId, anaId, -112.5], [omarId, omarId, -315]].sort());
+  // La cuota pagada dice cuánto se le descontó y cuándo (la venta se canceló)
+  const adv = (await owner('GET', A('/commissions'))).body.items.find((i: any) => i.sale.clientName === 'Juan Split' && i.part === 'advance' && i.beneficiaryAgentId === omarId);
+  assert.deepEqual([adv.status, adv.sale.status, adv.chargeback.amount], ['paid', 'cancelled', -315]);
   // Permiso y aislamiento: un agente no edita el split; otra agencia no lo ve ni lo toca
   const p = await owner('POST', A('/sales'), { ...body, clientName: 'Otro Split', splits: [{ agentId: omarId, percent: 30 }] });
   assert.equal((await ana('PATCH', A(`/sales/${p.body.id}`), { splits: [] })).status, 403);

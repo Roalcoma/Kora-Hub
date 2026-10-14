@@ -72,6 +72,8 @@ export type Installment = {
   group: InstallmentRef[];
   /** Agente de la venta de cuya parte sale esta cuota, y qué % de la venta es esa parte (100 sin split) */
   viaAgentId: Id; share: number;
+  /** Venta cancelada: lo que la compañía descontó de esta comisión (negativo) y cuándo; null si no hubo */
+  chargeback: { amount: number; date: Day } | null;
   sale: Pick<Sale, 'agentId' | 'carrierId' | 'productId' | 'clientName' | 'amount' | 'issuedAt' | 'status'>;
 };
 export type CommissionsList = {

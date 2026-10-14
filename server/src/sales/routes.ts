@@ -464,7 +464,7 @@ async function queryInstallments(req: Request, q: ReturnType<typeof CommissionsQ
     or exists (select 1 from agents ag where ag.id = i.via_agent_id and ag.upline_agent_id in ${MY_AGENTS}))`;
   return tx(req, async (db) => (await db.query(
     `select i.*, ${day('i.due_date')} as due, ${day('i.paid_at')} as paid, s.agent_id, s.product_id, p.carrier_id,
-       s.client_name, s.amount as sale_amount, ${day('s.issued_at')} as issued, s.status as sale_status, g.grp,
+       s.client_name, s.amount as sale_amount, ${day('s.issued_at')} as issued, s.status as sale_status, g.grp, cb.cb_amount, cb.cb_date,
        -- Mes de calendario respecto al ISSUE (no age(): 31/01 + 10 meses = 30/11 daría 9 meses y 30 días)
        case when i.part <> 'chargeback' then ((extract(year from i.due_date) - extract(year from s.issued_at)) * 12
          + extract(month from i.due_date) - extract(month from s.issued_at))::int end as month
@@ -476,6 +476,11 @@ async function queryInstallments(req: Request, q: ReturnType<typeof CommissionsQ
        from commission_installments o
        where o.sale_id = i.sale_id and o.beneficiary_agent_id = i.beneficiary_agent_id and o.kind = i.kind and o.via_agent_id = i.via_agent_id
          and i.part <> 'chargeback' and o.part <> 'chargeback') g on true
+     -- Lo que la compañía descontó (chargeback) de esta comisión al cancelarse la venta
+     left join lateral (
+       select sum(o.amount) as cb_amount, ${day('max(o.due_date)')} as cb_date from commission_installments o
+       where o.sale_id = i.sale_id and o.beneficiary_agent_id = i.beneficiary_agent_id and o.kind = i.kind and o.via_agent_id = i.via_agent_id
+         and i.part <> 'chargeback' and o.part = 'chargeback') cb on true
      where ${visible}
        and ($1::date is null or i.due_date >= $1) and ($2::date is null or i.due_date <= $2)
        and ($3::uuid is null or i.beneficiary_agent_id = $3) and ($4::text is null or i.status = $4)
@@ -486,6 +491,7 @@ async function queryInstallments(req: Request, q: ReturnType<typeof CommissionsQ
     id: r.id, saleId: r.sale_id, beneficiaryAgentId: r.beneficiary_agent_id, kind: r.kind, part: r.part,
     seq: r.seq, month: r.month, level: r.level, rate: Number(r.rate), amount: Number(r.amount), dueDate: r.due, status: r.status, paidAt: r.paid,
     ...group(r), viaAgentId: r.via_agent_id, share: Number(r.share),
+    chargeback: r.cb_amount == null ? null : { amount: Number(r.cb_amount), date: r.cb_date },
     sale: { agentId: r.agent_id, carrierId: r.carrier_id, productId: r.product_id, clientName: r.client_name,
       amount: Number(r.sale_amount), issuedAt: r.issued, status: r.sale_status },
   })));
@@ -513,10 +519,10 @@ salesRouter.get('/commissions.csv', async (req, res) => {
   const part = (i: Installment) => i.part === 'chargeback' ? PART.chargeback
     : `${PART[i.part]} · cuota ${i.group.findIndex((o) => o.id === i.id) + 1} de ${i.of}${i.part === 'remainder' ? ` (mes ${i.month})` : ''}`;
   sendCsv(res, 'comisiones.csv', [
-    ['Beneficiario', 'Tipo', 'Cuota', 'Agente', 'Cliente', 'Compañía', 'Producto', 'Monto venta', '% de la venta (split)', 'Nivel', '%', 'Monto de la cuota', 'Comisión total', 'Fecha de pago', 'Estado', 'Pagada el'],
+    ['Beneficiario', 'Tipo', 'Cuota', 'Agente', 'Cliente', 'Compañía', 'Producto', 'Monto venta', '% de la venta (split)', 'Nivel', '%', 'Monto de la cuota', 'Comisión total', 'Fecha de pago', 'Estado', 'Pagada el', 'Chargeback'],
     ...items.map((i) => [names.get(i.beneficiaryAgentId), i.kind === 'direct' ? 'Directa' : 'Override', part(i), names.get(i.viaAgentId),
       i.sale.clientName, names.get(i.sale.carrierId), names.get(i.sale.productId), i.sale.amount.toFixed(2), i.share, i.level ?? '', i.rate, i.amount.toFixed(2), i.total.toFixed(2),
-      i.dueDate, i.status, i.paidAt ?? '']),
+      i.dueDate, i.status, i.paidAt ?? '', i.chargeback ? `${i.chargeback.amount.toFixed(2)} el ${i.chargeback.date}` : '']),
   ]);
 });
 
