@@ -117,8 +117,9 @@ const groups = computed(() => {
     if (i.status !== 'void') {
       g.payable.push(i.id);
       g.total += cents(i.amount);
+      // Pagado y por cobrar son de la comisión; el chargeback va aparte y solo resta en el neto
       if (i.part === 'chargeback') g.chargeback += cents(i.amount);
-      if (i.status === 'paid') g.paid += cents(i.amount); else g.pending += cents(i.amount);
+      else if (i.status === 'paid') g.paid += cents(i.amount); else g.pending += cents(i.amount);
     }
     by.set(i.saleId, g);
   }
@@ -147,8 +148,8 @@ const summary = computed(() => {
   for (const i of rows.value) {
     if (i.status === 'void') continue;
     const r = by.get(i.beneficiaryAgentId) ?? { id: i.beneficiaryAgentId, direct: 0, override: 0, chargeback: 0, pending: 0, paid: 0 };
-    if (i.part === 'chargeback') r.chargeback += cents(i.amount); else r[i.kind] += cents(i.amount);
-    r[i.status] += cents(i.amount);
+    if (i.part === 'chargeback') r.chargeback += cents(i.amount);
+    else { r[i.kind] += cents(i.amount); r[i.status] += cents(i.amount); }
     by.set(i.beneficiaryAgentId, r);
   }
   return [...by.values()].map((r) => ({ ...r, total: r.direct + r.override + r.chargeback }))
