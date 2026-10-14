@@ -205,6 +205,18 @@ test('solo Admin registra ventas; quedan pendientes de ISSUE', async () => {
   saleId = s.body.id;
 });
 
+test('fecha de venta: hoy si no se indica, la elegida si se indica; se corrige mientras está pendiente', async () => {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  assert.equal((await owner('GET', A('/sales'))).body.items.find((x: any) => x.id === saleId).soldOn, today);
+  const body = { agentId: anaId, productId: iulId, amount: 300, clientName: 'Fecha Vieja', expectedIssueDate: '2026-10-20', soldOn: '2026-10-02' };
+  const s = await owner('POST', A('/sales'), body);
+  assert.deepEqual([s.body.soldOn, s.body.expectedIssueDate], ['2026-10-02', '2026-10-20']);
+  assert.equal((await owner('PATCH', A(`/sales/${s.body.id}`), { soldOn: '2026-10-03' })).body.soldOn, '2026-10-03');
+  assert.equal((await ana('PATCH', A(`/sales/${s.body.id}`), { soldOn: '2026-10-04' })).status, 403);
+  assert.equal((await outsider('PATCH', A(`/sales/${s.body.id}`), { soldOn: '2026-10-04' })).status, 404);
+  await owner('POST', A(`/sales/${s.body.id}/decline`));   // fuera del resto de las cuentas
+});
+
 test('sin nivel del agente no se puede marcar ISSUED', async () => {
   const s = await owner('POST', A('/sales'), { agentId: omarId, productId: iulId, amount: 500, clientName: 'Vilma', expectedIssueDate: '2026-10-09' });
   const r = await owner('POST', A(`/sales/${s.body.id}/issue`), { issuedAt: '2026-10-15' });
@@ -519,8 +531,8 @@ test('canal de Discord: ventas completas, bandeja, enlazar autor y sin duplicado
 
     const fromDiscord = async () => (await owner('GET', A('/sales'))).body.items.filter((s: any) => s.source === 'discord');
     const first = await fromDiscord();
-    assert.deepEqual(first.map((s: any) => [s.agentId, s.clientName, s.amount, s.expectedIssueDate, s.clientState, s.status]),
-      [[anaId, 'Danielle Cardenas', 1200, '2026-10-08', 'NY', 'pending']]);   // 8:22 pm del 8 en Nueva York
+    assert.deepEqual(first.map((s: any) => [s.agentId, s.clientName, s.amount, s.expectedIssueDate, s.clientState, s.status, s.soldOn]),
+      [[anaId, 'Danielle Cardenas', 1200, '2026-10-08', 'NY', 'pending', '2026-10-08']]);   // 8:22 pm del 8 en Nueva York
     const inbox = (await owner('GET', A('/sales-inbox'))).body;
     // FEX (sin producto FEX en esta agencia) y AMAM se ignoran; el mensaje sin cliente espera en la bandeja
     assert.deepEqual(inbox.map((i: any) => [i.authorName, i.problems]).sort(), [

@@ -13,7 +13,7 @@ import { api } from '@/api.ts';
 import { useSession } from '@/stores/session.ts';
 import { errorText } from '@/platform/errors.ts';
 import { useSales } from './store.ts';
-import { today } from './format.ts';
+import { today, nyDay } from './format.ts';
 
 const open = defineModel<boolean>({ default: false });
 const props = defineProps<{ sale?: Sale | null; inbox?: InboxItem | null }>();
@@ -22,7 +22,7 @@ const { t } = useI18n();
 const s = useSession();
 const sales = useSales();
 
-const f = reactive({ agentId: '', productId: '', amount: '', clientName: '', clientState: '', expectedIssueDate: '', notes: '' });
+const f = reactive({ agentId: '', productId: '', amount: '', clientName: '', clientState: '', soldOn: '', expectedIssueDate: '', notes: '' });
 const error = ref<string | null>(null);
 const busy = ref(false);
 watch(open, (v) => {
@@ -31,6 +31,7 @@ watch(open, (v) => {
   Object.assign(f, {
     agentId: x.agentId ?? '', productId: x.productId ?? '', amount: x.amount ? String(x.amount) : '',
     clientName: x.clientName ?? '', clientState: x.clientState ?? '', expectedIssueDate: x.expectedIssueDate ?? today(),
+    soldOn: props.sale?.soldOn ?? (props.inbox ? nyDay(props.inbox.postedAt) : today()),
     notes: props.sale?.notes ?? '',
   });
   error.value = null;
@@ -40,14 +41,14 @@ const agentOptions = computed(() => sales.sellers.map((a) => ({ value: a.id, lab
 const productOptions = computed(() => sales.carriers.filter((c) => !c.archivedAt).flatMap((c) =>
   c.products.filter((p) => !p.archivedAt).map((p) => ({ value: p.id, label: `${c.name} · ${p.name}` }))));
 const stateOptions = computed(() => [{ value: '', label: '—' }, ...US_STATES.map((x) => ({ value: x, label: x }))]);
-const valid = computed(() => f.agentId && f.productId && Number(f.amount) > 0 && f.clientName.trim() && f.expectedIssueDate);
+const valid = computed(() => f.agentId && f.productId && Number(f.amount) > 0 && f.clientName.trim() && f.soldOn && f.expectedIssueDate);
 
 async function save() {
   busy.value = true;
   error.value = null;
   const body = {
     agentId: f.agentId, productId: f.productId, amount: Number(f.amount), clientName: f.clientName.trim(),
-    clientState: (f.clientState || null) as (typeof US_STATES)[number] | null, expectedIssueDate: f.expectedIssueDate, notes: f.notes,
+    clientState: (f.clientState || null) as (typeof US_STATES)[number] | null, soldOn: f.soldOn, expectedIssueDate: f.expectedIssueDate, notes: f.notes,
   };
   try {
     const params = { slug: s.workspace!.slug };
@@ -73,6 +74,9 @@ async function save() {
       </div>
       <div class="row">
         <Input v-model="f.amount" type="number" prefix="$" :label="t('sales.amount')" :hint="t('sales.amountHint')" />
+      </div>
+      <div class="row">
+        <label class="date">{{ t('sales.soldOn') }}<input v-model="f.soldOn" type="date"></label>
         <label class="date">{{ t('sales.expectedIssue') }}<input v-model="f.expectedIssueDate" type="date"><small>{{ t('sales.expectedIssueHint') }}</small></label>
       </div>
       <div class="row wide">

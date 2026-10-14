@@ -44,6 +44,7 @@ export type Agent = {
 export type Sale = {
   id: Id; agentId: Id; uplineAgentId: Id | null; carrierId: Id; productId: Id;
   amount: number; clientName: string; clientState: string | null;
+  soldOn: Day;                                                                           // día en que se hizo la venta
   expectedIssueDate: Day; issuedAt: Day | null; status: SaleStatus; overdue: boolean;   // pendiente con fecha vencida
   source: 'manual' | 'discord'; notes: string; createdAt: IsoDate;
 };
@@ -131,6 +132,7 @@ export const SaleBody = z.object({
   agentId: Id, productId: Id, amount: z.number().positive().max(10_000_000),
   clientName: z.string().trim().min(1).max(120), clientState: z.enum(US_STATES).nullable().default(null),
   expectedIssueDate: Day, notes: z.string().max(2_000).default(''),
+  soldOn: Day.optional(),          // sin ella: el día del mensaje de Discord, o hoy
   inboxId: Id.optional(),          // al completar un mensaje de la bandeja de Discord
 });
 export const UpdateSaleBody = SaleBody.omit({ inboxId: true }).partial();

@@ -253,7 +253,7 @@ salesRouter.post('/agents/:id/levels', async (req, res) => {
 /** Condición de visibilidad sobre el agente de la venta (alias `s`) */
 const visibleSale = (req: Request) => seesAll(req) ? 'true' : `(s.agent_id in ${MY_AGENTS} or ag.upline_agent_id in ${MY_AGENTS})`;
 
-const SALE_COLS = `s.*, p.carrier_id, ag.upline_agent_id, ${day('s.expected_issue_date')} as expected, ${day('s.issued_at')} as issued,
+const SALE_COLS = `s.*, p.carrier_id, ag.upline_agent_id, ${day('s.sold_on')} as sold, ${day('s.expected_issue_date')} as expected, ${day('s.issued_at')} as issued,
   (s.status = 'pending' and s.expected_issue_date < ${TODAY}) as overdue`;
 const SALE_FROM = `sales s join carrier_products p on p.id = s.product_id
   join agents ag on ag.workspace_id = s.workspace_id and ag.id = s.agent_id`;
@@ -261,7 +261,7 @@ const SALE_FROM = `sales s join carrier_products p on p.id = s.product_id
 const toSale = (r: any): Sale => ({
   id: r.id, agentId: r.agent_id, uplineAgentId: r.upline_agent_id, carrierId: r.carrier_id, productId: r.product_id,
   amount: Number(r.amount), clientName: r.client_name, clientState: r.client_state,
-  expectedIssueDate: r.expected, issuedAt: r.issued, status: r.status, overdue: r.overdue,
+  soldOn: r.sold, expectedIssueDate: r.expected, issuedAt: r.issued, status: r.status, overdue: r.overdue,
   source: r.source, notes: r.notes, createdAt: r.created_at.toISOString(),
 });
 
@@ -298,9 +298,9 @@ salesRouter.get('/sales.csv', async (req, res) => {
   const items = await querySales(req, parse(SalesQuery, req.query));
   const names = await nameMaps(req);
   sendCsv(res, 'ventas.csv', [
-    ['Agente', 'Dueño de agencia', 'Compañía', 'Producto', 'Monto', 'Cliente', 'Estado (US)', 'Fecha esperada', 'ISSUE', 'Estado', 'Origen'],
+    ['Agente', 'Dueño de agencia', 'Compañía', 'Producto', 'Monto', 'Cliente', 'Estado (US)', 'Fecha de venta', 'Fecha esperada', 'ISSUE', 'Estado', 'Origen'],
     ...items.map((s) => [names.get(s.agentId), s.uplineAgentId ? names.get(s.uplineAgentId) : '', names.get(s.carrierId), names.get(s.productId),
-      s.amount.toFixed(2), s.clientName, s.clientState ?? '', s.expectedIssueDate, s.issuedAt ?? '', s.status, s.source]),
+      s.amount.toFixed(2), s.clientName, s.clientState ?? '', s.soldOn, s.expectedIssueDate, s.issuedAt ?? '', s.status, s.source]),
   ]);
 });
 
@@ -312,10 +312,11 @@ salesRouter.post('/sales', async (req, res) => {
     if (body.inboxId && !inbox) throw new HttpError(404, 'inbox_not_found', 'Ese mensaje ya se resolvió o no existe');
     const { rows } = await db.query(
       `insert into sales (workspace_id, agent_id, product_id, amount, client_name, client_state, expected_issue_date, notes,
-         source, discord_message_id, created_by)
-       values (app_ws(), $1, $2, $3, $4, $5, $6, $7, $8, $9, app_user()) returning id`,
+         source, discord_message_id, created_by, sold_on)
+       values (app_ws(), $1, $2, $3, $4, $5, $6, $7, $8, $9, app_user(),
+         coalesce($10::date, ($11::timestamptz at time zone 'America/New_York')::date, ${TODAY})) returning id`,
       [body.agentId, body.productId, body.amount, body.clientName, body.clientState, body.expectedIssueDate, body.notes,
-        inbox ? 'discord' : 'manual', inbox?.discord_message_id ?? null]);
+        inbox ? 'discord' : 'manual', inbox?.discord_message_id ?? null, body.soldOn ?? null, inbox?.posted_at ?? null]);
     if (inbox) await db.query('update sale_inbox set resolved_at = now(), resolved_by = app_user(), sale_id = $2 where id = $1', [inbox.id, rows[0].id]);
     return oneSale(db, rows[0].id);
   }));
@@ -331,10 +332,11 @@ salesRouter.patch('/sales/:id', async (req, res) => {
     await db.query(
       `update sales set agent_id = coalesce($2, agent_id), product_id = coalesce($3, product_id), amount = coalesce($4, amount),
          client_name = coalesce($5, client_name), client_state = case when $6 then $7 else client_state end,
-         expected_issue_date = coalesce($8, expected_issue_date), notes = coalesce($9, notes), updated_at = now()
+         expected_issue_date = coalesce($8, expected_issue_date), notes = coalesce($9, notes),
+         sold_on = coalesce($10, sold_on), updated_at = now()
        where id = $1`,
       [id, body.agentId ?? null, body.productId ?? null, body.amount ?? null, body.clientName ?? null,
-        body.clientState !== undefined, body.clientState ?? null, body.expectedIssueDate ?? null, body.notes ?? null]);
+        body.clientState !== undefined, body.clientState ?? null, body.expectedIssueDate ?? null, body.notes ?? null, body.soldOn ?? null]);
     await audit(db, { workspaceId: req.ws!.id, actor: req.userId!, action: 'sale.edited', targetType: 'sale', targetId: id, meta: body });
     return oneSale(db, id);
   }));

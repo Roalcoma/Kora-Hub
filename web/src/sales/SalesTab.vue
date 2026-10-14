@@ -165,13 +165,14 @@ const cancel = () => act(() => api('POST /w/:slug/sales/:id/cancel', { params: {
       <table>
         <thead>
           <tr>
-            <th scope="col">{{ t('sales.expectedIssue') }}</th><th scope="col">{{ t('sales.client') }}</th><th scope="col">{{ t('sales.agent') }}</th>
+            <th scope="col">{{ t('sales.soldOn') }}</th><th scope="col">{{ t('sales.expectedIssue') }}</th><th scope="col">{{ t('sales.client') }}</th><th scope="col">{{ t('sales.agent') }}</th>
             <th scope="col">{{ t('sales.product') }}</th><th scope="col" class="num">{{ t('sales.amount') }}</th><th scope="col">{{ t('sales.statusLabel') }}</th>
             <th v-if="s.can('sales', 'edit')" scope="col"><span class="sr-only">{{ t('sales.actions') }}</span></th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="x in pageRows" :key="x.id" :class="{ off: x.status === 'declined' || x.status === 'cancelled' }">
+            <td class="nowrap">{{ day(x.soldOn) }}</td>
             <td class="nowrap">{{ day(x.expectedIssueDate) }}<small v-if="x.issuedAt">ISSUE {{ day(x.issuedAt) }}</small></td>
             <td><b>{{ x.clientName }}</b><small v-if="x.clientState">{{ x.clientState }}</small></td>
             <td>{{ ref_.agentName(x.agentId) }}<small v-if="x.uplineAgentId">{{ t('sales.under', { name: ref_.agentName(x.uplineAgentId) }) }}</small></td>

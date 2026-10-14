@@ -282,7 +282,7 @@ export default {
     part: { advance: 'Advance at issue', remainder: 'Remainder', chargeback: 'Chargeback' },
     statusLabel: 'Status', actions: 'Actions', agent: 'Agent', agents: 'Agents', carrier: 'Carrier', carriers: 'Carriers and products',
     product: 'Product', amount: 'Issue amount', amountHint: 'Annual policy premium', client: 'Client', state: 'State', notes: 'Notes',
-    expectedIssue: 'Issue date', expectedIssueHint: '"Upon issue" = the sale date', issueDate: 'Actual issue date',
+    soldOn: 'Sale date', expectedIssue: 'Issue date', expectedIssueHint: '"Upon issue" = the sale date', issueDate: 'Actual issue date',
     allAgents: 'All agents', allCarriers: 'All carriers', allStatuses: 'All statuses', overdueOnly: 'Issue overdue',
     searchAgent: 'Search agent', pickAgent: 'Pick the agent', pickProduct: 'Pick the product', everyone: 'Everyone',
     newSale: 'Record sale', editSale: 'Edit sale', newSaleHint: 'It stays pending until the carrier approves it or the client pays.',

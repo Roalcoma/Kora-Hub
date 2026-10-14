@@ -10,6 +10,8 @@ export const fmtDay = (day: string, locale: string) =>
 
 /** Hoy en Nueva York, igual que el servidor */
 export const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+/** Día en Nueva York (YYYY-MM-DD) de un instante */
+export const nyDay = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 
 /** Suma meses a una fecha YYYY-MM-DD */
 export function addMonths(day: string, n: number) {
