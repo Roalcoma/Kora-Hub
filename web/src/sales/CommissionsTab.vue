@@ -262,7 +262,7 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
               <div><dt>{{ t('sales.saleAmount') }}</dt><dd>{{ money(g.sale.amount) }}</dd></div>
               <div><dt>{{ t('sales.installment.paid') }}</dt><dd>{{ money(g.paid / 100) }}</dd></div>
               <div><dt>{{ t('sales.toCollect') }}</dt><dd>{{ money(g.pending / 100) }}</dd></div>
-              <div v-if="g.chargeback"><dt>{{ t('sales.part.chargeback') }}</dt><dd class="neg">{{ money(g.chargeback / 100) }}</dd></div>
+              <div><dt>{{ t('sales.part.chargeback') }}</dt><dd :class="{ neg: g.chargeback }">{{ g.chargeback ? money(g.chargeback / 100) : '—' }}</dd></div>
               <div class="main"><dt>{{ t('sales.commissionNet') }}</dt><dd>{{ money(g.total / 100) }}</dd></div>
             </dl>
           </header>
@@ -327,16 +327,17 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
 .sale { background: var(--color-surface); box-shadow: var(--shadow-sm); border-left: 4px solid transparent; transition: box-shadow var(--duration), border-color var(--duration); }
 .sale:hover { box-shadow: var(--shadow-md); }
 .sale.open { border-left-color: var(--color-primary); box-shadow: var(--shadow-md); }
-.sale-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 16px; }
-.pick-all { flex: none; }
-.tog { flex: 1 1 260px; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 0; font: inherit; color: var(--color-ink); text-align: left; background: none; border: 0; cursor: pointer; }
+.sale-head { display: grid; grid-template-columns: auto minmax(0, 1fr) 128px auto; align-items: center; gap: 10px 16px; padding: 12px 16px; }
+.sale-head:not(:has(.pick-all)) { grid-template-columns: minmax(0, 1fr) 128px auto; }
+.sale-head .badge { justify-self: start; }
+.tog { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 0; font: inherit; color: var(--color-ink); text-align: left; background: none; border: 0; cursor: pointer; }
 .chev { flex: none; color: var(--color-muted); transition: transform var(--duration); }
 .sale.open .chev { transform: rotate(90deg); }
 .who { display: grid; gap: 2px; min-width: 0; }
 .who b { font-size: 15px; }
 .who b.struck { text-decoration: line-through; color: var(--color-muted); }
 .who small { font-size: 13px; color: var(--color-muted); }
-.figs { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0 0 0 auto; }
+.figs { display: grid; grid-template-columns: repeat(5, 104px); gap: 6px 14px; margin: 0; }
 .figs div { display: grid; gap: 1px; text-align: right; }
 .figs dt { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--color-muted); }
 .figs dd { margin: 0; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -397,6 +398,13 @@ tr.off b { text-decoration: line-through; }
 .neg { color: var(--color-danger); }
 .nowrap { white-space: nowrap; }
 
+@media (max-width: 1280px) { .figs { grid-template-columns: repeat(5, 92px); } }
+@media (max-width: 900px) {
+  .sale-head { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .sale-head:not(:has(.pick-all)) { grid-template-columns: minmax(0, 1fr) auto; }
+  .figs { grid-column: 1 / -1; grid-template-columns: repeat(3, 1fr); }
+  .figs div { text-align: left; }
+}
 @media (max-width: 1100px) { .split { grid-template-columns: 1fr; } .totals { grid-template-columns: 1.6fr 1fr 1fr; } }
 @media (max-width: 767px) {
   .body { padding: 14px 16px 32px; }
