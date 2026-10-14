@@ -173,6 +173,9 @@ const cancel = () => act(() => api('POST /w/:slug/sales/:id/cancel', { params: {
     </div>
 
     <div v-if="!items" class="grid gap-3"><Skeleton v-for="n in 4" :key="n" height="52px" /></div>
+    <EmptyState v-else-if="!rows.length && f.search.trim()" :icon="Search" :title="t('sales.noClientMatch', { q: f.search.trim() })" :text="t('sales.noClientMatchText')">
+      <Button v-if="date.period !== 'all'" @click="date = { period: 'all', from: '', to: '' }">{{ t('sales.searchAllDates') }}</Button>
+    </EmptyState>
     <EmptyState v-else-if="!rows.length" :icon="Receipt" :title="t('sales.empty')" :text="s.can('sales', 'edit') ? t('sales.emptyAdmin') : t('sales.emptyMember')">
       <Button v-if="s.can('sales', 'edit')" variant="primary" @click="openSale(null)"><Plus :size="16" />{{ t('sales.newSale') }}</Button>
     </EmptyState>

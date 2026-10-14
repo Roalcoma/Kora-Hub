@@ -206,6 +206,9 @@ const STATUS_TONE = { pending: 'warning', paid: 'success', void: 'neutral' } as 
     </div>
 
     <div v-if="!items" class="grid gap-3"><Skeleton v-for="n in 4" :key="n" height="52px" /></div>
+    <EmptyState v-else-if="!rows.length && search.trim()" :icon="Search" :title="t('sales.noClientMatch', { q: search.trim() })" :text="t('sales.noClientMatchText')">
+      <Button v-if="date.period !== 'all'" variant="secondary" @click="date = { ...ALL }">{{ t('sales.searchAllDates') }}</Button>
+    </EmptyState>
     <EmptyState v-else-if="!rows.length" :icon="Wallet" :title="t('sales.noCommissions')" :text="t('sales.noCommissionsText')" />
     <template v-else>
       <div class="split">
