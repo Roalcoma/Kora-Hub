@@ -214,6 +214,14 @@ test('fecha de venta: hoy si no se indica, la elegida si se indica; se corrige m
   assert.equal((await owner('PATCH', A(`/sales/${s.body.id}`), { soldOn: '2026-10-03' })).body.soldOn, '2026-10-03');
   assert.equal((await ana('PATCH', A(`/sales/${s.body.id}`), { soldOn: '2026-10-04' })).status, 403);
   assert.equal((await outsider('PATCH', A(`/sales/${s.body.id}`), { soldOn: '2026-10-04' })).status, 404);
+  // Filtro por fecha de venta (y por fecha de ISSUE, la de siempre)
+  const ids = async (q: string) => (await owner('GET', A(`/sales?${q}`))).body.items.map((x: any) => x.id);
+  assert.ok((await ids('dateBy=sold&from=2026-10-03&to=2026-10-03')).includes(s.body.id));
+  assert.ok(!(await ids('dateBy=sold&from=2026-10-04&to=2026-10-31')).includes(s.body.id));
+  assert.ok((await ids('from=2026-10-20&to=2026-10-20')).includes(s.body.id));
+  assert.ok(!(await ids('dateBy=sold&from=2026-10-20&to=2026-10-20')).includes(s.body.id));
+  assert.equal((await owner('GET', A('/sales?dateBy=otra'))).status, 400);
+  assert.equal((await outsider('GET', A('/sales?dateBy=sold'))).status, 404);
   await owner('POST', A(`/sales/${s.body.id}/decline`));   // fuera del resto de las cuentas
 });
 

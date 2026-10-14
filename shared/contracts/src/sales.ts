@@ -142,7 +142,8 @@ export const CancelSaleBody = z.object({ chargebackPercent: z.number().min(0).ma
 
 const Bool = z.enum(['true', 'false']).transform((v) => v === 'true');
 export const SalesQuery = z.object({
-  from: Day.optional(), to: Day.optional(),            // por fecha esperada de ISSUE
+  from: Day.optional(), to: Day.optional(),            // por fecha esperada de ISSUE o, con dateBy=sold, por fecha de venta
+  dateBy: z.enum(['issue', 'sold']).default('issue'),
   agentId: Id.optional(), carrierId: Id.optional(), productId: Id.optional(),
   status: z.enum(SALE_STATUS).optional(), overdue: Bool.optional(),
 });

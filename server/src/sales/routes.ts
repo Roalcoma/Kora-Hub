@@ -266,14 +266,15 @@ const toSale = (r: any): Sale => ({
 });
 
 async function querySales(req: Request, q: ReturnType<typeof SalesQuery.parse>): Promise<Sale[]> {
+  const col = q.dateBy === 'sold' ? 's.sold_on' : 's.expected_issue_date';   // columna fija, nunca texto del usuario
   return tx(req, async (db) => (await db.query(
     `select ${SALE_COLS} from ${SALE_FROM}
      where ${visibleSale(req)}
-       and ($1::date is null or s.expected_issue_date >= $1) and ($2::date is null or s.expected_issue_date <= $2)
+       and ($1::date is null or ${col} >= $1) and ($2::date is null or ${col} <= $2)
        and ($3::uuid is null or s.agent_id = $3) and ($4::uuid is null or p.carrier_id = $4)
        and ($5::uuid is null or s.product_id = $5) and ($6::text is null or s.status = $6)
        and ($7::boolean is null or (s.status = 'pending' and s.expected_issue_date < ${TODAY}) = $7)
-     order by s.expected_issue_date desc, s.created_at desc limit 2000`,
+     order by ${col} desc, s.created_at desc limit 2000`,
     [q.from ?? null, q.to ?? null, q.agentId ?? null, q.carrierId ?? null, q.productId ?? null, q.status ?? null, q.overdue ?? null],
   )).rows.map(toSale));
 }

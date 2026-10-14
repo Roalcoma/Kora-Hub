@@ -30,11 +30,17 @@ const slug = () => s.workspace!.slug;
 const money = (n: number) => usd(n, locale.value);
 const day = (x: string) => fmtDay(x, locale.value);
 
-// ─── Filtros (fecha esperada de ISSUE) ───
+// ─── Filtros (por fecha esperada de ISSUE o por fecha de venta; se recuerda en este navegador) ───
+const DATE_BY_KEY = 'kora.sales.dateBy';
+const readDateBy = (): 'issue' | 'sold' => { try { return localStorage.getItem(DATE_BY_KEY) === 'sold' ? 'sold' : 'issue'; } catch { return 'issue'; } };
+const dateBy = ref<'issue' | 'sold'>(readDateBy());
+watch(dateBy, (v) => { try { localStorage.setItem(DATE_BY_KEY, v); } catch { /* sin almacenamiento */ } });
+const dateByOptions = computed(() => [{ value: 'sold' as const, label: t('sales.bySold') }, { value: 'issue' as const, label: t('sales.byIssue') }]);
 const date = ref<DateFilterValue>({ period: 'month', from: '', to: '' });
 const f = reactive({ agent: '', carrier: '', status: '' as SaleStatus | '' | 'overdue' });
 const periodOptions = computed(() => (['month', 'lastMonth', 'last90', 'year', 'all'] as const).map((v) => ({ value: v, label: t(`sales.periods.${v}`) })));
-const range = computed(() => {
+const range = computed(() => ({ ...period.value, dateBy: dateBy.value }));
+const period = computed(() => {
   const custom = customRange(date.value);
   if (custom) return custom;
   const now = today(), p = date.value.period;
@@ -135,7 +141,8 @@ const cancel = () => act(() => api('POST /w/:slug/sales/:id/cancel', { params: {
 <template>
   <div class="body">
     <div class="filters">
-      <DateFilter v-model="date" :presets="periodOptions" :label="t('sales.expectedIssue')" />
+      <Dropdown v-model="dateBy" :options="dateByOptions" :aria-label="t('sales.dateBy')" />
+      <DateFilter v-model="date" :presets="periodOptions" :label="dateBy === 'sold' ? t('sales.soldOn') : t('sales.expectedIssue')" />
       <Dropdown v-model="f.agent" :options="agentOptions" searchable :search-placeholder="t('sales.searchAgent')" :aria-label="t('sales.agent')" />
       <Dropdown v-model="f.carrier" :options="carrierOptions" :aria-label="t('sales.carrier')" />
       <Dropdown v-model="f.status" :options="statusOptions" :aria-label="t('sales.statusLabel')" />
