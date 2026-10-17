@@ -63,7 +63,7 @@ async function openOffice(f: FileRef, my: number): Promise<boolean> {
     host.replaceChildren(ph);
     const api = (window as unknown as { DocsAPI: DocsApi }).DocsAPI;
     editor = new api.DocEditor(ph.id, {
-      ...view.config, width: '100%', height: '100%', type: 'desktop',
+      ...view.config, width: '100%', height: '100%', type: window.innerWidth < 768 ? 'mobile' : 'desktop',
       events: { onError: () => { if (my === token) { closeOffice(); renderLocal(f, my); } } },
     });
     return true;
