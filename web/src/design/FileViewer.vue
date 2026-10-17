@@ -106,9 +106,10 @@ const MAX_ROWS = 2000;
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const current = computed(() => sheets.value[Number(sheet.value)]);
 const width = computed(() => Math.max(0, ...(current.value?.rows.map((r) => r.length) ?? [0])));
-const head = computed(() => current.value?.rows[0] ?? []);
+// Encabezado como en Excel (A, B, … AA): la fila 1 no siempre es la de títulos
+const col = (i: number): string => (i < 26 ? '' : col(Math.floor(i / 26) - 1)) + String.fromCharCode(65 + (i % 26));
 const body = computed(() => {
-  const rows = (current.value?.rows ?? []).slice(1).map((r, i) => ({ n: i + 2, r }));
+  const rows = (current.value?.rows ?? []).map((r, i) => ({ n: i + 1, r }));
   const q = fold(query.value.trim());
   return q ? rows.filter((x) => x.r.some((c) => fold(c).includes(q))) : rows;
 });
@@ -132,7 +133,7 @@ const sheetTabs = computed(() => sheets.value.map((s, i) => ({ value: String(i),
         </div>
         <div class="sheet">
           <table>
-            <thead><tr><th class="rn">1</th><th v-for="c in width" :key="c">{{ head[c - 1] ?? '' }}</th></tr></thead>
+            <thead><tr><th class="rn" /><th v-for="c in width" :key="c" class="cl">{{ col(c - 1) }}</th></tr></thead>
             <tbody>
               <tr v-for="x in body.slice(0, MAX_ROWS)" :key="x.n"><td class="rn">{{ x.n }}</td><td v-for="c in width" :key="c">{{ x.r[c - 1] ?? '' }}</td></tr>
             </tbody>
@@ -167,6 +168,7 @@ thead th { position: sticky; top: 0; z-index: 1; font-weight: 700; background: v
 td { user-select: text; }
 .rn { position: sticky; left: 0; color: var(--color-muted); font-size: 12px; text-align: right; background: var(--color-canvas); }
 thead .rn { z-index: 2; }
+thead .cl { font-weight: 500; font-size: 12px; color: var(--color-muted); text-align: center; }
 tbody tr:hover td { background: var(--color-primary-light); }
 tbody tr:hover .rn { background: var(--color-primary-light); }
 .none, .cap { margin: 0; padding: 10px 12px; font-size: 13px; color: var(--color-muted); }
