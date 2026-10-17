@@ -176,7 +176,7 @@ const sheetTabs = computed(() => sheets.value.map((s, i) => ({ value: String(i),
 </script>
 
 <template>
-  <Modal v-model="open" :title="file?.name ?? ''" width="min(1240px, 96vw)">
+  <Modal v-model="open" :title="file?.name ?? ''" width="min(1560px, 98vw)">
     <div v-if="file" class="fv">
       <img v-if="kind === 'image'" :src="file.url" :alt="file.name" class="img">
       <div v-else-if="office" ref="officeBox" class="frame office" />
@@ -203,19 +203,19 @@ const sheetTabs = computed(() => sheets.value.map((s, i) => ({ value: String(i),
         <p v-if="body.length > MAX_ROWS" class="cap">{{ t('viewer.capped', { n: MAX_ROWS, total: body.length }) }}</p>
       </template>
     </div>
-    <template #footer>
-      <a v-if="file && (kind === 'image' || kind === 'pdf')" class="fv-btn" :href="file.url" target="_blank" rel="noopener"><ExternalLink :size="15" />{{ t('viewer.newTab') }}</a>
-      <a v-if="file" class="fv-btn primary" :href="`${file.url}?download`" :download="file.name"><Download :size="15" />{{ t('chat.download') }}</a>
+    <template #actions>
+      <a v-if="file && (kind === 'image' || kind === 'pdf')" class="fv-btn" :href="file.url" target="_blank" rel="noopener" :title="t('viewer.newTab')"><ExternalLink :size="15" /><span>{{ t('viewer.newTab') }}</span></a>
+      <a v-if="file" class="fv-btn primary" :href="`${file.url}?download`" :download="file.name" :title="t('chat.download')"><Download :size="15" /><span>{{ t('chat.download') }}</span></a>
     </template>
   </Modal>
 </template>
 
 <style scoped>
 .fv { display: grid; gap: 12px; min-width: 0; }
-.img { display: block; max-width: 100%; max-height: 72dvh; margin-right: auto; box-shadow: var(--shadow-md); }
+.img { display: block; max-width: 100%; max-height: calc(100dvh - 150px); margin-right: auto; box-shadow: var(--shadow-md); }
 .office { overflow: hidden; }
 .office :deep(iframe) { display: block; position: static !important; width: 100% !important; max-width: 100%; }   /* en móvil el editor se pone position: fixed */
-.frame { width: 100%; height: 72dvh; border: 0; background: var(--color-canvas); box-shadow: var(--shadow-sm), 0 0 0 1px var(--color-line); }
+.frame { width: 100%; height: calc(100dvh - 150px); border: 0; background: var(--color-canvas); box-shadow: var(--shadow-sm), 0 0 0 1px var(--color-line); }
 .msg { display: flex; align-items: center; gap: 10px; padding: 18px 20px; color: var(--color-muted); background: var(--color-canvas); border-left: 4px solid var(--color-primary); }
 .txt { max-height: 72dvh; margin: 0; padding: 16px; overflow: auto; font: 13px/1.5 ui-monospace, monospace; white-space: pre-wrap; background: var(--color-canvas); box-shadow: inset 0 2px 6px rgb(19 36 61 / .08); }
 .bar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px; }
@@ -223,7 +223,7 @@ const sheetTabs = computed(() => sheets.value.map((s, i) => ({ value: String(i),
 .find { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 12px; margin-left: auto; color: var(--color-muted); background: var(--color-surface); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-sm); }
 .find input { width: 200px; font: inherit; font-size: 14px; color: var(--color-ink); background: none; border: 0; outline: none; }
 .find:focus-within { border-color: var(--color-primary); }
-.sheet { max-height: 64dvh; overflow: auto; background: var(--color-surface); box-shadow: var(--shadow-sm), 0 0 0 1px var(--color-line); }
+.sheet { max-height: calc(100dvh - 210px); overflow: auto; background: var(--color-surface); box-shadow: var(--shadow-sm), 0 0 0 1px var(--color-line); }
 table { border-collapse: collapse; font-size: 13px; }
 th, td { padding: 6px 10px; text-align: left; white-space: nowrap; max-width: 360px; overflow: hidden; text-overflow: ellipsis; border: 1px solid var(--color-line); }
 thead th { position: sticky; top: 0; z-index: 1; font-weight: 700; background: var(--color-canvas); box-shadow: 0 2px 4px rgb(19 36 61 / .08); }
@@ -234,11 +234,12 @@ thead .cl { font-weight: 500; font-size: 12px; color: var(--color-muted); text-a
 tbody tr:hover td { background: var(--color-primary-light); }
 tbody tr:hover .rn { background: var(--color-primary-light); }
 .none, .cap { margin: 0; padding: 10px 12px; font-size: 13px; color: var(--color-muted); }
-.fv-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; font-weight: 700; font-size: 14px; color: var(--color-ink); text-decoration: none; border: 1px solid var(--color-line-strong); background: var(--color-surface); box-shadow: var(--shadow-sm); transition: box-shadow var(--duration), border-color var(--duration); }
+.fv-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; white-space: nowrap; font-weight: 700; font-size: 14px; color: var(--color-ink); text-decoration: none; border: 1px solid var(--color-line-strong); background: var(--color-surface); box-shadow: var(--shadow-sm); transition: box-shadow var(--duration), border-color var(--duration); }
 .fv-btn:hover { border-color: var(--color-ink); box-shadow: var(--shadow-md); }
 .fv-btn.primary { background: var(--color-primary); border-color: var(--color-primary); }
 @media (max-width: 767px) {
-  .frame { height: 66dvh; }
+  .frame { height: calc(100dvh - 130px); }
+  .fv-btn span { display: none; }
   .find, .find input { width: 100%; }
 }
 </style>

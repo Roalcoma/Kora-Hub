@@ -57,7 +57,12 @@ export function officeView(file: { id: string; name: string }, workspaceId: stri
     },
     editorConfig: {
       mode: 'view', lang: user.locale === 'en' ? 'en' : 'es', user: { id: user.id, name: user.name },
-      customization: { compactHeader: true, toolbarHideFileName: true, hideRightMenu: true, feedback: false, help: false, chat: false, comments: false, uiTheme: 'theme-light' },
+      // Lo mínimo para leer: tema blanco, sin logo, sin panel izquierdo/derecho ni avatares; el título y «Descargar» los pone Kora
+      customization: {
+        compactHeader: true, toolbarHideFileName: true, hideRightMenu: true, hideRulers: true, uiTheme: 'theme-white',
+        feedback: false, help: false, chat: false, comments: false, plugins: false, logo: { visible: false },
+        layout: { header: { user: false, users: false, save: false, editMode: false }, leftMenu: false, rightMenu: false },
+      },
     },
   };
   const body = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64(config)}`;

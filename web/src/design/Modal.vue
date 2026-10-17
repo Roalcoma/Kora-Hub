@@ -29,6 +29,7 @@ watch(open, sync);
           <h2>{{ title }}</h2>
           <p v-if="subtitle">{{ subtitle }}</p>
         </div>
+        <div v-if="$slots.actions" class="acts"><slot name="actions" /></div>
         <button class="x" type="button" aria-label="Cerrar" @click="open = false"><X :size="18" /></button>
       </header>
       <div class="body"><slot /></div>
@@ -56,6 +57,7 @@ header::before { content: ''; position: absolute; left: 0; top: 22px; width: 5px
 .ttl { flex: 1; min-width: 0; }
 h2 { margin: 0; font-size: 22px; line-height: 1.2; }
 .ttl p { margin: 6px 0 0; font-size: 14px; color: var(--color-muted); line-height: 1.45; }
+.acts { display: flex; align-items: center; gap: 8px; margin-top: -6px; }
 .x { width: 38px; height: 38px; display: grid; place-items: center; flex: none; margin-top: -6px; color: var(--color-muted); background: none; border: 0; cursor: pointer; transition: background var(--duration), color var(--duration); }
 .x:hover { background: var(--color-canvas); color: var(--color-ink); }
 .body { padding: 4px 28px 24px; display: grid; gap: 16px; overflow: auto; }
