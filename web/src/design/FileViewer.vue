@@ -214,6 +214,7 @@ const sheetTabs = computed(() => sheets.value.map((s, i) => ({ value: String(i),
 .fv { display: grid; gap: 12px; min-width: 0; }
 .img { display: block; max-width: 100%; max-height: 72dvh; margin-right: auto; box-shadow: var(--shadow-md); }
 .office { overflow: hidden; }
+.office :deep(iframe) { display: block; width: 100% !important; max-width: 100%; }
 .frame { width: 100%; height: 72dvh; border: 0; background: var(--color-canvas); box-shadow: var(--shadow-sm), 0 0 0 1px var(--color-line); }
 .msg { display: flex; align-items: center; gap: 10px; padding: 18px 20px; color: var(--color-muted); background: var(--color-canvas); border-left: 4px solid var(--color-primary); }
 .txt { max-height: 72dvh; margin: 0; padding: 16px; overflow: auto; font: 13px/1.5 ui-monospace, monospace; white-space: pre-wrap; background: var(--color-canvas); box-shadow: inset 0 2px 6px rgb(19 36 61 / .08); }
