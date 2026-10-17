@@ -209,7 +209,7 @@ const childCount = computed(() => docs.nodes.filter((n) => n.parentId === props.
         <div class="file-list">
           <div v-for="f in doc.files" :key="f.id" class="file">
             <button type="button" class="open" @click="viewing = f"><span class="fi"><FileText :size="18" /></span><span><b>{{ f.name }}</b><small>{{ size(f.size) }}</small></span></button>
-            <button v-if="editing" type="button" :aria-label="t('docs.detach', { name: f.name })" @click="detach(f.id)"><X :size="15" /></button>
+            <button v-if="editing" type="button" class="rm" :aria-label="t('docs.detach', { name: f.name })" @click="detach(f.id)"><X :size="15" /></button>
           </div>
           <div v-for="u in uploads" :key="u.key" class="file uploading"><span class="fi"><FileText :size="18" /></span><span><b>{{ u.name }}</b><small>{{ Math.round(u.progress * 100) }}%</small></span></div>
           <button v-if="editing" type="button" class="attach" @click="filePicker?.click()"><Paperclip :size="16" />{{ t('docs.attach') }}</button>
@@ -280,7 +280,7 @@ textarea.title:focus { border-bottom: 2px solid var(--color-primary); }
 .file .open { font: inherit; text-align: left; background: none; border: 0; cursor: pointer; }
 .file span:last-child, .file .open > span:last-child { display: grid; }
 .file small { font-size: 12px; color: var(--color-muted); }
-.file > button { width: 30px; height: 30px; margin-right: 4px; display: grid; place-items: center; color: var(--color-muted); background: none; border: 0; cursor: pointer; }
+.file > .rm { width: 30px; height: 30px; margin-right: 4px; display: grid; place-items: center; color: var(--color-muted); background: none; border: 0; cursor: pointer; }
 .fi { width: 34px; height: 40px; display: grid; place-items: center; color: #fff; background: var(--color-leaf); }
 .uploading { opacity: .7; }
 .attach { display: inline-flex; align-items: center; gap: 6px; min-height: 56px; padding: 0 16px; font: inherit; font-size: 14px; color: var(--color-leaf); background: none; border: 1px dashed var(--color-line-strong); cursor: pointer; }
