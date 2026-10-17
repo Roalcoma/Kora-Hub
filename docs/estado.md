@@ -161,3 +161,15 @@ Pedido de VFS el 2026-10-11. Rama `feat/finanzas`. ADR 0007; revisión de seguri
 Ítem "Rocco CRM" en la barra lateral que abre `CRM_URL` (por defecto `https://rocco.arbolaureo.org`) en otra pestaña.
 Solo el superadmin lo activa por agencia desde `/admin` (columna `workspaces.crm_link`, migración 0011, auditado como
 `admin.crm_link`); los admins de la agencia no pueden cambiarlo. Solo enlaza al login: cada app tiene su propia cuenta.
+
+## Visor de archivos (2026-10-16)
+
+Los adjuntos de Manuales y del chat se abren en un visor (`web/src/design/FileViewer.vue`) sin descargarlos: imágenes,
+PDF (visor del navegador desde un blob), Excel `.xlsx` y CSV como tabla con una pestaña por hoja y buscador sin acentos
+(máx. 2000 filas visibles), Word `.docx` con su formato y texto plano. El archivo se pide por la misma ruta protegida
+`GET /files/:id`. Word se pinta en un iframe sandbox sin scripts. Dependencias aprobadas por Rodrigo: `read-excel-file`
+y `docx-preview`, cargadas solo al abrir un archivo de ese tipo (SheetJS se descartó: la versión de npm tiene CVE y npm
+bloquea su tarball externo).
+
+### Pendientes
+- PowerPoint, `.doc` y `.xls` antiguos solo ofrecen descargar (verlos exige LibreOffice/OnlyOffice en el servidor).

@@ -167,6 +167,10 @@ export default {
     historyKept: 'Reports already submitted keep the target they had.', goalSaved: 'Goal saved', perWeek: '{n} {unit} per week',
     unarchive: 'Reactivate',
   },
+  viewer: {
+    failed: "The file couldn't be opened. You can download it.", noPreview: "This file type can't be previewed here. Download it to open it.",
+    search: 'Search in sheet', noRows: 'No rows match.', capped: 'Showing the first {n} of {total} rows.', newTab: 'Open in new tab',
+  },
   docs: {
     library: 'Library', libraryOf: '{name} manuals', libraryCount: '{n} page in the library | {n} pages in the library',
     lastUpdate: 'Last edit: {date}', writeFirst: 'Write the first one', recent: 'Recently updated',

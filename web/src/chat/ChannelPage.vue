@@ -3,11 +3,12 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { Hash, Lock, Megaphone, Star, Bell, BellOff, Pin, Users, ChevronLeft, EllipsisVertical, LogOut, Upload } from 'lucide-vue-next';
+import type { FileRef } from '@agencia-hub/contracts';
 import { useSession } from '@/stores/session.ts';
 import Avatar from '@/design/Avatar.vue';
 import Button from '@/design/Button.vue';
-import Modal from '@/design/Modal.vue';
 import ContextMenu from '@/design/ContextMenu.vue';
+import FileViewer from '@/design/FileViewer.vue';
 import { toast } from '@/design/toast.ts';
 import { useChat } from './store.ts';
 import MessageList from './MessageList.vue';
@@ -57,8 +58,7 @@ const placeholder = computed(() => channel.value?.kind === 'announcement' ? t('c
 const panel = ref<'acks' | 'pins' | 'members' | null>(null);
 const ackMessageId = ref<string | null>(null);
 const openAcks = (id: string) => { ackMessageId.value = id; panel.value = 'acks'; };
-const image = ref<{ url: string; name: string } | null>(null);
-const imageOpen = computed({ get: () => !!image.value, set: (v) => { if (!v) image.value = null; } });
+const viewing = ref<FileRef | null>(null);
 
 const openThread = (id: string) => router.push(`${base.value}/c/${channelId.value}/t/${id}`);
 const closeThread = () => router.push(`${base.value}/c/${channelId.value}`);
@@ -121,7 +121,7 @@ function onDrop(e: DragEvent) {
 
       <div v-if="!chat.connected && chat.ready" class="offline">{{ t('chat.connecting') }}</div>
       <MessageList :list-key="`c:${channel.id}`" :channel="channel" :can-write="canWrite" :new-since="newSince" :jump-to="jumpTo"
-        @thread="openThread" @acks="openAcks" @image="(url, name) => (image = { url, name })" />
+        @thread="openThread" @acks="openAcks" @file="viewing = $event" />
       <TypingLine :list-key="`c:${channel.id}`" />
 
       <Composer v-if="canWrite" ref="composer" :key="channel.id" :channel="channel" :placeholder="placeholder" />
@@ -136,14 +136,11 @@ function onDrop(e: DragEvent) {
     </section>
 
     <ThreadPanel v-if="threadId" :root-id="threadId" :channel="channel" :can-write="canWrite"
-      @close="closeThread" @acks="openAcks" @image="(url, name) => (image = { url, name })" />
+      @close="closeThread" @acks="openAcks" @file="viewing = $event" />
 
     <ChannelPanels v-model="panel" :channel="channel" :ack-message-id="ackMessageId" :can-write="canWrite" @jump="jump" />
     <ContextMenu v-model="menu" :items="menuItems" :x="menuPos.x" :y="menuPos.y" />
-    <Modal v-model="imageOpen" :title="image?.name ?? ''" width="min(1100px, 96vw)">
-      <img v-if="image" :src="image.url" :alt="image.name" class="viewer">
-      <template #footer><a v-if="image" class="dl-link" :href="`${image.url}?download`" :download="image.name">{{ t('chat.download') }}</a></template>
-    </Modal>
+    <FileViewer v-model="viewing" />
   </div>
 </template>
 
@@ -170,9 +167,6 @@ h1 span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 20px 16px 16px; padding: 14px 16px; background: var(--color-surface); border-left: 4px solid var(--color-primary); box-shadow: var(--shadow-md); color: var(--color-muted); }
 .bar span { flex: 1; }
 .drop { position: absolute; inset: 70px 16px 16px; z-index: 20; display: grid; place-content: center; justify-items: center; gap: 10px; background: rgb(254 243 199 / .92); border: 2px dashed var(--color-primary); box-shadow: var(--shadow-lg); pointer-events: none; color: #8A4B00; }
-.dl-link { display: inline-flex; align-items: center; min-height: 38px; padding: 0 14px; font-weight: 700; font-size: 14px; color: var(--color-ink); text-decoration: none; border: 1px solid var(--color-line-strong); background: var(--color-surface); box-shadow: var(--shadow-sm); }
-.dl-link:hover { border-color: var(--color-ink); box-shadow: var(--shadow-md); }
-.viewer { display: block; max-width: 100%; max-height: 75vh; margin: 0 auto; box-shadow: var(--shadow-md); }
 @media (max-width: 1023px) { .page.with-thread { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 767px) {
   .back { display: grid; }

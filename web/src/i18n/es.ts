@@ -166,6 +166,10 @@ export default {
     historyKept: 'Los reportes ya enviados conservan el objetivo que tenían.', goalSaved: 'Meta guardada', perWeek: '{n} {unit} por semana',
     unarchive: 'Reactivar',
   },
+  viewer: {
+    failed: 'No se pudo abrir el archivo. Puedes descargarlo.', noPreview: 'Este tipo de archivo no se puede ver aquí. Descárgalo para abrirlo.',
+    search: 'Buscar en la hoja', noRows: 'Ninguna fila coincide.', capped: 'Se muestran las primeras {n} de {total} filas.', newTab: 'Abrir en pestaña nueva',
+  },
   docs: {
     library: 'Biblioteca', libraryOf: 'Manuales de {name}', libraryCount: '{n} página en la biblioteca | {n} páginas en la biblioteca',
     lastUpdate: 'Última edición: {date}', writeFirst: 'Escribir el primero', recent: 'Actualizados recientemente',

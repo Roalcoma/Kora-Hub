@@ -39,6 +39,7 @@ function client() {
   };
   return Object.assign(call, {
     events,
+    cookie: () => cookie,
     async connect(slug: string) {
       const { body } = await call('POST', `/w/${slug}/ws-ticket`);
       socket = new WebSocket(`${base.replace('http', 'ws')}/ws?ticket=${body.ticket}`);
@@ -263,6 +264,32 @@ test('archivos: suben por la API, se adjuntan y solo los ve quien puede leer el 
   await owner('POST', `/w/${slugA}/files/${up2.fileId}/complete`);
   await post(owner, privado, 'adjunto', { fileIds: [up2.fileId] });
   assert.equal((await ana('GET', `/w/${slugA}/files/${up2.fileId}`)).status, 404);
+});
+
+test('visor de archivos: Excel y PDF se leen con su tipo, sandbox y descarga forzada; otra agencia no los ve', async () => {
+  const xlsx = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const upload = async (name: string, mime: string, data: string) => {
+    const up = (await owner('POST', `/w/${slugA}/files`, { name, mime, size: Buffer.byteLength(data), context: 'message' })).body;
+    await owner('PUT', up.uploadUrl.replace('/api/v1', ''), undefined, { data, type: mime });
+    const ref = (await owner('POST', `/w/${slugA}/files/${up.fileId}/complete`)).body;
+    await post(owner, ventas, '', { fileIds: [ref.id] });
+    return ref;
+  };
+  const sheet = await upload('clientes.xlsx', xlsx, 'PK-hoja');
+  const pdf = await upload('manual.pdf', 'application/pdf', '%PDF-1.4');
+  // Las cabeceras importan aquí, así que se pide con fetch directo y la sesión de Ana
+  const get = (path: string) => fetch(`${base}/api/v1${path}`, { headers: { cookie: ana.cookie() } });
+  const s = await get(sheet.url.replace('/api/v1', ''));
+  assert.equal(s.status, 200);
+  assert.equal(s.headers.get('content-type'), xlsx);
+  assert.match(s.headers.get('content-disposition')!, /^attachment/);   // el visor lo lee con fetch; abrirlo directo lo descarga
+  assert.match(s.headers.get('content-security-policy')!, /sandbox/);
+  assert.equal(await s.text(), 'PK-hoja');
+  assert.match((await get(pdf.url.replace('/api/v1', ''))).headers.get('content-disposition')!, /^inline/);
+  assert.match((await get(`${pdf.url.replace('/api/v1', '')}?download`)).headers.get('content-disposition')!, /^attachment/);
+  // Permiso denegado y aislamiento: el intruso no lo ve ni por su agencia ni por la de A
+  assert.equal((await outsider('GET', `/w/${slugB}/files/${sheet.id}`)).status, 404);
+  assert.equal((await outsider('GET', `/w/${slugA}/files/${sheet.id}`)).status, 404);
 });
 
 test('el worker procesa las notificaciones encoladas', async () => {

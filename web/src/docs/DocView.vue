@@ -7,7 +7,7 @@ import { useI18n } from 'vue-i18n';
 import {
   Pencil, Check, History, Link2, Archive, FilePlus2, Paperclip, FileText, ChevronLeft, ChevronRight, RotateCcw, CircleAlert, X,
 } from 'lucide-vue-next';
-import type { Document, DocumentVersion, DocumentVersionDetail, Routes } from '@agencia-hub/contracts';
+import type { Document, DocumentVersion, DocumentVersionDetail, FileRef, Routes } from '@agencia-hub/contracts';
 import Button from '@/design/Button.vue';
 import Badge from '@/design/Badge.vue';
 import Dropdown from '@/design/Dropdown.vue';
@@ -15,6 +15,7 @@ import Modal from '@/design/Modal.vue';
 import SlideOver from '@/design/SlideOver.vue';
 import Skeleton from '@/design/Skeleton.vue';
 import Avatar from '@/design/Avatar.vue';
+import FileViewer from '@/design/FileViewer.vue';
 import { toast } from '@/design/toast.ts';
 import { api } from '@/api.ts';
 import { useSession } from '@/stores/session.ts';
@@ -118,6 +119,7 @@ async function onFiles(e: Event) {
   if (ok.length && doc.value) await patch({ fileIds: [...doc.value.files.map((f) => f.id), ...ok] });
 }
 const detach = (fileId: string) => patch({ fileIds: doc.value!.files.filter((f) => f.id !== fileId).map((f) => f.id) });
+const viewing = ref<FileRef | null>(null);
 const size = (b: number) => (b > 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
 // ─── Compartir ───
@@ -206,7 +208,7 @@ const childCount = computed(() => docs.nodes.filter((n) => n.parentId === props.
         <h2><Paperclip :size="16" />{{ t('docs.attachments') }}</h2>
         <div class="file-list">
           <div v-for="f in doc.files" :key="f.id" class="file">
-            <a :href="f.url" target="_blank" rel="noopener"><span class="fi"><FileText :size="18" /></span><span><b>{{ f.name }}</b><small>{{ size(f.size) }}</small></span></a>
+            <button type="button" class="open" @click="viewing = f"><span class="fi"><FileText :size="18" /></span><span><b>{{ f.name }}</b><small>{{ size(f.size) }}</small></span></button>
             <button v-if="editing" type="button" :aria-label="t('docs.detach', { name: f.name })" @click="detach(f.id)"><X :size="15" /></button>
           </div>
           <div v-for="u in uploads" :key="u.key" class="file uploading"><span class="fi"><FileText :size="18" /></span><span><b>{{ u.name }}</b><small>{{ Math.round(u.progress * 100) }}%</small></span></div>
@@ -244,6 +246,7 @@ const childCount = computed(() => docs.nodes.filter((n) => n.parentId === props.
         <Button variant="danger" @click="archive">{{ t('docs.archive') }}</Button>
       </template>
     </Modal>
+    <FileViewer v-model="viewing" />
     <NewDocModal v-if="doc" v-model="subOpen" :department-id="doc.departmentId" :parent-id="doc.id" :parent-title="doc.title" />
   </article>
 </template>
@@ -273,8 +276,9 @@ textarea.title:focus { border-bottom: 2px solid var(--color-primary); }
 .file-list { display: flex; flex-wrap: wrap; gap: 10px; }
 .file { position: relative; display: flex; align-items: center; background: var(--color-surface); box-shadow: var(--shadow-sm), 0 0 0 1px rgb(19 36 61 / .05); transition: box-shadow var(--duration), transform var(--duration); }
 .file:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
-.file a, .file.uploading { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 8px; color: inherit; text-decoration: none; }
-.file span:last-child, .file a > span:last-child { display: grid; }
+.file .open, .file.uploading { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 8px; color: inherit; text-decoration: none; }
+.file .open { font: inherit; text-align: left; background: none; border: 0; cursor: pointer; }
+.file span:last-child, .file .open > span:last-child { display: grid; }
 .file small { font-size: 12px; color: var(--color-muted); }
 .file > button { width: 30px; height: 30px; margin-right: 4px; display: grid; place-items: center; color: var(--color-muted); background: none; border: 0; cursor: pointer; }
 .fi { width: 34px; height: 40px; display: grid; place-items: center; color: #fff; background: var(--color-leaf); }

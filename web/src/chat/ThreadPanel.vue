@@ -2,7 +2,7 @@
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { X, ArrowLeft } from 'lucide-vue-next';
-import type { Channel } from '@agencia-hub/contracts';
+import type { Channel, FileRef } from '@agencia-hub/contracts';
 import { useChat } from './store.ts';
 import MessageItem from './MessageItem.vue';
 import MessageList from './MessageList.vue';
@@ -10,7 +10,7 @@ import Composer from './Composer.vue';
 import TypingLine from './TypingLine.vue';
 
 const props = defineProps<{ rootId: string; channel: Channel; canWrite: boolean }>();
-const emit = defineEmits<{ close: []; acks: [id: string]; image: [url: string, name: string] }>();
+const emit = defineEmits<{ close: []; acks: [id: string]; file: [f: FileRef] }>();
 const { t } = useI18n();
 const chat = useChat();
 
@@ -33,10 +33,10 @@ const title = computed(() => props.channel.name ? `#${props.channel.name}` : cha
       <button type="button" class="x" :aria-label="t('common.close')" @click="emit('close')"><X :size="18" /></button>
     </header>
     <div class="root">
-      <MessageItem v-if="root" :m="root" in-thread :channel="channel" :can-write="canWrite" @acks="emit('acks', $event)" @image="(u, n) => emit('image', u, n)" />
+      <MessageItem v-if="root" :m="root" in-thread :channel="channel" :can-write="canWrite" @acks="emit('acks', $event)" @file="emit('file', $event)" />
       <div v-if="root?.replyCount" class="sep">{{ t('chat.replies', { n: root.replyCount }, root.replyCount) }}</div>
     </div>
-    <MessageList :list-key="`t:${rootId}`" :channel="channel" :can-write="canWrite" in-thread @acks="emit('acks', $event)" @image="(u, n) => emit('image', u, n)" />
+    <MessageList :list-key="`t:${rootId}`" :channel="channel" :can-write="canWrite" in-thread @acks="emit('acks', $event)" @file="emit('file', $event)" />
     <TypingLine :list-key="`t:${rootId}`" />
     <Composer v-if="canWrite" :key="rootId" :channel="channel" :parent-id="rootId" :placeholder="t('chat.replyPlaceholder')" />
   </aside>

@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUpdate, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Hash, Megaphone, Lock } from 'lucide-vue-next';
-import type { Channel } from '@agencia-hub/contracts';
+import type { Channel, FileRef } from '@agencia-hub/contracts';
 import { useSession } from '@/stores/session.ts';
 import Skeleton from '@/design/Skeleton.vue';
 import { useChat, type UiMessage } from './store.ts';
@@ -10,7 +10,7 @@ import { sameDay } from './format.ts';
 import MessageItem from './MessageItem.vue';
 
 const props = defineProps<{ listKey: string; channel: Channel; canWrite: boolean; newSince?: string | null; jumpTo?: string | null; inThread?: boolean }>();
-const emit = defineEmits<{ thread: [id: string]; acks: [id: string]; image: [url: string, name: string] }>();
+const emit = defineEmits<{ thread: [id: string]; acks: [id: string]; file: [f: FileRef] }>();
 const { t, locale } = useI18n();
 const s = useSession();
 const chat = useChat();
@@ -100,7 +100,7 @@ const intro = computed(() => props.channel.kind === 'announcement' ? Megaphone :
           <div v-if="r.day && !inThread" class="day"><span>{{ dayLabel(r.m.createdAt) }}</span></div>
           <div v-if="r.isNew" class="newline"><span>{{ t('chat.newMessages') }}</span></div>
           <MessageItem :m="r.m" :compact="r.compact" :in-thread="inThread" :channel="channel" :can-write="canWrite"
-            @thread="emit('thread', $event)" @acks="emit('acks', $event)" @image="(u, n) => emit('image', u, n)" />
+            @thread="emit('thread', $event)" @acks="emit('acks', $event)" @file="emit('file', $event)" />
         </template>
       </template>
     </div>

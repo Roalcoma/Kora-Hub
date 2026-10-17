@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { SmilePlus, MessageSquareText, SquareCheck, Pin, PinOff, EllipsisVertical, Pencil, Trash2, Link2, Copy, FileText, Download, Check, CheckCheck, RotateCw, X } from 'lucide-vue-next';
-import type { Channel } from '@agencia-hub/contracts';
+import { SmilePlus, MessageSquareText, SquareCheck, Pin, PinOff, EllipsisVertical, Pencil, Trash2, Link2, Copy, FileText, Eye, Check, CheckCheck, RotateCw, X } from 'lucide-vue-next';
+import type { Channel, FileRef } from '@agencia-hub/contracts';
 import { useSession } from '@/stores/session.ts';
 import Avatar from '@/design/Avatar.vue';
 import Popover from '@/design/Popover.vue';
@@ -16,7 +16,7 @@ import DocCard from '@/docs/DocCard.vue';
 import EmojiPicker from './EmojiPicker.vue';
 
 const props = defineProps<{ m: UiMessage; compact?: boolean; inThread?: boolean; channel: Channel; canWrite: boolean }>();
-const emit = defineEmits<{ thread: [id: string]; acks: [id: string]; image: [url: string, name: string] }>();
+const emit = defineEmits<{ thread: [id: string]; acks: [id: string]; file: [f: FileRef] }>();
 const { t, locale } = useI18n();
 const s = useSession();
 const chat = useChat();
@@ -129,14 +129,14 @@ const cancelPress = () => clearTimeout(press);
       <div v-if="m.files.length" class="files">
         <template v-for="f in m.files" :key="f.id">
           <button v-if="f.mime.startsWith('image/') && f.mime !== 'image/heic'" type="button" class="img"
-            :style="{ aspectRatio: f.width && f.height ? `${f.width} / ${f.height}` : '4 / 3' }" @click="emit('image', f.url, f.name)">
+            :style="{ aspectRatio: f.width && f.height ? `${f.width} / ${f.height}` : '4 / 3' }" @click="emit('file', f)">
             <img :src="f.url" :alt="f.name" loading="lazy">
           </button>
-          <a v-else class="file" :href="`${f.url}?download`" :download="f.name">
+          <button v-else type="button" class="file" @click="emit('file', f)">
             <span class="ico" :class="{ pdf: f.mime === 'application/pdf' }"><FileText :size="18" /></span>
             <span class="meta"><b>{{ f.name }}</b><small>{{ size(f.size) }}</small></span>
-            <Download :size="16" class="dl" />
-          </a>
+            <Eye :size="16" class="dl" />
+          </button>
         </template>
       </div>
 
@@ -231,7 +231,7 @@ const cancelPress = () => clearTimeout(press);
 .img { display: block; width: min(340px, 100%); max-height: 260px; padding: 0; border: 1px solid var(--color-line); background: var(--color-canvas); cursor: zoom-in; overflow: hidden; box-shadow: var(--shadow-sm); transition: box-shadow var(--duration), transform var(--duration); }
 .img:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .img img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.file { display: flex; align-items: center; gap: 10px; min-width: 240px; max-width: 360px; padding: 8px 12px 8px 8px; color: inherit; text-decoration: none; background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-sm); transition: box-shadow var(--duration), transform var(--duration); }
+.file { font: inherit; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; min-width: 240px; max-width: 360px; padding: 8px 12px 8px 8px; color: inherit; text-decoration: none; background: var(--color-surface); border: 1px solid var(--color-line); box-shadow: var(--shadow-sm); transition: box-shadow var(--duration), transform var(--duration); }
 .file:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .file .ico { width: 36px; height: 42px; display: grid; place-items: center; background: var(--color-leaf); color: #fff; flex: none; }
 .file .ico.pdf { background: var(--color-danger); }
