@@ -53,9 +53,33 @@ services:
     mem_limit: 512m
     networks: [internal]
 
+  # Visor de Office (OnlyOffice oficial, solo lectura). El túnel publica OFFICE_URL (office.arbolaureo.org) →
+  # http://kora-office:80. Su JWT_SECRET es el OFFICE_JWT_SECRET con que la app firma la config del editor.
+  office:
+    image: ${OFFICE_IMAGE:-onlyoffice/documentserver:9.3.0.1}
+    container_name: kora-office
+    restart: unless-stopped
+    environment:
+      JWT_ENABLED: "true"
+      JWT_SECRET: ${OFFICE_SERVER_SECRET:?}
+      JWT_HEADER: AuthorizationJwt
+    volumes:
+      - office-data:/var/www/onlyoffice/Data
+      - office-lib:/var/lib/onlyoffice
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost/healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    mem_limit: 2g
+    networks: [internal, tunnel]
+
 volumes:
   pgdata:
   minio:
+  office-data:
+  office-lib:
 
 networks:
   internal:
