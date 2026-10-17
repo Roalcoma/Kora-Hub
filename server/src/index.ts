@@ -6,6 +6,7 @@ import { requireAuth } from './platform/auth.ts';
 import { workspaceContext } from './platform/workspace.ts';
 import { chatRouter } from './chat/routes.ts';
 import { filesRouter } from './files/routes.ts';
+import { officeRouter } from './files/office.ts';
 import { pushRouter } from './notifications/routes.ts';
 import { docsRouter } from './docs/routes.ts';
 import { tasksRouter } from './tasks/routes.ts';
@@ -42,6 +43,7 @@ api.get('/health', async (_req, res) => {
 // Pública y sin sesión: la web la consulta al cargar y cada pocos minutos (registro abierto, aviso del respaldo)
 api.get('/config', (_req, res) => { res.json(publicConfig()); });
 api.use(authRouter);
+api.use(officeRouter);   // enlace firmado para el servidor de oficina (sin sesión)
 api.use(pushRouter);
 
 // Todo lo que vive bajo un workspace: sesión + membresía validada + contexto RLS

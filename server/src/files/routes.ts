@@ -1,11 +1,12 @@
 // /w/:slug/files — alta, subida (stream a S3), confirmación y descarga. Nunca hay URL pública.
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { Readable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 import { Id, CreateUploadBody, type FileRef } from '@agencia-hub/contracts';
 import { HttpError, parse } from '../platform/http.ts';
 import { tx } from '../platform/workspace.ts';
 import { presign } from './s3.ts';
+import { officeView } from './office.ts';
 
 export const filesRouter = Router({ mergeParams: true });
 
@@ -77,8 +78,7 @@ const FINANCE_ROLES = ['owner', 'admin', 'accountant'];
 
 // Descarga: valida acceso y hace stream desde S3. Archivos de mensajes solo si puedo leer ese canal. Comprobantes y
 // estados de cuenta, solo para finanzas (ni siquiera quien lo subió si ya no tiene ese rol).
-filesRouter.get('/:id', async (req, res) => {
-  const id = Id.parse(req.params.id);
+async function readableFile(req: Request, id: string) {
   const file = await tx(req, async (db) => (await db.query(
     `select f.* from files f
      where f.workspace_id = app_ws() and f.id = $1 and f.status = 'ready'
@@ -92,6 +92,11 @@ filesRouter.get('/:id', async (req, res) => {
                         or exists (select 1 from channel_members cm where cm.channel_id = c.id and cm.user_id = app_user()))))`,
     [id, FINANCE_CONTEXTS, FINANCE_ROLES.includes(req.ws!.role)])).rows[0]);
   if (!file) throw new HttpError(404, 'file_not_found', 'Archivo no encontrado');
+  return file;
+}
+
+filesRouter.get('/:id', async (req, res) => {
+  const file = await readableFile(req, Id.parse(req.params.id));
   const range = req.headers.range;
   const s3 = await fetch(presign('GET', file.storage_key, 60), { headers: range ? { range } : {} });
   if (!s3.ok || !s3.body) throw new HttpError(502, 'storage_error', 'No se pudo leer el archivo');
@@ -106,4 +111,11 @@ filesRouter.get('/:id', async (req, res) => {
     'content-security-policy': "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
   });
   Readable.fromWeb(s3.body as never).pipe(res);
+});
+
+// Visor de Office: mismas reglas de acceso que la descarga; el servidor de oficina pide el archivo con un enlace firmado
+filesRouter.get('/:id/office', async (req, res) => {
+  const file = await readableFile(req, Id.parse(req.params.id));
+  const user = await tx(req, async (db) => (await db.query('select name, locale from users where id = app_user()')).rows[0]);
+  res.json(officeView(file, req.ws!.id, { id: req.userId!, name: user.name, locale: user.locale }));
 });

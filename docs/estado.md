@@ -171,5 +171,14 @@ PDF (visor del navegador desde un blob), Excel `.xlsx` y CSV como tabla con una 
 y `docx-preview`, cargadas solo al abrir un archivo de ese tipo (SheetJS se descartó: la versión de npm tiene CVE y npm
 bloquea su tarball externo).
 
+**Visor de Office (2026-10-17).** Excel, Word, PowerPoint y CSV se abren en un servidor de oficina (OnlyOffice /
+Euro-Office) en modo lectura, idénticos a Office. `GET /files/:id/office` (mismas reglas de acceso que la descarga)
+devuelve la config firmada con `OFFICE_JWT_SECRET`; el servidor de oficina baja el archivo por
+`/api/v1/office/files/:token`, un enlace HMAC sin sesión que vence en 10 min y fija archivo + workspace. Sin
+`OFFICE_URL` (dev, pruebas) o si el editor falla, se usa el visor propio de arriba.
+
 ### Pendientes
-- PowerPoint, `.doc` y `.xls` antiguos solo ofrecen descargar (verlos exige LibreOffice/OnlyOffice en el servidor).
+- Hoy usa el Euro-Office de Nextcloud AIO (`cloud.arbolaureo.org/eurooffice`): **migrar a un contenedor propio de Kora**
+  (decisión de Rodrigo, 2026-10-17). Basta cambiar `OFFICE_URL` y `OFFICE_JWT_SECRET`. Si AIO rota su secreto, el visor
+  cae solo al visor propio hasta actualizar el `.env`.
+- Solo lectura: editar en Kora (guardar nueva versión al cerrar, callback del editor) queda para cuando se pida.

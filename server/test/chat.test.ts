@@ -292,6 +292,62 @@ test('visor de archivos: Excel y PDF se leen con su tipo, sandbox y descarga for
   assert.equal((await outsider('GET', `/w/${slugA}/files/${sheet.id}`)).status, 404);
 });
 
+test('visor de Office: config firmada, enlace firmado para el servidor de oficina, permisos y aislamiento', async () => {
+  const xlsx = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const up = (await owner('POST', `/w/${slugA}/files`, { name: 'directorio.xlsx', mime: xlsx, size: 7, context: 'message' })).body;
+  await owner('PUT', up.uploadUrl.replace('/api/v1', ''), undefined, { data: 'PK-hoja', type: xlsx });
+  await owner('POST', `/w/${slugA}/files/${up.fileId}/complete`);
+  await post(owner, ventas, '', { fileIds: [up.fileId] });
+  const path = `/w/${slugA}/files/${up.fileId}/office`;
+
+  // Sin configurar: 404 y la web usa su visor propio
+  delete process.env.OFFICE_URL;
+  assert.equal((await ana('GET', path)).body.code, 'office_disabled');
+
+  process.env.OFFICE_URL = 'https://office.test/eurooffice/';
+  process.env.OFFICE_JWT_SECRET = 'secreto-de-prueba-0123456789';
+  try {
+    const view = (await ana('GET', path)).body;
+    assert.equal(view.apiUrl, 'https://office.test/eurooffice/web-apps/apps/api/documents/api.js');
+    assert.equal(view.config.documentType, 'cell');
+    assert.equal(view.config.editorConfig.mode, 'view');
+    assert.equal(view.config.document.permissions.edit, false);
+    // El token es un JWT HS256 del config con el secreto compartido
+    const [h, p, sig] = view.config.token.split('.');
+    const { createHmac } = await import('node:crypto');
+    assert.equal(sig, createHmac('sha256', process.env.OFFICE_JWT_SECRET).update(`${h}.${p}`).digest('base64url'));
+    assert.equal(JSON.parse(Buffer.from(p, 'base64url').toString()).document.key, up.fileId);
+
+    // El servidor de oficina descarga sin sesión con el enlace firmado; alterado no sirve
+    const link = new URL(view.config.document.url).pathname;
+    const got = await fetch(`${base}${link}`);
+    assert.equal(got.status, 200);
+    assert.equal(await got.text(), 'PK-hoja');
+    const bad = link.slice(0, -2) + (link.endsWith('A') ? 'BB' : 'AA');
+    assert.equal((await fetch(`${base}${bad}`)).status, 404);
+
+    // Permiso denegado: archivo de un canal privado del que Ana no es miembro
+    const up2 = (await owner('POST', `/w/${slugA}/files`, { name: 'privado.xlsx', mime: xlsx, size: 4, context: 'message' })).body;
+    await owner('PUT', up2.uploadUrl.replace('/api/v1', ''), undefined, { data: 'abcd', type: xlsx });
+    await owner('POST', `/w/${slugA}/files/${up2.fileId}/complete`);
+    await post(owner, privado, '', { fileIds: [up2.fileId] });
+    assert.equal((await ana('GET', `/w/${slugA}/files/${up2.fileId}/office`)).status, 404);
+    // Aislamiento: el intruso no obtiene config ni por su agencia ni por la de A
+    assert.equal((await outsider('GET', `/w/${slugB}/files/${up.fileId}/office`)).status, 404);
+    assert.equal((await outsider('GET', path)).status, 404);
+    // Un enlace firmado para otra agencia no abre archivos de A
+    const { signFileLink } = await import('../src/files/office.ts');
+    const wsB = (await adminPool.query('select id from workspaces where slug = $1', [slugB])).rows[0].id;
+    assert.equal((await fetch(`${base}/api/v1/office/files/${signFileLink(up.fileId, wsB)}`)).status, 404);
+    // Vencido
+    const old = signFileLink(up.fileId, (await adminPool.query('select id from workspaces where slug = $1', [slugA])).rows[0].id, Date.now() - 3600_000);
+    assert.equal((await fetch(`${base}/api/v1/office/files/${old}`)).status, 404);
+  } finally {
+    delete process.env.OFFICE_URL;
+    delete process.env.OFFICE_JWT_SECRET;
+  }
+});
+
 test('el worker procesa las notificaciones encoladas', async () => {
   while (await runOnce());
   const pending = await adminPool.query(

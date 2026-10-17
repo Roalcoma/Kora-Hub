@@ -1,11 +1,12 @@
 <script setup lang="ts">
-// Visor de adjuntos sin descargar: imagen, PDF (visor del navegador), Excel/CSV como tabla por hojas, Word con su formato
-// y texto plano. El archivo se pide por la misma ruta protegida de siempre; lo demás (.doc, .xls, PowerPoint) ofrece descargar.
-// Word se pinta dentro de un iframe sandbox sin scripts: un enlace javascript: del documento no puede ejecutarse.
+// Visor de adjuntos sin descargar. Excel, Word y PowerPoint se abren en el servidor de oficina (OnlyOffice/Euro-Office,
+// solo lectura) tal como se ven en Office; si no está configurado o falla, Excel/CSV se ven como tabla por hojas y Word
+// con docx-preview. Imagen, PDF (visor del navegador) y texto plano se ven directo. El archivo se pide por la misma ruta
+// protegida de siempre. Word local se pinta dentro de un iframe sandbox sin scripts: un enlace javascript: no se ejecuta.
 import { computed, nextTick, ref, watch, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Download, ExternalLink, FileText, CircleAlert, Search } from 'lucide-vue-next';
-import type { FileRef } from '@agencia-hub/contracts';
+import type { FileRef, OfficeView } from '@agencia-hub/contracts';
 import Modal from './Modal.vue';
 import Tabs from './Tabs.vue';
 import Skeleton from './Skeleton.vue';
@@ -28,6 +29,53 @@ const viewKind =(f: Pick<FileRef, 'mime' | 'name'>): Kind => {
   return 'other';
 };
 const kind = computed(() => (file.value ? viewKind(file.value) : 'other'));
+const OFFICE_EXT = /\.(xlsx|xls|csv|docx|doc|pptx|ppt)$/i;
+
+// ─── Servidor de oficina ───
+type DocsApi = { DocEditor: new (id: string, config: object) => { destroyEditor(): void } };
+const scripts = new Map<string, Promise<void>>();
+const loadScript = (src: string) => {
+  if (!scripts.has(src)) {
+    scripts.set(src, new Promise<void>((ok, fail) => {
+      const el = Object.assign(document.createElement('script'), { src, async: true, onload: () => ok(), onerror: () => { scripts.delete(src); fail(new Error('api.js')); } });
+      document.head.append(el);
+    }));
+  }
+  return scripts.get(src)!;
+};
+const office = ref(false);
+const officeBox = ref<HTMLDivElement>();
+let editor: { destroyEditor(): void } | null = null;
+async function openOffice(f: FileRef, my: number): Promise<boolean> {
+  try {
+    const res = await fetch(`${f.url}/office`);
+    if (!res.ok) return false;
+    const view: OfficeView = await res.json();
+    await loadScript(view.apiUrl);
+    if (my !== token) return true;
+    office.value = true;
+    loading.value = false;
+    await nextTick();
+    const host = officeBox.value;
+    if (!host || my !== token) return true;
+    const ph = document.createElement('div');   // DocEditor reemplaza este nodo por su iframe
+    ph.id = `kora-office-${my}`;
+    host.replaceChildren(ph);
+    const api = (window as unknown as { DocsAPI: DocsApi }).DocsAPI;
+    editor = new api.DocEditor(ph.id, {
+      ...view.config, width: '100%', height: '100%', type: 'desktop',
+      events: { onError: () => { if (my === token) { closeOffice(); renderLocal(f, my); } } },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+function closeOffice() {
+  try { editor?.destroyEditor(); } catch { /* el iframe ya no existe */ }
+  editor = null;
+  office.value = false;
+}
 
 const loading = ref(false);
 const failed = ref(false);
@@ -40,6 +88,7 @@ const frame = ref<HTMLIFrameElement>();
 let token = 0;
 
 function reset() {
+  closeOffice();
   if (pdfUrl.value) URL.revokeObjectURL(pdfUrl.value);
   pdfUrl.value = ''; sheets.value = []; sheet.value = '0'; text.value = ''; query.value = ''; failed.value = false;
 }
@@ -70,7 +119,17 @@ function parseCsv(src: string) {
 watch(file, async (f) => {
   reset();
   const my = ++token;
-  if (!f || kind.value === 'image' || kind.value === 'other') return;
+  if (!f) return;
+  if (OFFICE_EXT.test(f.name)) {
+    loading.value = true;
+    if (await openOffice(f, my)) return;
+    if (my !== token) return;
+  }
+  await renderLocal(f, my);
+}, { immediate: true });
+
+async function renderLocal(f: FileRef, my: number) {
+  if (kind.value === 'image' || kind.value === 'other') { loading.value = false; return; }
   loading.value = true;
   try {
     const res = await fetch(f.url);
@@ -100,7 +159,7 @@ watch(file, async (f) => {
   } finally {
     if (my === token) loading.value = false;
   }
-}, { immediate: true });
+}
 
 const MAX_ROWS = 2000;
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -120,6 +179,7 @@ const sheetTabs = computed(() => sheets.value.map((s, i) => ({ value: String(i),
   <Modal v-model="open" :title="file?.name ?? ''" width="min(1240px, 96vw)">
     <div v-if="file" class="fv">
       <img v-if="kind === 'image'" :src="file.url" :alt="file.name" class="img">
+      <div v-else-if="office" ref="officeBox" class="frame office" />
       <div v-else-if="loading" class="grid gap-3"><Skeleton height="36px" width="40%" /><Skeleton v-for="n in 8" :key="n" height="22px" /></div>
       <div v-else-if="failed" class="msg"><CircleAlert :size="20" /><span>{{ t('viewer.failed') }}</span></div>
       <div v-else-if="kind === 'other'" class="msg"><FileText :size="20" /><span>{{ t('viewer.noPreview') }}</span></div>
@@ -153,6 +213,7 @@ const sheetTabs = computed(() => sheets.value.map((s, i) => ({ value: String(i),
 <style scoped>
 .fv { display: grid; gap: 12px; min-width: 0; }
 .img { display: block; max-width: 100%; max-height: 72dvh; margin-right: auto; box-shadow: var(--shadow-md); }
+.office { overflow: hidden; }
 .frame { width: 100%; height: 72dvh; border: 0; background: var(--color-canvas); box-shadow: var(--shadow-sm), 0 0 0 1px var(--color-line); }
 .msg { display: flex; align-items: center; gap: 10px; padding: 18px 20px; color: var(--color-muted); background: var(--color-canvas); border-left: 4px solid var(--color-primary); }
 .txt { max-height: 72dvh; margin: 0; padding: 16px; overflow: auto; font: 13px/1.5 ui-monospace, monospace; white-space: pre-wrap; background: var(--color-canvas); box-shadow: inset 0 2px 6px rgb(19 36 61 / .08); }

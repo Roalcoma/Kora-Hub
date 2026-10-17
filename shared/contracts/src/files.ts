@@ -29,3 +29,7 @@ export const CreateUploadBody = z.object({
   context: z.enum(['message', 'document', 'avatar', 'logo', 'task', 'expense', 'bank_statement']),   // expense = comprobante
 });
 export type CreateUploadResponse = { fileId: Id; uploadUrl: string; headers: Record<string, string> };
+
+// Visor de Office (OnlyOffice / Euro-Office): la web carga `apiUrl` y abre el editor en modo lectura con `config`
+// (ya firmado con el secreto del servidor de oficina). 404 `office_disabled` si no está configurado: la web usa su visor propio.
+export type OfficeView = { apiUrl: string; config: Record<string, unknown> & { token: string } };
